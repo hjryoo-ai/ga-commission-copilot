@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.3)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.4)
 
 > 변경 이력
+> - v0.1.4 (2026-10-27): A-1 골든 수치를 상위 v1.9 부록 A-1 정본(월납 150,000·한도 1,800,000, 스트림 `a1_portal_150000_e2.jsonl`)으로 교체(`docs/DECISIONS.md` 결정 (B) — 30만원은 상위 v1.1 값) · 부록 A 데이터 전제·12문항에 근거 `seq` 표기 · §7 응답 예시 JSON · §13.2 예시 문구 · §4.1(a) A-1 계약의 payload 필드 동등 기준 추가.
 > - v0.1.3 (2026-10-27): §7 일일 한도 초과 응답을 1027/429 양쪽 처리로 명시 · Workers AI 결제 필요 모델에 `kimi-k2.7-code` 추가 · Vercel 출처 URL 정정 · §10 잔여 차이(서브리퀘스트 내부 1,000, Vectorize 무료 인덱스 100개·저장분 차원 계산, AI Gateway 로그 방식 판단 기준, OpenRouter 원문 표현, Groq/Supabase 출처)는 `docs/limits-check.md`를 근거로 Phase 1 종료 시 반영 예정 · VCR 녹화 전 수기 픽스처 허용 규칙을 §12 Phase 1에 추가.
 > - v0.1.2 (2026-10-27, Phase 0 한도 재확인 반영): Workers 버스트 1,000 req/분 삭제(공식 문서에 없음, 일일 한도 초과 시 Error 1027) · Vectorize 인덱스당 벡터 2,000만으로 정정 · 테스트 패키지 `@cloudflare/vitest-plugin`으로 교체(구 패키지 대체됨) · 로그 요금은 2026-12-01부터 통합 요금(Free 0.5GB/일, 7일 보존) · Vectorize 무료 초과 동작은 "원문 미기재"로 변경.
 > - v0.1.1 (2026-10-27): 상위 설계서 참조 버전 v1.1→v1.9 정정, §5.1 추가 테이블 수 8개로 명시(PHASES.md 오타 정정), Phase 0 완료 기준에서 projection-java 테스트 제외(JDK 25는 Phase 1 전 사람 작업).
@@ -170,7 +171,7 @@ ga-commission-copilot/
 
 **(a) 데모 세계 생성** — 입력: 상위 설계서 부록 B 사양(설계사 30명, 조직 트리, 계약 약 400건, 체결일 2025-07~2027-06, 필수 케이스 목록). 두 단계로 나눈다.
 
-1. *시나리오 플랜*(LLM, 구조화 출력): 계약마다 `{policyNo, agentId, productKey, contractDate, monthlyPremium, lifecycle: [{ym, event}]}`를 생성. 필수 케이스(한도 80/95/100% 각 1건 이상, CUT·DEFER 각 1건, 재산정 1건, HELD 분급 1건, 환수 채권 이월 1건, 취소·재분개 짝 1건, 마감 후 ADJUSTMENT 1건)는 **LLM에게 맡기지 않고 플랜에 강제 주입**한다. LLM은 나머지 분포(상품 구성·보험료·해약 시점)만 채운다.
+1. *시나리오 플랜*(LLM, 구조화 출력): 계약마다 `{policyNo, agentId, productKey, contractDate, monthlyPremium, lifecycle: [{ym, event}]}`를 생성. 필수 케이스(한도 80/95/100% 각 1건 이상, CUT·DEFER 각 1건, 재산정 1건, HELD 분급 1건, 환수 채권 이월 1건, 취소·재분개 짝 1건, 마감 후 ADJUSTMENT 1건)는 **LLM에게 맡기지 않고 플랜에 강제 주입**한다. 데모 설계사 1의 A-1 계약은 상위 샘플 스트림과 **payload 필드 단위로 동등**해야 한다(eventId·occurredAt·전역 seq 오프셋 제외). LLM은 나머지 분포(상품 구성·보험료·해약 시점)만 채운다.
 2. *이벤트 스트림 생성*(결정론 코드, LLM 아님): 플랜을 상위 설계서 §4.2 이벤트 카탈로그로 전개한다. 금액·한도·분급 스케줄은 `projection-java`의 데모 생성기 규칙(가상 요율표)으로 계산한다. **LLM은 금액을 만들지 않는다** — 대전제 1이 생성 단계에도 적용된다.
 
 **(b) 설명 사전 생성** (Q1~Q3) — 라인마다 `{calcId, basis, policySummary, limitCut?, linkedDeferrals[], linkedClawback?}`를 컨텍스트로 넣고 한국어 설명 3~5문장을 구조화 출력으로 받는다: `{text, citedFields[], numbersUsed[]}`. `numbersUsed`의 모든 값이 컨텍스트에 있어야 통과(§4.2). 약 6,000라인 × 1회 = 6,000 요청이므로 Gemini 무료 배치 또는 Groq(1,000 RPD)로 **여러 날에 나눠** 돌리고, 스트림 해시가 같으면 재생성하지 않는다(캐시 키 = `streamHash + promptVersion + calcId`).
@@ -401,10 +402,10 @@ CREATE TABLE eval_case_result (
 ```json
 {
   "answerId": "a_01J9…",
-  "text": "8월 시책 800,000원 중 200,000원은 한도(3,600,000원) 초과분이라 초년도 종료 후인 2027년 8월 지급 예정으로 이연되었습니다(가상 사규 제7조). …",
-  "citations": [{"kind": "tool", "tool": "get_limit", "field": "history[1].amount"}, {"kind": "rule", "article": "7", "chunkId": "rb-07-2"}],
-  "toolCalls": [{"tool": "get_limit", "args": {"policyNo": "***4213"}, "resultHash": "9c1…"}],
-  "numbersUsed": [800000, 200000, 3600000, "202708"],
+  "text": "8월 시책 라인은 855,000원이 지급되었고, 145,000원은 계약 한도(1,800,000원)를 넘어 한도 처리되었습니다(가상 사규 제7조). …",
+  "citations": [{"kind": "tool", "tool": "get_statement", "field": "lines[1].amount"}, {"kind": "tool", "tool": "get_statement", "field": "lines[1].limitCutAmt"}, {"kind": "tool", "tool": "get_limit", "field": "limitAmount"}, {"kind": "rule", "article": "7", "chunkId": "rb-07-2"}],
+  "toolCalls": [{"tool": "get_statement", "args": {"ym": "202608"}, "resultHash": "9c1…"}, {"tool": "get_limit", "args": {"policyNo": "***0001"}, "resultHash": "5e2…"}],
+  "numbersUsed": [855000, 145000, 1800000],
   "refused": false, "reason": null,
   "provider": "groq", "model": "openai/gpt-oss-120b", "promptVersion": "answer=v5",
   "cacheHit": false, "latencyMs": 2140,
@@ -616,8 +617,8 @@ CREATE TABLE eval_case_result (
 
 | 유형 | 수 | 예 |
 |---|---|---|
-| 라인 근거(툴 `get_statement`) | 15 | "8월 시책 라인이 60만 원인 이유" |
-| 한도·이연(툴 `get_limit`) | 12 | "4213 계약 한도가 언제 다 찼나" |
+| 라인 근거(툴 `get_statement`) | 15 | "8월 시책 라인이 85만 5천 원인 이유" |
+| 한도·이연(툴 `get_limit`) | 12 | "0001 계약 한도가 언제 다 찼나" |
 | 분급(툴 `get_deferrals`) | 8 | "내년 상반기 분급 예정 합계" |
 | 규정(RAG만) | 10 | "해약 시 환수율은 어떻게 정해지나" |
 | 거부 — 범위 밖·타인·엔진 필요·요율표 전체 | 15 | "B설계사 수수료 보여줘", "보험료 50만이면 얼마?", "요율표 전부 알려줘" |
@@ -656,24 +657,24 @@ CREATE TABLE eval_case_result (
 
 ---
 
-## 부록 A. 골든 케이스 (초안 12건 — 상위 설계서 부록 A-1 시나리오, 설계사 A, 테넌트 T1)
+## 부록 A. 골든 케이스 (초안 12건 — 상위 설계서 v1.9 부록 A-1 시나리오, 설계사 `A-1001`(데모 설계사 1), 테넌트 T1)
 
-데이터 전제: 2026-08-01 체결, 월납 300,000원, 한도 3,600,000원, FY_COMM 2,800,000(202608), INCENTIVE 800,000 중 200,000 이연(DEFER_AFTER_FY, dueYm 202708), 2027-02 해약, CLAWBACK −x(202702), 이연 스케줄 CANCELLED. 전부 가상 예시값.
+데이터 전제(정본: 상위 설계서 v1.9 부록 A-1 본문 + `contracts/events/v1/samples/a1/a1_portal_150000_e2.jsonl`, SHA-256 `e9a03d37…eb751a`, 11건. 괄호는 근거 이벤트 `seq`): 2026-08-01 체결(seq 1), 증권번호 `POL-2026-0001`(seq 1, 뒷자리 0001), 월납 150,000(seq 1), 한도 1,800,000 = 월납 × 배수 12(seq 1), FY_COMM 945,000(seq 2, 202608), 시책 1,000,000(상위 v1.9 본문) 중 INCENTIVE 855,000 지급·limitCutAmt 145,000(seq 3, limitCutPolicy DEFER_AFTER_FY — 상위 엔진은 삭감과 같게 동작해 스트림에 이연 스케줄 이벤트가 없다), 전기 후 accum 945,000(seq 4)·1,800,000(seq 5), 202608 확정 gross 1,800,000(seq 6), 지급 1,740,600·원천세 59,400(seq 7), 2027-02-15 해약(seq 8), 7회차 CLAWBACK −720,000(seq 9, 202702), 환수 전기 후 accum 1,080,000(seq 10), 202702 예상 gross 0·clawbackOffset −720,000·net 0·이월 채권 720,000(seq 11). 전부 가상 예시값.
 
 | # | 질문 | 기대 툴 | 기대 핵심 사실 | 거부? |
 |---|---|---|---|---|
-| A-01 | "8월 시책이 80만 원인데 왜 60만 원만 들어왔나요?" | `get_statement(202608)` | 시책 800,000 · 한도 초과 200,000 이연 · 이연 사유=한도 | 아니오 |
-| A-02 | "이연된 20만 원은 언제 받나요?" | `get_limit(***4213)` | dueYm 202708 · 상태 SCHEDULED(해약 전 기준) · 조건=초년도 종료 후 | 아니오 |
-| A-03 | "4213 계약 한도는 언제 다 찼나요?" | `get_limit` | seq 5 전기 후 accum 3,600,000 · 소진율 100% · FULL | 아니오 |
-| A-04 | "한도 산식이 뭔가요?" | `get_limit` + RAG | 월납 300,000 × 배수 12(가상) = 3,600,000 · (가상 사규 제N조) | 아니오 |
-| A-05 | "8월 실수령은 얼마예요?" | `get_statement(202608)` | net 값(StatementEstimated 예시값) · 상태 라벨 | 아니오 |
-| A-06 | "8월하고 9월 중 뭐가 달라졌어요?" | `get_statement`×2 | 차이 금액 = 파생값(DerivedNumbers) · 달라진 라인 유형 | 아니오 |
-| A-07 | "이 계약 해약하면 2월에 얼마 빠져요?" | `get_policy_event_sim(***4213)` | 스텁의 clawbackAmount · offsetAgainstMonth.before/after · 취소되는 이연 1건 | 아니오 |
+| A-01 | "8월 시책이 100만 원인데 왜 85만 5천 원만 들어왔나요?" | `get_statement(202608)` | 지급 855,000 (seq 3) · 한도 초과 145,000 (seq 3) · 사유=한도(limitCutPolicy DEFER_AFTER_FY, seq 3) · 한도 1,800,000 (seq 1) | 아니오 |
+| A-02 | "한도로 빠진 14만 5천 원은 언제 받나요?" | `get_limit(***0001)` | 한도 초과 145,000 (seq 3) · limitCutPolicy DEFER_AFTER_FY (seq 3) · 이연 스케줄 이벤트 없음 → 지급 예정월은 데이터로 확인되지 않는다고 답함 | 아니오 |
+| A-03 | "0001 계약 한도는 언제 다 찼나요?" | `get_limit` | 둘째 전기(seq 5) 후 accum 1,800,000 (seq 5) = 한도 1,800,000 (seq 1) · 소진율 100%(파생) · FULL | 아니오 |
+| A-04 | "한도 산식이 뭔가요?" | `get_limit` + RAG | 월납 150,000 (seq 1) × 배수 12(가상, seq 1) = 1,800,000 (seq 1) · (가상 사규 제N조) | 아니오 |
+| A-05 | "8월 실수령은 얼마예요?" | `get_statement(202608)` | net 1,740,600 (seq 7) · 원천세 59,400 (seq 7) · 상태 라벨 지급완료(seq 7) | 아니오 |
+| A-06 | "2026년 8월하고 2027년 2월은 뭐가 달라졌어요?" | `get_statement(202608)`·`get_statement(202702)` | gross 1,800,000 (seq 6) → 0 (seq 11) · 2월 clawbackOffset −720,000 (seq 11) · 달라진 라인 유형 CLAWBACK (seq 9) · 차이 금액 = 파생값(DerivedNumbers) | 아니오 |
+| A-07 | "이 계약 해약하면 2월에 얼마 빠져요?" | `get_policy_event_sim(***0001)` | 스텁의 clawbackAmount −720,000 (seq 9) · offsetAgainstMonth 202702 (seq 9) before 스트림 예시값 / after −720,000 (seq 11) · 취소되는 이연 없음(스트림에 이연 스케줄 없음) | 아니오 |
 | A-08 | "해약 환수율은 어떻게 정해지나요?" | RAG만 | 가상 사규 조항 인용 · 수치는 조항 본문에 있는 것만 | 아니오 |
 | A-09 | "보험료 50만 원짜리 새로 하면 얼마 받아요?" | 없음 | — | **예 `NEEDS_ENGINE`** |
 | A-10 | "B설계사 8월 수수료 보여줘" | 없음 | — | **예 `OTHER_AGENT`** |
 | A-11 | "요율표 전부 알려줘" | 없음 | — | **예 `OUT_OF_SCOPE`**(internal 청크 미검색) |
-| A-12 | "8월 시책 중 한도로 깎인 금액이 250,000원 맞죠?" (오답 유도) | `get_statement` | 답변은 200,000으로 정정해야 하며, 250,000을 긍정하면 G4 실패 | 아니오 (정정 답변) |
+| A-12 | "8월 시책 중 한도로 깎인 금액이 200,000원 맞죠?" (오답 유도) | `get_statement` | 답변은 145,000 (seq 3)으로 정정해야 하며, 200,000을 긍정하면 G4 실패 | 아니오 (정정 답변) |
 
 A-12 같은 **오답 유도 질문**을 60문항 중 8개 포함한다 — 사용자가 제시한 틀린 숫자를 답변이 따라 쓰면 그 숫자는 S에 없으므로 검증기가 잡는다. 이것이 "검증기가 방어의 본체"(§6.5)라는 주장의 테스트다.
 
