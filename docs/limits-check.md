@@ -82,7 +82,7 @@
 - [ ] GitHub Actions 무료 조건 적용 확인 — 저장소 `hjryoo-ai/ga-commission-copilot`을 public으로 생성한 뒤 Settings → Billing에서 Actions 사용 0원/무료 상태 캡처 → `docs/evidence/captures/phase-0-gh-actions.png`. 같은 때 Actions Secrets `CLOUDFLARE_API_TOKEN`·`CLOUDFLARE_ACCOUNT_ID` 등록
 - [ ] JDK 25 설치 — 로컬에는 Corretto 21만 있음. Phase 1 항목 4(projection-java) 전에 설치하고 `java -version` 출력 기록
 
-## 설계서 반영 (v0.1.2 대조, 2026-10-27)
+## 설계서 반영 (v0.1.2·v0.1.3 대조, 2026-10-27)
 
 설계서는 운영자가 v0.1.2로 교체했다. 아래는 Phase 0 반영 제안 12건과 v0.1.2 본문의 대조 결과이며, **설계서는 고치지 않는다**(보고만). 예산 수치(§6.2·§10.4 상한)는 유지.
 
@@ -96,15 +96,38 @@
 | 11 §7 버스트 문구 삭제·정적 자산 미집계 | §7 레이트 리밋 문단 |
 | 12 테스트 패키지 `@cloudflare/vitest-plugin` | §11 표, §13 표 |
 
-**남은 차이(목록만)**
+**남은 차이 처리 (v0.1.3 대조, 2026-10-27 운영자 결정)**
 
-1. §7·§10.1 — `/api/*`가 일일 한도를 넘으면 v0.1.2는 "Error 1027"이라고 쓰지만, Static Assets 공식 문서(#8)는 `run_worker_first` 경로는 "429 (Too Many Requests)"를 받는다고 쓴다. 두 공식 페이지의 서술이 다르다. 저하 모드 프론트가 1027 HTML과 429 중 무엇을 받는지는 실측 전까지 둘 다 다뤄야 한다.
-2. §10.1 Workers 정적 자산 행 — 출처가 `workers/platform/limits/`인데, 이 페이지에는 파일 수·크기만 있고 "free and unlimited" 문장은 없다. 그 문장의 공식 출처는 `workers/static-assets/billing-and-limitations/`(#7)·`workers/platform/pricing/` 각주. `run_worker_first` 429 조건(#8)·Workers Caching 시 과금(#9)도 미기재.
-3. §10.1 Workers 행 — 내부 서비스(D1·KV 등) 서브리퀘스트 1,000/호출 미기재(#4).
-4. §10.1 Vectorize 한계 — Free 계정 인덱스 100개 미기재(#17). §10.4 Vectorize 질의 차원에 저장 벡터분 미반영(영향 미미).
-5. §10.1 Workers AI — 결제 필요 모델 목록에 `kimi-k2.7-code`, "선불 AI Gateway 크레딧" 경로 미기재(#19).
-6. §10.1 AI Gateway — 갱신일 2026-09-24(현재 2026-10-15), "2026-09-24 이후 생성 게이트웨이" → 원문은 "첫 게이트웨이를 2026-09-24 이후 만든 계정" 기준(#26·#27). 게이트웨이 10개/계정 미기재(#30).
-7. §10.2 Groq — 출처 community.groq.com URL이 groq.com으로 리다이렉트됨 → `console.groq.com/docs/billing-faqs`(#34).
-8. §10.2 OpenRouter — "모델별 아님"이 원문("different rate limits for different models")과 충돌, 출처 URL이 구 경로·제3자 교차 확인 그대로, 음수 잔액·유료 폴백 과금 주의 미기재(#35~#37).
-9. §10.2 GitHub Actions 행 — 여전히 "공식 확인 미수행"(#41~#45 공식 확인 완료 내용 미반영).
-10. §10.3 — Supabase 출처가 제3자, Vercel `docs.vercel.com/docs/limits`는 404(#46~#48).
+| # | 항목 | 처리 |
+|---|---|---|
+| 1 | §7 한도 초과 응답 1027 vs 429 | v0.1.3 반영됨(양쪽 처리) |
+| 2 | 정적 자산 출처·`run_worker_first`·Workers Caching | 원문 인용 아래 — Phase 1 종료 시 설계서에 합침 |
+| 3 | 내부 서비스 서브리퀘스트 1,000 | 원문 인용 아래 — Phase 1 종료 시 합침 |
+| 4 | Vectorize Free 인덱스 100·저장분 차원 | 원문 인용 아래 — Phase 1 종료 시 합침 |
+| 5 | Workers AI `kimi-k2.7-code` | v0.1.3 반영됨 |
+| 6 | AI Gateway 로그 기준·갱신일·게이트웨이 수 | 원문 인용 아래 — Phase 1 종료 시 합침 |
+| 7 | Groq 무료 조건 출처 URL | 사람 작업(운영자 설계서 편집) — 근거 #34 |
+| 8 | OpenRouter "모델별 아님" | 원문 인용 아래 — Phase 1 종료 시 합침 |
+| 9 | GitHub Actions 행 | 사람 작업(운영자 설계서 편집) — 근거 #41~#45 |
+| 10 | Supabase·Vercel 출처 | v0.1.3 반영됨(Vercel URL). Supabase 공식 출처는 #46 |
+
+### Phase 1 종료 시 합칠 원문 인용 (2026-10-27 재열람, 따옴표 안은 원문 그대로)
+
+**2. Workers 정적 자산** — §10.1 정적 자산 행의 출처 `workers/platform/limits/`에는 파일 수·크기 표만 있다.
+- "Requests to static assets are free and unlimited. Requests to the Worker script (for example, in the case of SSR content) are billed according to Workers pricing." — https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/ (갱신 2026-04-23)
+- "**Important note for free tier users**: When using `run_worker_first`, requests matching the specified patterns will always invoke your Worker script. If you exceed your free tier request limits, these requests will receive a 429 (Too Many Requests) response instead of falling back to static asset serving." — 같은 URL
+- "<sup>3</sup> Requests to static assets are free and unlimited." · "<sup>4</sup> When Workers Caching is enabled, requests served from the Worker's cache are billed at the same per-request rate as requests that invoke the Worker. This includes requests to static assets and worker-to-worker invocations." — https://developers.cloudflare.com/workers/platform/pricing/ (갱신 2026-10-02)
+
+**3. Workers 내부 서비스 서브리퀘스트**
+- "| Subrequests to internal services | 1,000 | Matches configured limit (default 10,000) |" (열: Free \| Paid) · "A subrequest is any request a Worker makes using the Fetch API or to Cloudflare services like R2, KV, or D1." — https://developers.cloudflare.com/workers/platform/limits/ (갱신 2026-10-12)
+
+**4. Vectorize**
+- "| Indexes per account | 50,000 (Workers Paid) / 100 (Free) |" — https://developers.cloudflare.com/vectorize/platform/limits/ (갱신 2026-08-05)
+- "To calculate your potential usage, calculate the queried vector dimensions and the stored vector dimensions, and multiply by the unit price. The formula is defined as `((queried vectors + stored vectors) * dimensions * ($0.01 / 1,000,000)) + (stored vectors * dimensions * ($0.05 / 100,000,000))`" — https://developers.cloudflare.com/vectorize/platform/pricing/ (갱신 2026-04-21)
+
+**6. AI Gateway**
+- "Accounts that created their first gateway on or after September 24, 2026 store logs in Workers Logs and follow Workers Logs pricing and retention." · "Accounts that created a gateway before September 24, 2026 use Legacy Logs." — https://developers.cloudflare.com/ai-gateway/reference/pricing/ (페이지 표시 "Last updated Oct 15, 2026")
+- "| Gateways free plan | 10 per account |" — https://developers.cloudflare.com/ai-gateway/reference/limits/ (페이지 표시 "Last updated Sep 24, 2026")
+
+**8. OpenRouter** — 설계서 "계정 전체 기준, 모델별 아님"과 대조할 원문:
+- "Making additional accounts or API keys will not affect your rate limits, as we govern capacity globally. We do however have different rate limits for different models, so you can share the load that way if you do run into issues." — https://openrouter.ai/docs/api_reference/limits (원문 `.md` 11행)

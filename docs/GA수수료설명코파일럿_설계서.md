@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.2)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.3)
 
 > 변경 이력
+> - v0.1.3 (2026-10-27): §7 일일 한도 초과 응답을 1027/429 양쪽 처리로 명시 · Workers AI 결제 필요 모델에 `kimi-k2.7-code` 추가 · Vercel 출처 URL 정정 · §10 잔여 차이(서브리퀘스트 내부 1,000, Vectorize 무료 인덱스 100개·저장분 차원 계산, AI Gateway 로그 방식 판단 기준, OpenRouter 원문 표현, Groq/Supabase 출처)는 `docs/limits-check.md`를 근거로 Phase 1 종료 시 반영 예정 · VCR 녹화 전 수기 픽스처 허용 규칙을 §12 Phase 1에 추가.
 > - v0.1.2 (2026-10-27, Phase 0 한도 재확인 반영): Workers 버스트 1,000 req/분 삭제(공식 문서에 없음, 일일 한도 초과 시 Error 1027) · Vectorize 인덱스당 벡터 2,000만으로 정정 · 테스트 패키지 `@cloudflare/vitest-plugin`으로 교체(구 패키지 대체됨) · 로그 요금은 2026-12-01부터 통합 요금(Free 0.5GB/일, 7일 보존) · Vectorize 무료 초과 동작은 "원문 미기재"로 변경.
 > - v0.1.1 (2026-10-27): 상위 설계서 참조 버전 v1.1→v1.9 정정, §5.1 추가 테이블 수 8개로 명시(PHASES.md 오타 정정), Phase 0 완료 기준에서 projection-java 테스트 제외(JDK 25는 Phase 1 전 사람 작업).
 > - v0.1 (2026-10-27): 최초 작성. 무료 한도 수치 공식 문서 기준 확정(§10).
@@ -417,7 +418,7 @@ CREATE TABLE eval_case_result (
 
 **저하 모드 응답**: `/ask`는 200이 아닌 **429**에 `{refused: true, reason: "BUDGET", retryAfterSeconds, text: 고정 문구}`를 돌려주고, 나머지 엔드포인트는 평소와 같다. 프론트는 429를 오류가 아닌 상태로 렌더링한다.
 
-**레이트 리밋(예산과 별도)**: `/ask`는 IP당 분당 3회(Cloudflare WAF 무료 규칙). 정적 자산은 Static Assets로 분리해 일일 100,000 요청 한도에 들어가지 않게 한다(공식 문서: 정적 자산 요청은 무료·무제한, Phase 0 확인). `/api/*`는 Worker가 먼저 받으므로 일일 한도 초과 시 Error 1027이 되며, 이때 프론트는 사전 생성 설명을 ETag 캐시로 보여주는 저하 모드로 떨어진다.
+**레이트 리밋(예산과 별도)**: `/ask`는 IP당 분당 3회(Cloudflare WAF 무료 규칙). 정적 자산은 Static Assets로 분리해 일일 100,000 요청 한도에 들어가지 않게 한다(공식 문서: 정적 자산 요청은 무료·무제한, Phase 0 확인). `/api/*`는 Worker가 먼저 받으므로 일일 한도 초과 시 Error 1027(Workers limits 문서) 또는 429(Static Assets 문서)가 되며 — 두 공식 문서가 다르게 적고 있으므로 프론트는 **둘 다** 저하 모드 신호로 처리하고, 사전 생성 설명은 ETag 캐시로 보여준다(Phase 5).
 
 ---
 
@@ -474,7 +475,7 @@ CREATE TABLE eval_case_result (
 | D1 | 500만 행 읽기/일, 10만 행 쓰기/일, 저장 5GB(계정 합) | 당일 쿼리 오류 반환, 00:00 UTC 리셋. "무료 플랜은 항상 유지" 명시 | https://developers.cloudflare.com/d1/platform/pricing/ (갱신 2026-04-21) |
 | Vectorize | 질의 3,000만 차원/월, 저장 500만 차원 | 원문 미기재(공식 문서에 초과 시 동작 설명 없음) | https://developers.cloudflare.com/vectorize/platform/pricing/ |
 | Vectorize 한계 | 벡터당 최대 1,536차원(float32), 인덱스당 2,000만 벡터, 메타데이터 10KiB/벡터 | — | https://developers.cloudflare.com/vectorize/platform/limits/ (갱신 2026-08-05) |
-| Workers AI | 10,000뉴런/일, 00:00 UTC 리셋. 초과 시 실패(Free) 또는 $0.011/1,000뉴런(Paid). 일부 모델(kimi-k2.6, glm-5.x, deepseek-v4 계열)은 결제 수단 필요 | 실패 | https://developers.cloudflare.com/workers-ai/platform/pricing/ (갱신 2026-10-20) |
+| Workers AI | 10,000뉴런/일, 00:00 UTC 리셋. 초과 시 실패(Free) 또는 $0.011/1,000뉴런(Paid). 일부 모델(kimi-k2.6, kimi-k2.7-code, glm-5.2/5.3/5.3-flash, deepseek-v4 계열)은 결제 수단 필요 | 실패 | https://developers.cloudflare.com/workers-ai/platform/pricing/ (갱신 2026-10-20) |
 | Workers KV | 저장 1GB, 읽기 100,000/일, **쓰기·삭제·목록 1,000/일** | — | https://www.cloudflare.com/plans.md — D-6의 근거 |
 | AI Gateway | 핵심 기능(분석·캐시·레이트리밋) 전 플랜 무료, DLP 무료. 2026-09-24 이후 생성 게이트웨이는 Workers Logs 요금·보존을 따름 | 로그 저장 중단 | https://developers.cloudflare.com/ai-gateway/reference/pricing/ (갱신 2026-09-24) |
 | 로그·트레이스 (Workers Logs·AI Gateway 로그 공통) | **2026-12-01부터** 모든 로그·트레이스 통합 요금. Free: 수집 0.5GB/일, 7일 보존. 기존 Free 고객 자동 이전, 수집 과금은 그 날 이후 데이터만 | 수집 중단 | https://developers.cloudflare.com/observability/pricing/ (갱신 2026-10-25) |
@@ -507,7 +508,7 @@ CREATE TABLE eval_case_result (
 | 서비스 | 기각 사유 | 출처 |
 |---|---|---|
 | Supabase Free | 2개 프로젝트, DB 500MB, **7일 비활성 시 일시정지** → 수동 복구 전 접근 불가 | https://automationatlas.io/answers/supabase-free-tier-limits-2026/ (제3자) |
-| Vercel Hobby | 무료지만 비상업·개인 용도 한정, Git 조직 저장소 연결 불가. 배포 자체는 가능하나 DB·벡터·LLM이 별도 벤더 | https://vercel.com/docs/plans/hobby-plan , https://docs.vercel.com/docs/limits |
+| Vercel Hobby | 무료지만 비상업·개인 용도 한정, Git 조직 저장소 연결 불가. 배포 자체는 가능하나 DB·벡터·LLM이 별도 벤더 | https://vercel.com/docs/plans/hobby-plan , https://vercel.com/docs/limits |
 
 ### 10.4 하루 예산 시나리오 (모두 무료 범위 안)
 
@@ -556,6 +557,7 @@ CREATE TABLE eval_case_result (
    - *완료 기준*: `*.workers.dev`에 "Hello" 페이지 배포, D1에 `SELECT 1`, §10 표에 "미확인" 항목은 사람 작업(Gemini 콘솔 캡처, GitHub Actions 조건)뿐. `projection-java`는 빈 모듈이며 Java 25 툴체인만 선언하고 루트 테스트에서 제외한다(JDK 25 설치는 Phase 1 전 사람 작업).
 2. **Phase 1 — 데모 세계 생성기 + 불변식 게이트** (2일)
    - `gen/world`(플랜 LLM + 결정론 전개), `projection-java` subtree, G1·G2·G3
+   - *VCR 규칙*: `--stub`은 `gen/providers/vcr/`의 실호출 녹화본을 재생한다. 녹화 전에는 `gen/providers/fixtures/`의 **수기 픽스처**를 쓸 수 있으나, 파일명·로그·증거 문서에 "fixture(수기)"로 표기하고 "녹화"라 부르지 않는다. 첫 실호출 녹화는 Groq 키(`.dev.vars`)가 생긴 뒤 수행하며 `budget_counter(scope=dev)`에 집계한다.
    - *완료 기준*: 스트림 1개 생성·검증·커밋, D1 적재 후 리플레이 2회 바이트 동일, 필수 케이스 전부 존재
 3. **Phase 2 — 읽기 API·화면 1차** (2일)
    - `/api/v1/demo/session`, `/me`, `/me/earnings/**`, `/me/limits/**`(설명 없음), 화면 1~3(설명 블록은 "준비 중")
