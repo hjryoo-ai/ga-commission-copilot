@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/DeferralScheduled.v1.schema.json",
+  "title": "DeferralScheduled payload (v1)",
+  "description": "DeferralSplitStep 확정 후 훅(설계서 §4.2). → deferral_item insert. 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "scheduleId",
+    "sourceCalcId",
+    "agentId",
+    "policyNo",
+    "dueYm",
+    "amount",
+    "payCondition",
+    "curveVersionId",
+    "reason"
+  ],
+  "properties": {
+    "scheduleId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "sourceCalcId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "agentId": {
+      "$ref": "../defs.schema.json#/$defs/agentId"
+    },
+    "policyNo": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "dueYm": {
+      "$ref": "../defs.schema.json#/$defs/ym"
+    },
+    "amount": {
+      "$ref": "../defs.schema.json#/$defs/won"
+    },
+    "payCondition": {
+      "type": "string",
+      "minLength": 1
+    },
+    "curveVersionId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "reason": {
+      "enum": [
+        "CURVE",
+        "LIMIT_DEFER"
+      ]
+    }
+  }
+}

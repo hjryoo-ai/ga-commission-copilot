@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/CommissionCalculated.v1.schema.json",
+  "title": "CommissionCalculated payload (v1)",
+  "description": "COMM_CALC 저장 후 훅(설계서 §4.2). → earnings_line upsert, earnings_month 합산. 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "calcId",
+    "agentId",
+    "policyNo",
+    "productKey",
+    "commType",
+    "amount",
+    "closeYm",
+    "limitCutAmt",
+    "basis",
+    "policySummary"
+  ],
+  "properties": {
+    "calcId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "agentId": {
+      "$ref": "../defs.schema.json#/$defs/agentId"
+    },
+    "policyNo": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "productKey": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "commType": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{0,31}$",
+      "description": "열린 값(FY_COMM/RENEWAL/INCENTIVE/OVERRIDE/DEFERRED/CLAWBACK/ADJUSTMENT/...). 환수는 CLAWBACK·음수 amount"
+    },
+    "amount": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "한도 삭감 뒤·분급 분할 뒤 지급 예정액(정수 원, 환수·취소는 음수). 요청액 = amount + limitCutAmt(설계서 v1.2 I1·DD-2). 분급 이연분은 이 금액에 들어 있지 않고 DeferralScheduled(reason CURVE·LIMIT_DEFER)로 따로 오며, 도래하면 DEFERRED 라인으로 다시 온다"
+    },
+    "closeYm": {
+      "$ref": "../defs.schema.json#/$defs/ym"
+    },
+    "reversalOfCalcId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "limitCutAmt": {
+      "$ref": "../defs.schema.json#/$defs/nonNegativeWon",
+      "description": "1200% 한도로 삭감·이연된 금액(정수 원) — amount에 들어 있지 않다"
+    },
+    "limitCutPolicy": {
+      "enum": [
+        "CUT",
+        "DEFER_AFTER_FY"
+      ],
+      "description": "룰의 over_limit_action 그대로. 현재 엔진은 DEFER_AFTER_FY도 삭감과 같게 동작하며 이연 스케줄을 만들지 않는다(엔진 §14) — 포털은 LIMIT_DEFER 스케줄이 없어도 오류로 보지 않는다(v1.1.1)"
+    },
+    "basis": {
+      "type": "object",
+      "required": [
+        "ruleVersionIds"
+      ],
+      "properties": {
+        "rate": {
+          "$ref": "../defs.schema.json#/$defs/decimalString"
+        },
+        "payoutRate": {
+          "$ref": "../defs.schema.json#/$defs/decimalString"
+        },
+        "installmentNo": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ruleVersionIds": {
+          "type": "array",
+          "items": {
+            "$ref": "../defs.schema.json#/$defs/id"
+          }
+        }
+      },
+      "description": "라인 근거. ruleVersionIds만 필수 — 요율·지급률·회차는 엔진에 있을 때만 온다(정액·일시 지급은 없다, v1.1). 화면은 있을 때 보여 준다(§14.0)"
+    },
+    "policySummary": {
+      "type": "object",
+      "required": [
+        "contractDate",
+        "monthlyPremium"
+      ],
+      "properties": {
+        "contractDate": {
+          "$ref": "../defs.schema.json#/$defs/date"
+        },
+        "monthlyPremium": {
+          "$ref": "../defs.schema.json#/$defs/nonNegativeWon"
+        },
+        "productName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "선택(v1.1) — 엔진에 계약 마스터가 없다. 없으면 화면은 productKey를 보여 준다(설계서 §8)"
+        },
+        "insuredMasked": {
+          "type": "string",
+          "minLength": 1,
+          "description": "선택(v1.1) — 엔진에 고객 데이터가 없다. 엔진이 마스킹해 발행한 피보험자명(설계서 §9) — 원문 이름은 받지 않는다"
+        }
+      }
+    }
+  }
+}

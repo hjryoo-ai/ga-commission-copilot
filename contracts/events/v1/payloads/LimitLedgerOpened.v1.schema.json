@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/LimitLedgerOpened.v1.schema.json",
+  "title": "LimitLedgerOpened payload (v1)",
+  "description": "한도 원장 개설(설계서 §4.2). → policy_limit insert. 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "ledgerId",
+    "policyNo",
+    "agentId",
+    "contractDate",
+    "fyStart",
+    "fyEnd",
+    "monthlyPremium",
+    "limitMultiple",
+    "limitAmount",
+    "ruleVersionId"
+  ],
+  "properties": {
+    "ledgerId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "policyNo": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "agentId": {
+      "$ref": "../defs.schema.json#/$defs/agentId"
+    },
+    "contractDate": {
+      "$ref": "../defs.schema.json#/$defs/date"
+    },
+    "fyStart": {
+      "$ref": "../defs.schema.json#/$defs/date"
+    },
+    "fyEnd": {
+      "$ref": "../defs.schema.json#/$defs/date"
+    },
+    "monthlyPremium": {
+      "$ref": "../defs.schema.json#/$defs/nonNegativeWon"
+    },
+    "limitMultiple": {
+      "$ref": "../defs.schema.json#/$defs/decimalString"
+    },
+    "limitAmount": {
+      "$ref": "../defs.schema.json#/$defs/nonNegativeWon"
+    },
+    "ruleVersionId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    }
+  }
+}

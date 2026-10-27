@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/AdjustmentPosted.v1.schema.json",
+  "title": "AdjustmentPosted payload (v1)",
+  "description": "마감 후 정정 등록(설계서 §4.2). → earnings_line(commType=ADJUSTMENT). 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "adjId",
+    "targetCalcId",
+    "agentId",
+    "amount",
+    "closeYm",
+    "reason"
+  ],
+  "properties": {
+    "adjId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "targetCalcId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "agentId": {
+      "$ref": "../defs.schema.json#/$defs/agentId"
+    },
+    "amount": {
+      "$ref": "../defs.schema.json#/$defs/won"
+    },
+    "closeYm": {
+      "$ref": "../defs.schema.json#/$defs/ym"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

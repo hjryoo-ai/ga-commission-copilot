@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/AgentSnapshot.v1.schema.json",
+  "title": "AgentSnapshot payload (v1)",
+  "description": "설계사 마스터·소속·등급 변경 시, 재구축 부트스트랩 시(설계서 §4.2). → agent_profile upsert. 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "agentId",
+    "name",
+    "orgPath",
+    "status",
+    "validFrom"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "../defs.schema.json#/$defs/agentId"
+    },
+    "nameMasked": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "grade": {
+      "type": "string",
+      "minLength": 1,
+      "description": "선택(v1.1) — 등급 이력이 없는 설계사가 있을 수 있다"
+    },
+    "orgPath": {
+      "type": "string",
+      "pattern": "^(/[A-Za-z0-9_-]+)+$"
+    },
+    "role": {
+      "type": "string",
+      "minLength": 1,
+      "description": "선택(v1.1), 열린 값(AGENT/TEAM_LEAD/BRANCH_HEAD/...). 엔진에는 역할 개념이 없다 — 포털의 역할·권한은 identity_link에서 정한다(설계서 §9, Phase 3)"
+    },
+    "status": {
+      "enum": [
+        "ACTIVE",
+        "DISMISSED"
+      ],
+      "description": "설계사 상태(v1.4 — 포털 Phase 2 수용 심사 Q3·N6: 엔진 어휘의 닫힌 열거, 좁힘). ACTIVE = 기준일에 재직, DISMISSED = 기준일에 해촉(엔진 AgentSnapshotPublisher)."
+    },
+    "validFrom": {
+      "$ref": "../defs.schema.json#/$defs/date"
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/PayoutCompleted.v1.schema.json",
+  "title": "PayoutCompleted payload (v1)",
+  "description": "지급 런 완료(설계서 §4.2). → status=PAID. 지급 런이 세액·상계를 확정하는 자리다 — 아래 선택 필드(v1.1)는 그 확정값이다. 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "agentId",
+    "closeYm",
+    "paidAt",
+    "paidAmount"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "../defs.schema.json#/$defs/agentId"
+    },
+    "closeYm": {
+      "$ref": "../defs.schema.json#/$defs/ym"
+    },
+    "paidAt": {
+      "$ref": "../defs.schema.json#/$defs/instant",
+      "description": "지급 확정(정산행 기록·PAID 전이) 시각 — 이체 파일 실행 시각이 아니다(v1.1.1)"
+    },
+    "paidAmount": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "세후 실지급액(정수 원) = net"
+    },
+    "runSeq": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "그 달 지급 런 회차(1부터)"
+    },
+    "gross": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "Σ 그 달 CommissionCalculated 라인 중 commType ∉ {CLAWBACK, ADJUSTMENT}의 amount(정수 원) — 전 상태 합산(취소 원본·reversal 모두 포함, 상태로 거르지 않는다). 정정은 adjustment로만 센다. 포털 earnings_month.gross와 같은 정의(설계서 §5·§6.6)"
+    },
+    "clawbackOffset": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "Σ 그 달 commType = CLAWBACK 라인 amount(정수 원, ≤ 0) — 포털 earnings_month.clawback_offset과 같은 정의. 기존 채권의 자동 상계(receivableOffset)와는 다른 것"
+    },
+    "receivableOffset": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "기존 환수 채권에서 이번 지급으로 상계한 금액(정수 원) — 그 달 환수 라인 합(clawbackOffset)과 다른 것"
+    },
+    "carriedReceivable": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "이번 지급의 순액이 음수라 채권으로 넘긴(다음 달 이후로 이월한) 금액(정수 원) — 엔진 값"
+    },
+    "adjustment": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "Σ 그 달(closeYm)로 귀속된 AdjustmentPosted amount(정수 원) — 포털 earnings_month.adjustment와 같은 정의"
+    },
+    "payable": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "세전 지급 대상액(정수 원) = 그 달 미정산 라인 전부의 순합 − receivableOffset — 엔진 값, 포털은 계산하지 않는다"
+    },
+    "withholdingTax": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "원천징수 세액(정수 원, 소득세 + 지방소득세) — 엔진 값"
+    },
+    "net": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "세후 실지급액(정수 원) = paidAmount — 엔진 값"
+    }
+  }
+}

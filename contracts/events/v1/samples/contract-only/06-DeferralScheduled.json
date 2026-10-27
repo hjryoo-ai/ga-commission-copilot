@@ -1,0 +1,22 @@
+{
+  "eventId": "5eed0000-0000-4000-8000-000000000006",
+  "seq": 6,
+  "type": "DeferralScheduled",
+  "version": 1,
+  "occurredAt": "2026-08-25T14:00:00+09:00",
+  "aggregate": {
+    "kind": "DEFERRAL_SCHEDULE",
+    "id": "DS-0001"
+  },
+  "payload": {
+    "scheduleId": "DS-0001",
+    "sourceCalcId": "884214",
+    "agentId": "A0001",
+    "policyNo": "PN-2026-000184",
+    "dueYm": "202708",
+    "amount": 200000,
+    "payCondition": "INFORCE_AT_DUE",
+    "curveVersionId": "CV-LIMIT-DEFER-1",
+    "reason": "LIMIT_DEFER"
+  }
+}

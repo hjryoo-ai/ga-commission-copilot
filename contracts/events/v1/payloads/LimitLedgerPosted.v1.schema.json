@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/LimitLedgerPosted.v1.schema.json",
+  "title": "LimitLedgerPosted payload (v1)",
+  "description": "LimitLedgerPoster 전기(설계서 §4.2). → policy_limit.accum_paid = accumAfter(포털 합산 금지). 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "ledgerId",
+    "postingSeq",
+    "calcId",
+    "amount",
+    "accumAfter"
+  ],
+  "properties": {
+    "ledgerId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "postingSeq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "calcId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "amount": {
+      "$ref": "../defs.schema.json#/$defs/won"
+    },
+    "accumAfter": {
+      "$ref": "../defs.schema.json#/$defs/won"
+    }
+  }
+}

@@ -1,0 +1,489 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/envelope.schema.json",
+  "title": "포털 이벤트 Envelope (v1) — 엔진 → 포털",
+  "description": "공유 핵심(ga-disclosure envelope-core, 사본 contracts/shared/ga-disclosure/events/v1/envelope-core.schema.json — 고치지 않는다)을 allOf 첫 항으로 포함하고(추가형), 포털 이벤트 13종으로 좁힌다(설계서 §4.1·§4.2, v1.2). payload는 type·version별 if/then으로 고른다 — oneOf는 모르는 필드를 허용하는 열린 payload와 양립하지 않는다(계획 승인 Q5, docs/DECISIONS.md DE-1). type ↔ aggregate.kind 짝을 강제하고, STATEMENT·PAYOUT의 aggregate.id는 {agentId}:{closeYm}이다(Q4).",
+  "allOf": [
+    {
+      "$ref": "https://ga.example/contracts/events/v1/envelope-core.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "AgentSnapshot",
+            "CommissionCalculated",
+            "AdjustmentPosted",
+            "LimitLedgerOpened",
+            "LimitLedgerPosted",
+            "LimitLedgerRebased",
+            "DeferralScheduled",
+            "DeferralStatusChanged",
+            "ClawbackReceivableUpdated",
+            "PolicyEventObserved",
+            "StatementEstimated",
+            "StatementConfirmed",
+            "PayoutCompleted"
+          ]
+        },
+        "version": {
+          "const": 1
+        },
+        "aggregate": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "AGENT",
+                "COMM_CALC",
+                "ADJUSTMENT",
+                "LIMIT_LEDGER",
+                "DEFERRAL_SCHEDULE",
+                "CLAWBACK_RECEIVABLE",
+                "POLICY",
+                "STATEMENT",
+                "PAYOUT"
+              ]
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "AgentSnapshot"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "AGENT"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/AgentSnapshot.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "CommissionCalculated"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "COMM_CALC"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/CommissionCalculated.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "AdjustmentPosted"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "ADJUSTMENT"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/AdjustmentPosted.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "LimitLedgerOpened"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "LIMIT_LEDGER"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/LimitLedgerOpened.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "LimitLedgerPosted"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "LIMIT_LEDGER"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/LimitLedgerPosted.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "LimitLedgerRebased"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "LIMIT_LEDGER"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/LimitLedgerRebased.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "DeferralScheduled"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "DEFERRAL_SCHEDULE"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/DeferralScheduled.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "DeferralStatusChanged"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "DEFERRAL_SCHEDULE"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/DeferralStatusChanged.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "ClawbackReceivableUpdated"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "CLAWBACK_RECEIVABLE"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/ClawbackReceivableUpdated.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "PolicyEventObserved"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "POLICY"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/PolicyEventObserved.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "StatementEstimated"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "STATEMENT"
+                  },
+                  "id": {
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:[0-9]{4}(0[1-9]|1[0-2])$"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/StatementEstimated.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "StatementConfirmed"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "STATEMENT"
+                  },
+                  "id": {
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:[0-9]{4}(0[1-9]|1[0-2])$"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/StatementConfirmed.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "PayoutCompleted"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "type",
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "aggregate": {
+                "properties": {
+                  "kind": {
+                    "const": "PAYOUT"
+                  },
+                  "id": {
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:[0-9]{4}(0[1-9]|1[0-2])$"
+                  }
+                }
+              },
+              "payload": {
+                "$ref": "payloads/PayoutCompleted.v1.schema.json"
+              }
+            }
+          }
+        },
+        {
+          "$comment": "else: false — 위 열거 밖의 type(또는 version)은 payload 검사 없이 통과하지 못한다(계획 승인 Q5, 열거와 이중).",
+          "if": {
+            "not": {
+              "properties": {
+                "type": {
+                  "enum": [
+                    "AgentSnapshot",
+                    "CommissionCalculated",
+                    "AdjustmentPosted",
+                    "LimitLedgerOpened",
+                    "LimitLedgerPosted",
+                    "LimitLedgerRebased",
+                    "DeferralScheduled",
+                    "DeferralStatusChanged",
+                    "ClawbackReceivableUpdated",
+                    "PolicyEventObserved",
+                    "StatementEstimated",
+                    "StatementConfirmed",
+                    "PayoutCompleted"
+                  ]
+                },
+                "version": {
+                  "const": 1
+                }
+              },
+              "required": [
+                "type",
+                "version"
+              ]
+            }
+          },
+          "then": false
+        }
+      ]
+    }
+  ]
+}

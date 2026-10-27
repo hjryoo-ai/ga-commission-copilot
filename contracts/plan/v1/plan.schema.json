@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/copilot/contracts/plan/v1/plan.schema.json",
+  "title": "시나리오 플랜 v1",
+  "description": "설계서 §4.1(a)·부록 B.3. LLM 구조화 출력과 코드가 주입한 필수 케이스를 합친 플랜. 금액 필드는 없다 — 수수료·한도·분급 금액은 결정론 전개기(gen/world/expand)가 만든다. monthlyPremium은 계약 입력값(보험료)이다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contracts"],
+  "properties": {
+    "contracts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/contract" }
+    }
+  },
+  "$defs": {
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyNo", "agentId", "productKey", "contractDate", "monthlyPremium", "lifecycle"],
+      "properties": {
+        "policyNo": { "type": "string", "minLength": 1 },
+        "agentId": { "$ref": "https://ga.example/portal/contracts/events/v1/defs.schema.json#/$defs/agentId" },
+        "productKey": { "type": "string", "minLength": 1 },
+        "contractDate": { "$ref": "https://ga.example/portal/contracts/events/v1/defs.schema.json#/$defs/date" },
+        "monthlyPremium": { "type": "integer", "minimum": 1, "description": "정수 원" },
+        "lifecycle": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/lifecycleEvent" }
+        }
+      }
+    },
+    "lifecycleEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ym", "event"],
+      "properties": {
+        "ym": { "$ref": "https://ga.example/portal/contracts/events/v1/defs.schema.json#/$defs/ym" },
+        "event": {
+          "description": "상위 계약 PolicyEventObserved.eventType과 같은 어휘",
+          "enum": ["CANCEL", "LAPSE", "WITHDRAW", "REDUCE", "REINSTATE", "PAYMENT_OVERDUE"]
+        }
+      }
+    }
+  }
+}

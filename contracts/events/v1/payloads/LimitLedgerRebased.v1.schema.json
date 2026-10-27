@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/LimitLedgerRebased.v1.schema.json",
+  "title": "LimitLedgerRebased payload (v1)",
+  "description": "보험료 변경으로 한도 재산정(설계서 §4.2, 부록 A-3). → 한도액 갱신. 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "ledgerId",
+    "oldLimit",
+    "newLimit",
+    "monthlyPremium",
+    "reason"
+  ],
+  "properties": {
+    "ledgerId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "postingSeq": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "선택(v1.1.1) — 재산정 직전 마지막 전기 순번. 재산정은 전기(DTL)가 아니므로 순번이 없고, 전기가 없던 원장이면 이 필드가 없다"
+    },
+    "oldLimit": {
+      "$ref": "../defs.schema.json#/$defs/nonNegativeWon"
+    },
+    "newLimit": {
+      "$ref": "../defs.schema.json#/$defs/nonNegativeWon"
+    },
+    "monthlyPremium": {
+      "$ref": "../defs.schema.json#/$defs/nonNegativeWon"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

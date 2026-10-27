@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/DeferralStatusChanged.v1.schema.json",
+  "title": "DeferralStatusChanged payload (v1)",
+  "description": "도래 배치·해약 이벤트(설계서 §4.2). → deferral_item 상태 갱신. 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "scheduleId",
+    "from",
+    "to",
+    "reason"
+  ],
+  "properties": {
+    "scheduleId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "from": {
+      "enum": [
+        "SCHEDULED",
+        "RELEASED",
+        "HELD",
+        "CANCELLED"
+      ]
+    },
+    "to": {
+      "enum": [
+        "RELEASED",
+        "HELD",
+        "CANCELLED"
+      ]
+    },
+    "reason": {
+      "description": "엔진 어휘(v1.2 — 닫힌 열거, 정본은 엔진 `DeferralTransitionReason`): DUE_RELEASED 도래 지급, POLICY_NOT_INFORCE 유지 조건 미충족 보류, POLICY_TERMINATED 해약·실효·철회로 잔여 소멸, SOURCE_REVERSED 원본 계산의 취소분개로 소멸",
+      "enum": [
+        "DUE_RELEASED",
+        "POLICY_NOT_INFORCE",
+        "POLICY_TERMINATED",
+        "SOURCE_REVERSED"
+      ]
+    }
+  }
+}

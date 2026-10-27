@@ -1,0 +1,17 @@
+{
+  "eventId": "5eed0000-0000-4000-8000-00000000000d",
+  "seq": 13,
+  "type": "DeferralStatusChanged",
+  "version": 1,
+  "occurredAt": "2027-02-20T10:00:00+09:00",
+  "aggregate": {
+    "kind": "DEFERRAL_SCHEDULE",
+    "id": "DS-0001"
+  },
+  "payload": {
+    "scheduleId": "DS-0001",
+    "from": "SCHEDULED",
+    "to": "CANCELLED",
+    "reason": "POLICY_TERMINATED"
+  }
+}

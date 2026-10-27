@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/StatementEstimated.v1.schema.json",
+  "title": "StatementEstimated payload (v1)",
+  "description": "야간 배치(지급 로직 dry-run, 설계서 §4.2). → earnings_month 세액·순액(예상), status=ESTIMATED. 세액·순액은 엔진 값이며 포털은 계산하지 않는다. 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "agentId",
+    "closeYm",
+    "gross",
+    "clawbackOffset",
+    "adjustment",
+    "withholdingTax",
+    "net",
+    "basisSeq",
+    "asOf"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "../defs.schema.json#/$defs/agentId"
+    },
+    "closeYm": {
+      "$ref": "../defs.schema.json#/$defs/ym"
+    },
+    "gross": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "Σ 그 달 CommissionCalculated 라인 중 commType ∉ {CLAWBACK, ADJUSTMENT}의 amount(정수 원) — 전 상태 합산(취소 원본·reversal 모두 포함, 상태로 거르지 않는다). 정정은 adjustment로만 센다. 포털 earnings_month.gross와 같은 정의(설계서 §5·§6.6)"
+    },
+    "clawbackOffset": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "Σ 그 달 commType = CLAWBACK 라인 amount(정수 원, ≤ 0) — 포털 earnings_month.clawback_offset과 같은 정의. 기존 채권의 자동 상계(receivableOffset)와는 다른 것"
+    },
+    "adjustment": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "Σ 그 달(closeYm)로 귀속된 AdjustmentPosted amount(정수 원) — 포털 earnings_month.adjustment와 같은 정의"
+    },
+    "withholdingTax": {
+      "$ref": "../defs.schema.json#/$defs/won"
+    },
+    "net": {
+      "$ref": "../defs.schema.json#/$defs/won"
+    },
+    "basisSeq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "예상의 기준(v1.3, R7) — 산출 직전 엔진이 부여한 아웃박스 최대 seq. 하한이다: 이 seq까지의 사실은 전부 반영됐고, 그 뒤의 사실도 반영됐을 수 있다. 포털은 검사하지 않고 기록만 한다"
+    },
+    "asOf": {
+      "$ref": "../defs.schema.json#/$defs/instant"
+    },
+    "receivableOffset": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "기존 환수 채권에서 이 지급으로 상계될 예상 금액(정수 원, v1.3 R7 — 선택) — PayoutCompleted.receivableOffset과 같은 정의"
+    },
+    "carriedReceivable": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "예상 순액이 음수라 채권으로 넘어갈 예상 금액(정수 원, v1.3 R7 — 선택) — PayoutCompleted.carriedReceivable과 같은 정의"
+    },
+    "payable": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "세전 지급 대상 예상액(정수 원, v1.3 R7 — 선택) — PayoutCompleted.payable과 같은 정의, 포털은 계산하지 않는다"
+    }
+  }
+}

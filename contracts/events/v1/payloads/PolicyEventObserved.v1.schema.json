@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/PolicyEventObserved.v1.schema.json",
+  "title": "PolicyEventObserved payload (v1)",
+  "description": "INBOUND 정규화 후(설계서 §4.2). → policy_flag 갱신. 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "policyNo",
+    "agentId",
+    "eventType",
+    "occurredOn"
+  ],
+  "properties": {
+    "policyNo": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "agentId": {
+      "$ref": "../defs.schema.json#/$defs/agentId"
+    },
+    "eventType": {
+      "enum": [
+        "CANCEL",
+        "LAPSE",
+        "WITHDRAW",
+        "REDUCE",
+        "REINSTATE",
+        "PAYMENT_OVERDUE"
+      ],
+      "description": "REINSTATE = 엔진 REVIVE(부활). PAYMENT_OVERDUE는 우리 엔진이 발행하지 않는다(다른 공급원용). 엔진 EventType의 NEW·PAYMENT·CORRECT는 발행되지 않는다"
+    },
+    "occurredOn": {
+      "$ref": "../defs.schema.json#/$defs/date"
+    }
+  }
+}

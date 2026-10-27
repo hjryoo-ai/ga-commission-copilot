@@ -1,0 +1,19 @@
+{
+  "eventId": "5eed0000-0000-4000-8000-00000000000f",
+  "seq": 15,
+  "type": "AdjustmentPosted",
+  "version": 1,
+  "occurredAt": "2027-03-03T11:00:00+09:00",
+  "aggregate": {
+    "kind": "ADJUSTMENT",
+    "id": "ADJ-0001"
+  },
+  "payload": {
+    "adjId": "ADJ-0001",
+    "targetCalcId": "884214",
+    "agentId": "A0001",
+    "amount": -50000,
+    "closeYm": "202703",
+    "reason": "INCENTIVE_RATE_CORRECTION"
+  }
+}

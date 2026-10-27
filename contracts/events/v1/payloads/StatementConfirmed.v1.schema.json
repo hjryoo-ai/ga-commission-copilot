@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/StatementConfirmed.v1.schema.json",
+  "title": "StatementConfirmed payload (v1)",
+  "description": "월마감 확정(설계서 §4.2). → status=CONFIRMED(이후 해당 월 라인 변경 금지). 마감 시점에 참인 것은 gross·adjustment·closedAt — 원천세·상계·순액은 지급 런에서 확정되므로 선택(v1.1, PayoutCompleted가 확정값). 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "agentId",
+    "closeYm",
+    "gross",
+    "adjustment",
+    "closedAt"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "../defs.schema.json#/$defs/agentId"
+    },
+    "closeYm": {
+      "$ref": "../defs.schema.json#/$defs/ym"
+    },
+    "gross": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "Σ 그 달 CommissionCalculated 라인 중 commType ∉ {CLAWBACK, ADJUSTMENT}의 amount(정수 원) — 전 상태 합산(취소 원본·reversal 모두 포함, 상태로 거르지 않는다). 정정은 adjustment로만 센다. 포털 earnings_month.gross와 같은 정의(설계서 §5·§6.6)"
+    },
+    "clawbackOffset": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "Σ 그 달 commType = CLAWBACK 라인 amount(정수 원, ≤ 0) — 포털 earnings_month.clawback_offset과 같은 정의. 기존 채권의 자동 상계(receivableOffset)와는 다른 것"
+    },
+    "adjustment": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "Σ 그 달(closeYm)로 귀속된 AdjustmentPosted amount(정수 원) — 포털 earnings_month.adjustment와 같은 정의"
+    },
+    "withholdingTax": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "선택(v1.1) — 지급 런에서 확정된다(PayoutCompleted)"
+    },
+    "net": {
+      "$ref": "../defs.schema.json#/$defs/won",
+      "description": "선택(v1.1) — 지급 런에서 확정된다(PayoutCompleted)"
+    },
+    "closedAt": {
+      "$ref": "../defs.schema.json#/$defs/instant"
+    }
+  }
+}

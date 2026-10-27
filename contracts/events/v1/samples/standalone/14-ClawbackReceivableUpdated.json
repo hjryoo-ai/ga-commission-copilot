@@ -1,0 +1,19 @@
+{
+  "eventId": "5eed0000-0000-4000-8000-00000000000e",
+  "seq": 14,
+  "type": "ClawbackReceivableUpdated",
+  "version": 1,
+  "occurredAt": "2027-02-28T23:00:00+09:00",
+  "aggregate": {
+    "kind": "CLAWBACK_RECEIVABLE",
+    "id": "RC-0001"
+  },
+  "payload": {
+    "receivableId": "RC-0001",
+    "agentId": "A0001",
+    "originCalcId": "901377",
+    "amount": 1200000,
+    "remaining": 350000,
+    "status": "OFFSET"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "eventId": "5eed0000-0000-4000-8000-000000000011",
+  "seq": 17,
+  "type": "LimitLedgerRebased",
+  "version": 1,
+  "occurredAt": "2027-03-05T09:00:00+09:00",
+  "aggregate": {
+    "kind": "LIMIT_LEDGER",
+    "id": "LG-0002"
+  },
+  "payload": {
+    "ledgerId": "LG-0002",
+    "postingSeq": 3,
+    "oldLimit": 2400000,
+    "newLimit": 1200000,
+    "monthlyPremium": 100000,
+    "reason": "PREMIUM_REDUCED"
+  }
+}

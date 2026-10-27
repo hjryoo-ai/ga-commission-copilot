@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/portal/contracts/events/v1/payloads/ClawbackReceivableUpdated.v1.schema.json",
+  "title": "ClawbackReceivableUpdated payload (v1)",
+  "description": "환수 채권 생성·상계(설계서 §4.2). → clawback_item upsert. 모르는 필드는 허용한다(설계서 §4.5 — 소비자는 무시).",
+  "type": "object",
+  "required": [
+    "receivableId",
+    "agentId",
+    "originCalcId",
+    "amount",
+    "remaining",
+    "status"
+  ],
+  "properties": {
+    "receivableId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "agentId": {
+      "$ref": "../defs.schema.json#/$defs/agentId"
+    },
+    "originCalcId": {
+      "$ref": "../defs.schema.json#/$defs/id"
+    },
+    "amount": {
+      "$ref": "../defs.schema.json#/$defs/nonNegativeWon",
+      "description": "채권 원금(0 이상 — v1.2)"
+    },
+    "remaining": {
+      "$ref": "../defs.schema.json#/$defs/nonNegativeWon",
+      "description": "미상계 잔액(0 이상 — v1.2)"
+    },
+    "status": {
+      "description": "엔진 어휘(v1.2 — 닫힌 열거, 정본은 엔진 `ReceivableStatus`): OPEN 미상계 잔액 있음, OFFSET 일부 상계, CLOSED 전액 상계, WRITTEN_OFF 대손",
+      "enum": [
+        "OPEN",
+        "OFFSET",
+        "CLOSED",
+        "WRITTEN_OFF"
+      ]
+    }
+  }
+}
