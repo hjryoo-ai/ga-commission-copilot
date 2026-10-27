@@ -1,0 +1,11 @@
+# 음성 대조: src/tools/_violation_probe.ts(INSERT + tenant_id 없는 SELECT)를 넣고 실행
+     × 'src/tools/_violation_probe.ts' 에 INSERT|UPDATE|DELETE 가 없다 3ms
+     × 'src/tools/_violation_probe.ts' 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/arch.test.ts > 아키텍처: worker/src/tools/** 는 읽기 전용 > 'src/tools/_violation_probe.ts' 에 INSERT|UPDATE|DELETE 가 없다
+AssertionError: expected [ 'INSERT' ] to deeply equal []
+ FAIL  test/arch.test.ts > 아키텍처: worker/src/** 의 SQL 문자열은 tenant_id 조건을 가진다 > 'src/tools/_violation_probe.ts'
+AssertionError: expected [ …(2) ] to deeply equal []
+      Tests  2 failed | 7 passed (9)
+# 프로브 삭제 후 재실행
+      Tests  8 passed (8)

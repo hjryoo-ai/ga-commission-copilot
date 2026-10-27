@@ -1,0 +1,22 @@
+$ java -version
+openjdk version "21.0.9" 2025-10-21 LTS
+OpenJDK Runtime Environment Corretto-21.0.9.10.1 (build 21.0.9+10-LTS)
+OpenJDK 64-Bit Server VM Corretto-21.0.9.10.1 (build 21.0.9+10-LTS, mixed mode, sharing)
+
+$ ./gradlew javaToolchains
+ + Options
+ + Amazon Corretto JDK 21 (21.0.9+10-LTS)
+     | Language Version:   21
+     | Detected by:        Current JVM
+ + Eclipse Temurin JDK 25 (25.0.4.1+1-LTS)
+     | Language Version:   25
+     | Detected by:        Auto-provisioned by Gradle
+
+$ ./gradlew build --warning-mode all
+Using toolchain 'Eclipse Temurin JDK 25 (25.0.4.1+1-LTS)' installed via auto-provisioning without toolchain repositories. This behavior has been deprecated. This will fail with an error in Gradle 10. Builds may fail when this toolchain is not available in other environments. Add toolchain repositories to this build. For more information, please refer to https://docs.gradle.org/9.3.0/userguide/toolchains.html#sub:download_repositories in the Gradle documentation.
+> Task :compileJava NO-SOURCE
+> Task :processResources NO-SOURCE
+> Task :compileTestJava NO-SOURCE
+> Task :processTestResources NO-SOURCE
+> Task :test NO-SOURCE
+BUILD SUCCESSFUL in 345ms

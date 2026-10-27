@@ -1,0 +1,8 @@
+packages:
+  - worker
+  - web
+  - gen
+  - evals
+onlyBuiltDependencies:
+  - esbuild
+  - workerd

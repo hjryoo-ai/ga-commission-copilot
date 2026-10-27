@@ -1,0 +1,22 @@
+16 tables 5 indexes
+index ix_ans_created
+index ix_defer_agent_due
+index ix_expl_agent
+index ix_line_agent_ym
+index ix_line_policy
+table agent_profile
+table answer_log
+table budget_counter
+table clawback_item
+table deferral_item
+table earnings_line
+table earnings_month
+table eval_case_result
+table eval_run
+table explanation
+table policy_flag
+table policy_limit
+table policy_limit_history
+table rulebook_chunk
+table sim_stub
+table stream_meta

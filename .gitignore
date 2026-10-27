@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.DS_Store
+*.log
+!docs/evidence/logs/*.log
+projection-java/build/
+projection-java/.gradle/

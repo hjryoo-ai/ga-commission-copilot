@@ -1,0 +1,12 @@
+
+> @copilot/web@ build /Users/hjr/Documents/workspace/ai/ga-commision-copilot/web
+> tsc --noEmit && vite build
+
+vite v8.1.6 building client environment for production...
+[2Ktransforming...✓ 16 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                  0.35 kB │ gzip:  0.28 kB
+dist/assets/index-CNrsPeAl.js  219.97 kB │ gzip: 68.84 kB
+
+✓ built in 56ms

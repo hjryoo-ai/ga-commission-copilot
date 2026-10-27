@@ -1,0 +1,19 @@
+checked_at=2026-10-27T10:55:03Z
+$ curl -sS -i https://ga-commission-copilot.ga-copilot-demo.workers.dev/api/v1/health
+HTTP/2 200 
+content-type: application/json
+{"ok":true,"d1":1}
+
+$ curl -sS -i https://ga-commission-copilot.ga-copilot-demo.workers.dev/
+HTTP/2 200 
+content-type: text/html
+    <title>GA 수수료 설명 코파일럿 (데모)</title>
+    <script type="module" crossorigin src="/assets/index-CNrsPeAl.js"></script>
+
+$ (번들에서 홈 문구·고정 문구 확인)
+가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가
+Hello, 데모GA
+
+$ curl -sS -i https://ga-commission-copilot.ga-copilot-demo.workers.dev/me/earnings/202608   # SPA fallback
+HTTP/2 200 
+    <title>GA 수수료 설명 코파일럿 (데모)</title>

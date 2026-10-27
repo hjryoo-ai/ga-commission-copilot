@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ga-commission-copilot",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-23",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // 설계서 §11: 정적 자산은 Assets 바인딩. /api/* 만 Worker가 먼저 받는다(정적 요청은 Worker 호출로 집계되지 않게).
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // 설계서 §5.1·D-6: 읽기 모델·LLM 테이블·예산 카운터는 전부 D1
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "copilot",
+      "database_id": "f97c77d4-3afc-4ec3-ae17-d91bee6015dc",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // 설계서 §5.2: rulebook-v1, 1024차원(bge-m3), cosine — `wrangler vectorize create rulebook-v1 --dimensions=1024 --metric=cosine`
+  "vectorize": [
+    { "binding": "VECTORIZE", "index_name": "rulebook-v1" }
+  ],
+
+  // 설계서 D-7: 임베딩 @cf/baai/bge-m3, 폴백 @cf/openai/gpt-oss-120b
+  "ai": { "binding": "AI" },
+
+  "observability": { "enabled": true }
+}
