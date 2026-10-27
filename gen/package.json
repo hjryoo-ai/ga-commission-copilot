@@ -3,7 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run --passWithNoTests"
+    "world:plan": "node world/plan.ts",
+    "world:expand": "node world/expand.ts",
+    "fixture:plan": "node scripts/make-plan-fixture.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

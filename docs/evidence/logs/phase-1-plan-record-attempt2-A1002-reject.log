@@ -1,0 +1,16 @@
+[record] plan:A-1001 ok (8건)
+[live] A-1002 시도 1: 검사 실패 #4: REINSTATE 202607: 실효 상태가 아님
+[live] A-1002 시도 2: 검사 실패 #4: REINSTATE 202607: 실효 상태가 아님
+[live] A-1002 시도 3: 검사 실패 #4: REINSTATE 202607: 실효 상태가 아님
+file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/world/plan.ts:137
+  throw new Error(`${a.agentId}: ${MAX_ATTEMPTS}회 실패 — ${last}`);
+        ^
+
+Error: A-1002: 3회 실패 — #4: REINSTATE 202607: 실효 상태가 아님
+    at liveChunk (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/world/plan.ts:137:9)
+    at async buildPlan (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/world/plan.ts:164:30)
+    at async main (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/world/plan.ts:179:35)
+    at async file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/world/plan.ts:187:23
+
+Node.js v25.5.0
+exit=1

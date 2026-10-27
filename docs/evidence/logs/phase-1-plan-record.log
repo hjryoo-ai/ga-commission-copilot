@@ -1,0 +1,46 @@
+[live] A-1002 시도 1: 검사 실패 #4: REINSTATE 202607: 실효 상태가 아님
+[record] plan:A-1002 ok (13건)
+[live] A-1003 시도 1: 검사 실패 #4: REINSTATE 202702: 실효 상태가 아님
+[record] plan:A-1003 ok (18건)
+[live] A-1004 시도 1: 검사 실패 #3: REINSTATE 202608: 실효 상태가 아님
+[record] plan:A-1004 ok (10건)
+[record] plan:A-1005 ok (15건)
+[live] A-1006 시도 1: 검사 실패 #4: REINSTATE 202702: 실효 상태가 아님
+[record] plan:A-1006 ok (20건)
+[record] plan:A-1007 ok (12건)
+[record] plan:A-1008 ok (17건)
+[record] plan:A-1009 ok (9건)
+[record] plan:A-1010 ok (14건)
+[record] plan:A-1011 ok (19건)
+[live] A-1012 시도 1: 검사 실패 #4: REINSTATE 202607: 실효 상태가 아님
+[record] plan:A-1012 ok (11건)
+[record] plan:A-1013 ok (16건)
+[record] plan:A-1014 ok (8건)
+[live] A-1015 시도 1: 검사 실패 #4: REINSTATE 202607: 실효 상태가 아님
+[record] plan:A-1015 ok (13건)
+[live] A-1016 시도 1: 검사 실패 #4: REINSTATE 202608: 실효 상태가 아님
+[record] plan:A-1016 ok (18건)
+[record] plan:A-1017 ok (10건)
+[live] A-1018 시도 1: 검사 실패 #4: REINSTATE 202702: 실효 상태가 아님
+[record] plan:A-1018 ok (15건)
+[live] A-1019 시도 1: 검사 실패 #4: REINSTATE 202608: 실효 상태가 아님 | #15: REINSTATE 202801: 실효 상태가 아님
+[record] plan:A-1019 ok (20건)
+[record] plan:A-1020 ok (12건)
+[record] plan:A-1021 ok (17건)
+[live] A-1022 시도 1: 검사 실패 #4: REINSTATE 202607: 실효 상태가 아님
+[record] plan:A-1022 ok (9건)
+[record] plan:A-1023 ok (14건)
+[live] A-1024 시도 1: 검사 실패 #17: monthlyPremium 320000: HEALTH-100 범위 40000~300000 밖
+[record] plan:A-1024 ok (19건)
+[live] A-1025 시도 1: 검사 실패 #4: REINSTATE 202607: 실효 상태가 아님
+[record] plan:A-1025 ok (11건)
+[live] A-1026 시도 1: 검사 실패 #4: REINSTATE 202702: 실효 상태가 아님
+[record] plan:A-1026 ok (16건)
+[record] plan:A-1027 ok (8건)
+[live] A-1028 시도 1: 검사 실패 #4: REINSTATE 202607: 실효 상태가 아님
+[record] plan:A-1028 ok (13건)
+[live] A-1029 시도 1: 검사 실패 #17: monthlyPremium 340000: HEALTH-100 범위 40000~300000 밖
+[record] plan:A-1029 ok (18건)
+[record] plan:A-1030 ok (10건)
+plan: 425건(필수 12) source=vcr(녹화) → gen/out/plan.json
+exit=0

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/copilot/contracts/plan/v1/plan-llm.schema.json",
+  "title": "시나리오 플랜 LLM 출력 v1(설계사 1명 몫)",
+  "description": "prompts/plan/v1.md 구조화 출력. 공급자 strict 구조화 출력에 그대로 넘길 수 있도록 type·enum·required·additionalProperties만 쓴다. 날짜 형식·범위·월납 범위·이벤트 순서는 코드(gen/world/plan-check.ts)가 검사한다. policyNo·agentId는 코드가 붙인다. 금액 필드 없음.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contracts"],
+  "properties": {
+    "contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["productKey", "contractDate", "monthlyPremium", "lifecycle"],
+        "properties": {
+          "productKey": { "type": "string", "enum": ["WHOLE-LIFE-20Y", "TERM-10Y", "HEALTH-100", "ANNUITY-10Y", "CHILD-30Y"] },
+          "contractDate": { "type": "string", "description": "YYYY-MM-DD" },
+          "monthlyPremium": { "type": "integer", "description": "정수 원, 천 원 단위" },
+          "lifecycle": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ym", "event"],
+              "properties": {
+                "ym": { "type": "string", "description": "yyyyMM" },
+                "event": { "type": "string", "enum": ["CANCEL", "LAPSE", "REDUCE", "REINSTATE"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

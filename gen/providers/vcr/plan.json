@@ -1,0 +1,4188 @@
+{
+  "kind": "vcr",
+  "name": "plan",
+  "entries": {
+    "plan:A-1001": {
+      "requestHash": "bae08b22168793ad7210e8a04625e2d1b33f46798fc5c1f6c896b9bdb2bba628",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:26:59.023Z",
+      "usage": {
+        "queue_time": 0.179962469,
+        "prompt_tokens": 1080,
+        "prompt_time": 0.079778079,
+        "completion_tokens": 624,
+        "completion_time": 1.302407243,
+        "total_tokens": 1704,
+        "total_time": 1.382185322,
+        "completion_tokens_details": {
+          "reasoning_tokens": 251
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-03-15",
+            "monthlyPremium": 85000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-04-10",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-05-20",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 45000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-07-05",
+            "monthlyPremium": 350000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-09-12",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-12-01",
+            "monthlyPremium": 275000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-03-18",
+            "monthlyPremium": 80000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1002": {
+      "requestHash": "922bf2d196768de5453492fc7cac8d3c6b960887d31a7e17170983ae5f224322",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:29:41.239Z",
+      "usage": {
+        "queue_time": 0.011605266,
+        "prompt_tokens": 1643,
+        "prompt_time": 0.0683282,
+        "completion_tokens": 875,
+        "completion_time": 1.861871849,
+        "total_tokens": 2518,
+        "total_time": 1.930200049,
+        "completion_tokens_details": {
+          "reasoning_tokens": 80
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-09-12",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-11-20",
+            "monthlyPremium": 150000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-03",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-03-15",
+            "monthlyPremium": 60000,
+            "lifecycle": [
+              {
+                "ym": "202606",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202607",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-28",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202708",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-09-10",
+            "monthlyPremium": 450000,
+            "lifecycle": [
+              {
+                "ym": "202712",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-11-25",
+            "monthlyPremium": 90000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-01-08",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202708",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-03-14",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-05-30",
+            "monthlyPremium": 220000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1003": {
+      "requestHash": "53eaa2e386efdf7b3ac7cde6ebded5d7aa091b59e4272a1df0018af8a5ae51df",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:30:29.421Z",
+      "usage": {
+        "queue_time": 0.009641693,
+        "prompt_tokens": 1814,
+        "prompt_time": 0.060344414,
+        "completion_tokens": 798,
+        "completion_time": 1.7553382370000001,
+        "total_tokens": 2612,
+        "total_time": 1.815682651,
+        "prompt_tokens_details": {
+          "cached_tokens": 1024
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 125
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-12",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-20",
+            "monthlyPremium": 150000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-10-28",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-12-03",
+            "monthlyPremium": 60000,
+            "lifecycle": [
+              {
+                "ym": "202701",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202702",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-01-15",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-02-22",
+            "monthlyPremium": 110000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-03-30",
+            "monthlyPremium": 200000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-04-18",
+            "monthlyPremium": 480000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202610",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-05-25",
+            "monthlyPremium": 90000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-08-10",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-09-19",
+            "monthlyPremium": 620000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-10-27",
+            "monthlyPremium": 120000,
+            "lifecycle": [
+              {
+                "ym": "202711",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-12-31",
+            "monthlyPremium": 400000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-02-05",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202704",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-04-14",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1004": {
+      "requestHash": "56b49e8bf3c7fafb1ab35fad5e3a009fda4917760e0794528c3f044646ef3800",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:31:14.668Z",
+      "usage": {
+        "queue_time": 0.23390066,
+        "prompt_tokens": 1555,
+        "prompt_time": 0.205570853,
+        "completion_tokens": 495,
+        "completion_time": 1.049612052,
+        "total_tokens": 2050,
+        "total_time": 1.255182905,
+        "completion_tokens_details": {
+          "reasoning_tokens": 105
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-09-12",
+            "monthlyPremium": 75000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-11-20",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-03",
+            "monthlyPremium": 350000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-03-15",
+            "monthlyPremium": 50000,
+            "lifecycle": [
+              {
+                "ym": "202609",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-28",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202608",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-09-18",
+            "monthlyPremium": 210000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-01-10",
+            "monthlyPremium": 600000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-04-22",
+            "monthlyPremium": 120000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "REDUCE"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1005": {
+      "requestHash": "8dd84e15bcd211d387e0b8135caa70825c99a5d80e8415b18f4b4ec37d0ae628",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:31:41.730Z",
+      "usage": {
+        "queue_time": 0.011395506,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.050665959,
+        "completion_tokens": 1351,
+        "completion_time": 4.721625608,
+        "total_tokens": 2392,
+        "total_time": 4.772291567,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 578
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-01",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-22",
+            "monthlyPremium": 50000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-10-13",
+            "monthlyPremium": 80000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-12-04",
+            "monthlyPremium": 200000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-01-25",
+            "monthlyPremium": 60000,
+            "lifecycle": [
+              {
+                "event": "CANCEL",
+                "ym": "202603"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-03-17",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-05-08",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "event": "REDUCE",
+                "ym": "202607"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 150000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-08-21",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "event": "LAPSE",
+                "ym": "202611"
+              },
+              {
+                "event": "REINSTATE",
+                "ym": "202702"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-10-12",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-12-03",
+            "monthlyPremium": 400000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-01-24",
+            "monthlyPremium": 70000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-03-16",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-05-06",
+            "monthlyPremium": 500000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-06-27",
+            "monthlyPremium": 100000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1006": {
+      "requestHash": "20deb4f4db4f7a69390b4483b2085542cf359b8253435d4315832fbfce191af0",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:32:30.557Z",
+      "usage": {
+        "queue_time": 0.17878699,
+        "prompt_tokens": 1896,
+        "prompt_time": 0.101176565,
+        "completion_tokens": 1361,
+        "completion_time": 2.871277595,
+        "total_tokens": 3257,
+        "total_time": 2.97245416,
+        "completion_tokens_details": {
+          "reasoning_tokens": 188
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-12",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-20",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-10-03",
+            "monthlyPremium": 450000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-11-15",
+            "monthlyPremium": 60000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-12-01",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-01-10",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-02-18",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-03-25",
+            "monthlyPremium": 720000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-04-07",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202609",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-14",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 110000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202708",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-07-01",
+            "monthlyPremium": 260000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-08-19",
+            "monthlyPremium": 880000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-09-23",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-10-30",
+            "monthlyPremium": 340000,
+            "lifecycle": [
+              {
+                "ym": "202801",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-12-31",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-01-02",
+            "monthlyPremium": 190000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-03-15",
+            "monthlyPremium": 650000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-05-20",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "REDUCE"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1007": {
+      "requestHash": "35ea4124c182a8abcd77ca07503a2b3667f8469bbccaf0d7003590cb7cadc012",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:32:53.595Z",
+      "usage": {
+        "queue_time": 0.025154487,
+        "prompt_tokens": 1055,
+        "prompt_time": 0.050253056,
+        "completion_tokens": 738,
+        "completion_time": 1.5704823239999999,
+        "total_tokens": 1793,
+        "total_time": 1.62073538,
+        "completion_tokens_details": {
+          "reasoning_tokens": 30
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-09-12",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-11-20",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-12-30",
+            "monthlyPremium": 450000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202608",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-02-14",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-04-03",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-05-27",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202708",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-09-15",
+            "monthlyPremium": 720000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-12-28",
+            "monthlyPremium": 120000,
+            "lifecycle": [
+              {
+                "ym": "202712",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-02-10",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-05-22",
+            "monthlyPremium": 150000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "LAPSE"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1008": {
+      "requestHash": "8a707c6620dc1c09b3933bea6645ed30ce164694383a15e05b0ce661cd914f5a",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:33:17.659Z",
+      "usage": {
+        "queue_time": 0.26485969,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.07486262,
+        "completion_tokens": 993,
+        "completion_time": 2.094562293,
+        "total_tokens": 2034,
+        "total_time": 2.169424913,
+        "completion_tokens_details": {
+          "reasoning_tokens": 133
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-08-18",
+            "monthlyPremium": 45000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-30",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-11-12",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-12-25",
+            "monthlyPremium": 350000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-01-30",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202606",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-03-05",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-04-18",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-31",
+            "monthlyPremium": 320000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202608",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 420000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-08-15",
+            "monthlyPremium": 130000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-09-27",
+            "monthlyPremium": 90000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-11-09",
+            "monthlyPremium": 210000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-12-22",
+            "monthlyPremium": 410000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-02-04",
+            "monthlyPremium": 750000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-03-20",
+            "monthlyPremium": 165000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-05-30",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1009": {
+      "requestHash": "2d35944fd88287f426cc7c00eacb8924f7fb2a68a5e032adb0a472b620239dd9",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:33:40.901Z",
+      "usage": {
+        "queue_time": 0.265897613,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.060127145,
+        "completion_tokens": 580,
+        "completion_time": 1.222009611,
+        "total_tokens": 1621,
+        "total_time": 1.2821367559999999,
+        "completion_tokens_details": {
+          "reasoning_tokens": 27
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-15",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-10-02",
+            "monthlyPremium": 75000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-12-20",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-03-05",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-06-28",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-07-03",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202708",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202709",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-09-15",
+            "monthlyPremium": 110000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-12-30",
+            "monthlyPremium": 220000,
+            "lifecycle": [
+              {
+                "ym": "202701",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-03-10",
+            "monthlyPremium": 600000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1010": {
+      "requestHash": "6479b1cf24f6d83812562e3962ee2cf35c8b5d5f885d33fdc957aef4303307cc",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:34:07.016Z",
+      "usage": {
+        "queue_time": 0.217451089,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.339457522,
+        "completion_tokens": 1032,
+        "completion_time": 4.365785918,
+        "total_tokens": 2073,
+        "total_time": 4.70524344,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 305
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-07-15",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202508",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-01",
+            "monthlyPremium": 120000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-10-15",
+            "monthlyPremium": 60000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202608",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-12-01",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-15",
+            "monthlyPremium": 450000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-03-01",
+            "monthlyPremium": 80000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-04-15",
+            "monthlyPremium": 200000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 90000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-08-01",
+            "monthlyPremium": 300000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-10-15",
+            "monthlyPremium": 750000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-12-31",
+            "monthlyPremium": 150000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-02-15",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-04-01",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-06-15",
+            "monthlyPremium": 600000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1011": {
+      "requestHash": "214b37a8df5aa871df723e3a45b4e498bf6975950c0bdaf3283c74e72e9f8098",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:34:30.873Z",
+      "usage": {
+        "queue_time": 0.06046607,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.066703742,
+        "completion_tokens": 1067,
+        "completion_time": 2.278589305,
+        "total_tokens": 2108,
+        "total_time": 2.345293047,
+        "completion_tokens_details": {
+          "reasoning_tokens": 117
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-12",
+            "monthlyPremium": 45000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-20",
+            "monthlyPremium": 85000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-10-28",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-12-05",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-12-30",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202606",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-02-07",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-03-15",
+            "monthlyPremium": 150000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-04-22",
+            "monthlyPremium": 400000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202608",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-05-30",
+            "monthlyPremium": 90000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-07-08",
+            "monthlyPremium": 200000,
+            "lifecycle": [
+              {
+                "ym": "202708",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-08-15",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-09-22",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-10-30",
+            "monthlyPremium": 600000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-12-07",
+            "monthlyPremium": 110000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-01-15",
+            "monthlyPremium": 350000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-02-22",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-04-01",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-05-10",
+            "monthlyPremium": 800000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1012": {
+      "requestHash": "18022fe8f36baa343f190a5f90a220a2544ff6546a0687330d075eb61db11c40",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:35:18.091Z",
+      "usage": {
+        "queue_time": 0.218741389,
+        "prompt_tokens": 1575,
+        "prompt_time": 0.082707359,
+        "completion_tokens": 801,
+        "completion_time": 1.693358905,
+        "total_tokens": 2376,
+        "total_time": 1.776066264,
+        "completion_tokens_details": {
+          "reasoning_tokens": 157
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-09-12",
+            "monthlyPremium": 45000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-11-20",
+            "monthlyPremium": 85000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-03",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-03-15",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-28",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-08-02",
+            "monthlyPremium": 150000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-10-18",
+            "monthlyPremium": 500000,
+            "lifecycle": [
+              {
+                "ym": "202711",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-01-05",
+            "monthlyPremium": 90000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-04-22",
+            "monthlyPremium": 200000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "LAPSE"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1013": {
+      "requestHash": "e09048fb00dad93f72782650edab1c0f6d6cbefabd336e95de86df3202484633",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:35:41.838Z",
+      "usage": {
+        "queue_time": 0.355921454,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.067384736,
+        "completion_tokens": 917,
+        "completion_time": 1.958714757,
+        "total_tokens": 1958,
+        "total_time": 2.026099493,
+        "completion_tokens_details": {
+          "reasoning_tokens": 98
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-20",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-10-02",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-11-15",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-12-30",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-02-10",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202605",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-03-25",
+            "monthlyPremium": 110000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-05-08",
+            "monthlyPremium": 130000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-06-28",
+            "monthlyPremium": 400000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-08-12",
+            "monthlyPremium": 85000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-09-30",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-11-14",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-12-31",
+            "monthlyPremium": 175000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-02-05",
+            "monthlyPremium": 600000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-04-18",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-06-20",
+            "monthlyPremium": 300000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1014": {
+      "requestHash": "3ad592e141cc2758f2b710e9f660c79486e770c2c00fb915c9137a734ecbe9d6",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:36:05.494Z",
+      "usage": {
+        "queue_time": 0.217913366,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.034833344,
+        "completion_tokens": 562,
+        "completion_time": 1.841262494,
+        "total_tokens": 1603,
+        "total_time": 1.876095838,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 32
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-15",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-10-01",
+            "monthlyPremium": 75000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-12-20",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-03-05",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-06-28",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202608",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-09-15",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-01-10",
+            "monthlyPremium": 110000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-04-20",
+            "monthlyPremium": 220000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "CANCEL"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1015": {
+      "requestHash": "d3e2a0b5c545527619f41cdb29c415bba0336499f1c40ab7232f1a3ec376c494",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:36:54.270Z",
+      "usage": {
+        "queue_time": 0.124136661,
+        "prompt_tokens": 1643,
+        "prompt_time": 0.20638295,
+        "completion_tokens": 819,
+        "completion_time": 1.735547726,
+        "total_tokens": 2462,
+        "total_time": 1.9419306760000001,
+        "completion_tokens_details": {
+          "reasoning_tokens": 72
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-15",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-09-05",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-11-20",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-10",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-03-28",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-12",
+            "monthlyPremium": 275000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-07-01",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202708",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-09-15",
+            "monthlyPremium": 720000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-11-03",
+            "monthlyPremium": 120000,
+            "lifecycle": [
+              {
+                "ym": "202712",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-01-20",
+            "monthlyPremium": 340000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-04-07",
+            "monthlyPremium": 150000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202708",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-06-25",
+            "monthlyPremium": 260000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1016": {
+      "requestHash": "b892d43ccd5b6352f00b441dffa4bbdeffa03b8d87061b3ecf84398c160b6c3a",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:37:41.852Z",
+      "usage": {
+        "queue_time": 0.119528083,
+        "prompt_tokens": 1824,
+        "prompt_time": 0.099542453,
+        "completion_tokens": 847,
+        "completion_time": 1.793302412,
+        "total_tokens": 2671,
+        "total_time": 1.892844865,
+        "completion_tokens_details": {
+          "reasoning_tokens": 188
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-12",
+            "monthlyPremium": 80000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-20",
+            "monthlyPremium": 150000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-10-28",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-11-15",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-12-03",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202609",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-01-10",
+            "monthlyPremium": 90000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-02-14",
+            "monthlyPremium": 200000,
+            "lifecycle": [
+              {
+                "ym": "202611",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-03-22",
+            "monthlyPremium": 400000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-04-30",
+            "monthlyPremium": 120000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-18",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-06-29",
+            "monthlyPremium": 110000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202708",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-07-04",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-08-16",
+            "monthlyPremium": 600000,
+            "lifecycle": [
+              {
+                "ym": "202712",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-09-23",
+            "monthlyPremium": 90000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-10-31",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202801",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-12-05",
+            "monthlyPremium": 130000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-01-20",
+            "monthlyPremium": 280000,
+            "lifecycle": [
+              {
+                "ym": "202803",
+                "event": "CANCEL"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1017": {
+      "requestHash": "be2c94bfbf52b668f27011e1050d22d41e5df3a3bd12ae7e7b3326685aeb78cf",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:38:05.709Z",
+      "usage": {
+        "queue_time": 0.117574092,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.066169482,
+        "completion_tokens": 648,
+        "completion_time": 2.308538508,
+        "total_tokens": 1689,
+        "total_time": 2.37470799,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 29
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-15",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-09-05",
+            "monthlyPremium": 75000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-11-20",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-10",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-03-28",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202610",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 110000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-09-15",
+            "monthlyPremium": 220000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-01-05",
+            "monthlyPremium": 600000,
+            "lifecycle": [
+              {
+                "ym": "202704",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-04-20",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1018": {
+      "requestHash": "8cd93f71bab1ef59b97710c5302b4dfbd4f6365d82ee2910911b40d330cf260c",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:38:52.406Z",
+      "usage": {
+        "queue_time": 0.2767234,
+        "prompt_tokens": 1714,
+        "prompt_time": 0.121747446,
+        "completion_tokens": 668,
+        "completion_time": 1.4165174870000001,
+        "total_tokens": 2382,
+        "total_time": 1.538264933,
+        "completion_tokens_details": {
+          "reasoning_tokens": 95
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-12",
+            "monthlyPremium": 75000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-20",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-10-28",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-12-03",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202701",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202702",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-01-15",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-02-22",
+            "monthlyPremium": 110000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-03-30",
+            "monthlyPremium": 220000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202610",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-04-18",
+            "monthlyPremium": 600000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-05-25",
+            "monthlyPremium": 120000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 300000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202708",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-09-10",
+            "monthlyPremium": 260000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-11-19",
+            "monthlyPremium": 800000,
+            "lifecycle": [
+              {
+                "ym": "202712",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-01-05",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1019": {
+      "requestHash": "51059d7500140244e2fa38e4ecd969b7855e24feebaa11e5a9d2120419ca6297",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:39:41.351Z",
+      "usage": {
+        "queue_time": 0.06381068,
+        "prompt_tokens": 1914,
+        "prompt_time": 0.097479197,
+        "completion_tokens": 1270,
+        "completion_time": 2.695764017,
+        "total_tokens": 3184,
+        "total_time": 2.793243214,
+        "completion_tokens_details": {
+          "reasoning_tokens": 98
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-12",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-20",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-10-28",
+            "monthlyPremium": 450000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-11-15",
+            "monthlyPremium": 60000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-12-03",
+            "monthlyPremium": 300000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-01-10",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-02-18",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-03-25",
+            "monthlyPremium": 720000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202609",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-04-02",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-09",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 110000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-07-01",
+            "monthlyPremium": 260000,
+            "lifecycle": [
+              {
+                "ym": "202708",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-08-15",
+            "monthlyPremium": 850000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-09-22",
+            "monthlyPremium": 120000,
+            "lifecycle": [
+              {
+                "ym": "202711",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-10-30",
+            "monthlyPremium": 400000,
+            "lifecycle": [
+              {
+                "ym": "202711",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-12-31",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-01-05",
+            "monthlyPremium": 190000,
+            "lifecycle": [
+              {
+                "ym": "202704",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-03-12",
+            "monthlyPremium": 600000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-05-20",
+            "monthlyPremium": 130000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "CANCEL"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1020": {
+      "requestHash": "d411c3eb39660a543a52e127ba145523199bebccb3cc8d17e64ecb10009d760a",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:40:05.250Z",
+      "usage": {
+        "queue_time": 0.118324515,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.978655329,
+        "completion_tokens": 780,
+        "completion_time": 1.728235305,
+        "total_tokens": 1821,
+        "total_time": 2.706890634,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 28
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-09-12",
+            "monthlyPremium": 75000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-11-20",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-03",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-03-15",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202608",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-28",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 110000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 220000,
+            "lifecycle": [
+              {
+                "ym": "202708",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-09-18",
+            "monthlyPremium": 600000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-12-31",
+            "monthlyPremium": 120000,
+            "lifecycle": [
+              {
+                "ym": "202712",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-02-14",
+            "monthlyPremium": 300000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-04-20",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202707",
+                "event": "REINSTATE"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1021": {
+      "requestHash": "8ab24e933eef8bcd845ab1bfb9f82b2cb4ad1e33e8a6057b39368838c512569f",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:40:29.889Z",
+      "usage": {
+        "queue_time": 0.18051887,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.062226009,
+        "completion_tokens": 1126,
+        "completion_time": 2.753345757,
+        "total_tokens": 2167,
+        "total_time": 2.815571766,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 267
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-07-15",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202507",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-01",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-10-15",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-12-01",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-15",
+            "monthlyPremium": 350000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-03-01",
+            "monthlyPremium": 150000,
+            "lifecycle": [
+              {
+                "ym": "202605",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-04-15",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202608",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-07-01",
+            "monthlyPremium": 300000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-08-15",
+            "monthlyPremium": 500000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-10-01",
+            "monthlyPremium": 80000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-11-15",
+            "monthlyPremium": 220000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-12-31",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-02-15",
+            "monthlyPremium": 400000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-04-01",
+            "monthlyPremium": 650000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-05-15",
+            "monthlyPremium": 110000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-06-30",
+            "monthlyPremium": 260000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1022": {
+      "requestHash": "4aa1f627f7c112ef82bbac8b3dc15b46bcecd8e9052d983809fa347832397212",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:41:15.886Z",
+      "usage": {
+        "queue_time": 0.060802433,
+        "prompt_tokens": 1500,
+        "prompt_time": 0.084828004,
+        "completion_tokens": 604,
+        "completion_time": 1.3016698039999999,
+        "total_tokens": 2104,
+        "total_time": 1.386497808,
+        "completion_tokens_details": {
+          "reasoning_tokens": 75
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-15",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-10-03",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-12-20",
+            "monthlyPremium": 150000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-03-08",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-06-28",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-09-12",
+            "monthlyPremium": 110000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-12-30",
+            "monthlyPremium": 200000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-03-05",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202704",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-06-15",
+            "monthlyPremium": 750000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "CANCEL"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1023": {
+      "requestHash": "24113c06561e6fb92ab48d25c996d6ac79a33cf728b17db841d1017a5b19d911",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:41:40.034Z",
+      "usage": {
+        "queue_time": 0.266095845,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.646358818,
+        "completion_tokens": 844,
+        "completion_time": 2.1488744029999998,
+        "total_tokens": 1885,
+        "total_time": 2.795233221,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 115
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-20",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-10-02",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-11-15",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-12-30",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-02-10",
+            "monthlyPremium": 110000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202605",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-03-25",
+            "monthlyPremium": 300000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-05-08",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-06-28",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-08-14",
+            "monthlyPremium": 420000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-09-30",
+            "monthlyPremium": 85000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-11-12",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-01-05",
+            "monthlyPremium": 260000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-04-20",
+            "monthlyPremium": 750000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1024": {
+      "requestHash": "f7164819b9633f35622dc848f1cc7c20e58784ac0271b9564c3f8e0c96442ee4",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:42:27.622Z",
+      "usage": {
+        "queue_time": 0.215943267,
+        "prompt_tokens": 1858,
+        "prompt_time": 0.102639156,
+        "completion_tokens": 725,
+        "completion_time": 1.512813413,
+        "total_tokens": 2583,
+        "total_time": 1.615452569,
+        "completion_tokens_details": {
+          "reasoning_tokens": 24
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-12",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-20",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-10-28",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-12-03",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-01-15",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202605",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-02-22",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-03-30",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-04-10",
+            "monthlyPremium": 420000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-05-18",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-06-28",
+            "monthlyPremium": 300000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 110000,
+            "lifecycle": [
+              {
+                "ym": "202709",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-08-15",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-09-23",
+            "monthlyPremium": 600000,
+            "lifecycle": [
+              {
+                "ym": "202711",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202801",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-10-31",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-12-05",
+            "monthlyPremium": 400000,
+            "lifecycle": [
+              {
+                "ym": "202803",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-01-14",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-02-20",
+            "monthlyPremium": 280000,
+            "lifecycle": [
+              {
+                "ym": "202804",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2027-04-08",
+            "monthlyPremium": 850000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1025": {
+      "requestHash": "ce29845398f1fc338e661d8f61d47afa7bd061b47bbdce5f91e72d7b60d2305b",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:43:15.812Z",
+      "usage": {
+        "queue_time": 0.21720827,
+        "prompt_tokens": 1586,
+        "prompt_time": 0.997756155,
+        "completion_tokens": 492,
+        "completion_time": 1.374314274,
+        "total_tokens": 2078,
+        "total_time": 2.372070429,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 71
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-09-12",
+            "monthlyPremium": 45000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-11-20",
+            "monthlyPremium": 85000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-03",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-03-15",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-28",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 75000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-08-02",
+            "monthlyPremium": 150000,
+            "lifecycle": [
+              {
+                "ym": "202711",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-10-19",
+            "monthlyPremium": 500000,
+            "lifecycle": [
+              {
+                "ym": "202712",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-01-05",
+            "monthlyPremium": 90000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-04-22",
+            "monthlyPremium": 200000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202708",
+                "event": "REINSTATE"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1026": {
+      "requestHash": "4f7328ecf04ccb795b91861ef5e2f28525dff0513fb78dde18b6ce1914b663af",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:44:03.217Z",
+      "usage": {
+        "queue_time": 0.382543224,
+        "prompt_tokens": 1745,
+        "prompt_time": 0.116600954,
+        "completion_tokens": 1040,
+        "completion_time": 2.180609835,
+        "total_tokens": 2785,
+        "total_time": 2.297210789,
+        "completion_tokens_details": {
+          "reasoning_tokens": 136
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-12",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-20",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-10-28",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-12-03",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-01-15",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-02-22",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-03-30",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-04-18",
+            "monthlyPremium": 750000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202702",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-05-25",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 110000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-08-14",
+            "monthlyPremium": 260000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-09-21",
+            "monthlyPremium": 500000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-11-05",
+            "monthlyPremium": 80000,
+            "lifecycle": [
+              {
+                "ym": "202712",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-01-10",
+            "monthlyPremium": 420000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1027": {
+      "requestHash": "2941c51e16f2ae9e3c299fce32920326f1cd6219d90d9fc2da23cef10d40c0bf",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:44:27.662Z",
+      "usage": {
+        "queue_time": 1.531682376,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.057134279,
+        "completion_tokens": 534,
+        "completion_time": 1.133357546,
+        "total_tokens": 1575,
+        "total_time": 1.190491825,
+        "completion_tokens_details": {
+          "reasoning_tokens": 28
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-15",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-10-02",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-01-20",
+            "monthlyPremium": 210000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202607",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 450000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-07-05",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-09-18",
+            "monthlyPremium": 150000,
+            "lifecycle": [
+              {
+                "ym": "202711",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-01-12",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202712",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2027-04-27",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          }
+        ]
+      }
+    },
+    "plan:A-1028": {
+      "requestHash": "1caad037e3295156b49f5dd90ba5a9b640a5c66845a4919f3ed2ee8cc02b6efa",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:45:16.612Z",
+      "usage": {
+        "queue_time": 1.055297265,
+        "prompt_tokens": 1654,
+        "prompt_time": 0.19807719,
+        "completion_tokens": 927,
+        "completion_time": 2.070191721,
+        "total_tokens": 2581,
+        "total_time": 2.268268911,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 154
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-15",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-09-05",
+            "monthlyPremium": 85000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-11-20",
+            "monthlyPremium": 210000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-10",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-03-02",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-04-18",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-07-01",
+            "monthlyPremium": 180000,
+            "lifecycle": [
+              {
+                "ym": "202709",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-09-15",
+            "monthlyPremium": 420000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-11-28",
+            "monthlyPremium": 95000,
+            "lifecycle": [
+              {
+                "ym": "202712",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2027-01-05",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202803",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202805",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2027-03-22",
+            "monthlyPremium": 110000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-05-30",
+            "monthlyPremium": 260000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "CANCEL"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1029": {
+      "requestHash": "a62ef2f5121c617f4b93647bd0a4848de521a32a9506b2de894d945a36fc71ea",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:46:03.204Z",
+      "usage": {
+        "queue_time": 0.009419457,
+        "prompt_tokens": 1829,
+        "prompt_time": 0.034492589,
+        "completion_tokens": 706,
+        "completion_time": 1.527936398,
+        "total_tokens": 2535,
+        "total_time": 1.562428987,
+        "prompt_tokens_details": {
+          "cached_tokens": 1024
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 34
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-05",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-08-12",
+            "monthlyPremium": 75000,
+            "lifecycle": [
+              {
+                "ym": "202512",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-09-20",
+            "monthlyPremium": 180000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2025-10-03",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2025-11-15",
+            "monthlyPremium": 90000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-12-22",
+            "monthlyPremium": 250000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-01-08",
+            "monthlyPremium": 110000,
+            "lifecycle": [
+              {
+                "ym": "202603",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202605",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-02-14",
+            "monthlyPremium": 220000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-03-01",
+            "monthlyPremium": 480000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-04-19",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-05-27",
+            "monthlyPremium": 300000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-06-30",
+            "monthlyPremium": 95000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-07-02",
+            "monthlyPremium": 260000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "LAPSE"
+              }
+            ]
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-08-15",
+            "monthlyPremium": 720000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-09-23",
+            "monthlyPremium": 120000,
+            "lifecycle": [
+              {
+                "ym": "202711",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-10-30",
+            "monthlyPremium": 410000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-12-31",
+            "monthlyPremium": 130000,
+            "lifecycle": [
+              {
+                "ym": "202702",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2027-02-05",
+            "monthlyPremium": 280000,
+            "lifecycle": [
+              {
+                "ym": "202706",
+                "event": "CANCEL"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "plan:A-1030": {
+      "requestHash": "dcb54dd1a589b9f9afb02e3127d5d1f533a72a638a7d767321597b7057aec85b",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-27T12:46:27.043Z",
+      "usage": {
+        "queue_time": 0.011002148,
+        "prompt_tokens": 1041,
+        "prompt_time": 0.209442591,
+        "completion_tokens": 905,
+        "completion_time": 2.5266528,
+        "total_tokens": 1946,
+        "total_time": 2.736095391,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 353
+        }
+      },
+      "response": {
+        "contracts": [
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2025-07-15",
+            "monthlyPremium": 120000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2025-09-15",
+            "monthlyPremium": 80000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2025-11-15",
+            "monthlyPremium": 150000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-01-15",
+            "monthlyPremium": 350000,
+            "lifecycle": [
+              {
+                "ym": "202606",
+                "event": "CANCEL"
+              }
+            ]
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-03-15",
+            "monthlyPremium": 90000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "TERM-10Y",
+            "contractDate": "2026-05-15",
+            "monthlyPremium": 110000,
+            "lifecycle": [
+              {
+                "ym": "202607",
+                "event": "REDUCE"
+              }
+            ]
+          },
+          {
+            "productKey": "WHOLE-LIFE-20Y",
+            "contractDate": "2026-07-15",
+            "monthlyPremium": 250000,
+            "lifecycle": [
+              {
+                "ym": "202608",
+                "event": "LAPSE"
+              },
+              {
+                "ym": "202609",
+                "event": "REINSTATE"
+              }
+            ]
+          },
+          {
+            "productKey": "HEALTH-100",
+            "contractDate": "2026-09-15",
+            "monthlyPremium": 200000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "CHILD-30Y",
+            "contractDate": "2026-11-15",
+            "monthlyPremium": 60000,
+            "lifecycle": []
+          },
+          {
+            "productKey": "ANNUITY-10Y",
+            "contractDate": "2026-12-31",
+            "monthlyPremium": 750000,
+            "lifecycle": []
+          }
+        ]
+      }
+    }
+  }
+}

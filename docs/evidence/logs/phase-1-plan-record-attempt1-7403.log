@@ -1,0 +1,57 @@
+node:internal/errors:998
+  const err = new Error(message);
+              ^
+
+Error: Command failed: pnpm --dir /Users/hjr/Documents/workspace/ai/ga-commision-copilot/worker exec wrangler d1 execute copilot --remote --json --command INSERT OR IGNORE INTO budget_counter (scope, day, used) VALUES ('dev', '2026-10-27', 0); UPDATE budget_counter SET used = used + 1 WHERE scope = 'dev' AND day = '2026-10-27' AND used < 100;
+    at genericNodeError (node:internal/errors:998:15)
+    at wrappedFn (node:internal/errors:543:14)
+    at checkExecSyncError (node:child_process:925:11)
+    at execFileSync (node:child_process:961:15)
+    at reserveDevCall (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/providers/budget.ts:27:15)
+    at liveChunk (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/world/plan.ts:113:5)
+    at buildPlan (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/world/plan.ts:164:36)
+    at main (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/world/plan.ts:179:41)
+    at file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/world/plan.ts:187:29
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25) {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    '\n' +
+      '{\n' +
+      '  "error": {\n' +
+      '    "text": "A request to the Cloudflare API (/accounts/bd3f350e10d09b1f90df64e92479e3ea/d1/database/f97c77d4-3afc-4ec3-ae17-d91bee6015dc/query) failed.",\n' +
+      '    "notes": [\n' +
+      '      {\n' +
+      '        "text": "The given account is not valid or is not authorized to access this service [code: 7403]"\n' +
+      '      }\n' +
+      '    ],\n' +
+      '    "kind": "error",\n' +
+      '    "name": "APIError",\n' +
+      '    "code": 7403,\n' +
+      '    "accountTag": "bd3f350e10d09b1f90df64e92479e3ea"\n' +
+      '  }\n' +
+      '}\n',
+    ''
+  ],
+  pid: 36765,
+  stdout: '\n' +
+    '{\n' +
+    '  "error": {\n' +
+    '    "text": "A request to the Cloudflare API (/accounts/bd3f350e10d09b1f90df64e92479e3ea/d1/database/f97c77d4-3afc-4ec3-ae17-d91bee6015dc/query) failed.",\n' +
+    '    "notes": [\n' +
+    '      {\n' +
+    '        "text": "The given account is not valid or is not authorized to access this service [code: 7403]"\n' +
+    '      }\n' +
+    '    ],\n' +
+    '    "kind": "error",\n' +
+    '    "name": "APIError",\n' +
+    '    "code": 7403,\n' +
+    '    "accountTag": "bd3f350e10d09b1f90df64e92479e3ea"\n' +
+    '  }\n' +
+    '}\n',
+  stderr: ''
+}
+
+Node.js v25.5.0
+exit=1

@@ -2,43 +2,99 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ga.example/copilot/contracts/plan/v1/plan.schema.json",
   "title": "시나리오 플랜 v1",
-  "description": "설계서 §4.1(a)·부록 B.3. LLM 구조화 출력과 코드가 주입한 필수 케이스를 합친 플랜. 금액 필드는 없다 — 수수료·한도·분급 금액은 결정론 전개기(gen/world/expand)가 만든다. monthlyPremium은 계약 입력값(보험료)이다.",
+  "description": "설계서 §4.1(a)·부록 B.3. LLM 구조화 출력과 코드가 주입한 필수 케이스를 합친 플랜. 금액 필드는 없다 — 수수료·한도·분급 금액은 결정론 전개기(gen/world/expand)가 만든다. monthlyPremium은 계약 입력값(보험료)이다. forcedCase는 코드가 주입한 필수 케이스(§4.1(a)) 표식이며 LLM 출력에는 없다(plan-llm.schema.json).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["contracts"],
+  "required": [
+    "contracts"
+  ],
   "properties": {
     "contracts": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/contract" }
+      "items": {
+        "$ref": "#/$defs/contract"
+      }
     }
   },
   "$defs": {
     "contract": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["policyNo", "agentId", "productKey", "contractDate", "monthlyPremium", "lifecycle"],
+      "required": [
+        "policyNo",
+        "agentId",
+        "productKey",
+        "contractDate",
+        "monthlyPremium",
+        "lifecycle"
+      ],
       "properties": {
-        "policyNo": { "type": "string", "minLength": 1 },
-        "agentId": { "$ref": "https://ga.example/portal/contracts/events/v1/defs.schema.json#/$defs/agentId" },
-        "productKey": { "type": "string", "minLength": 1 },
-        "contractDate": { "$ref": "https://ga.example/portal/contracts/events/v1/defs.schema.json#/$defs/date" },
-        "monthlyPremium": { "type": "integer", "minimum": 1, "description": "정수 원" },
+        "policyNo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agentId": {
+          "$ref": "https://ga.example/portal/contracts/events/v1/defs.schema.json#/$defs/agentId"
+        },
+        "productKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contractDate": {
+          "$ref": "https://ga.example/portal/contracts/events/v1/defs.schema.json#/$defs/date"
+        },
+        "monthlyPremium": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "정수 원"
+        },
         "lifecycle": {
           "type": "array",
-          "items": { "$ref": "#/$defs/lifecycleEvent" }
+          "items": {
+            "$ref": "#/$defs/lifecycleEvent"
+          }
+        },
+        "forcedCase": {
+          "description": "필수 케이스 표식(gen/world/forced.ts). LLM 계약에는 없다.",
+          "enum": [
+            "A1",
+            "A2_CURVE",
+            "DEFERRAL_HELD",
+            "A3_REBASE",
+            "LIMIT_80",
+            "LIMIT_95",
+            "LIMIT_CUT",
+            "RECEIVABLE_CANCEL",
+            "RECEIVABLE_OFFSET",
+            "REVERSAL_PAIR",
+            "ADJUSTMENT",
+            "BOUNDARY_PRE_LIMIT"
+          ]
         }
       }
     },
     "lifecycleEvent": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ym", "event"],
+      "required": [
+        "ym",
+        "event"
+      ],
       "properties": {
-        "ym": { "$ref": "https://ga.example/portal/contracts/events/v1/defs.schema.json#/$defs/ym" },
+        "ym": {
+          "$ref": "https://ga.example/portal/contracts/events/v1/defs.schema.json#/$defs/ym"
+        },
         "event": {
           "description": "상위 계약 PolicyEventObserved.eventType과 같은 어휘",
-          "enum": ["CANCEL", "LAPSE", "WITHDRAW", "REDUCE", "REINSTATE", "PAYMENT_OVERDUE"]
+          "enum": [
+            "CANCEL",
+            "LAPSE",
+            "WITHDRAW",
+            "REDUCE",
+            "REINSTATE",
+            "PAYMENT_OVERDUE"
+          ]
         }
       }
     }

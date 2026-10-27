@@ -1,0 +1,6 @@
+$ pnpm run world:plan --stub
+plan: 425건(필수 12) source=vcr → gen/out/plan.json
+$ pnpm run world:expand
+stream: 9429건 sha256=7ec81608f3f9a97e403cecfbfee896b0182bc4b74e36082672aafed59d743037 → gen/out/stream.jsonl
+$ pnpm run world:expand  # 2회째(결정론)
+stream: 9429건 sha256=7ec81608f3f9a97e403cecfbfee896b0182bc4b74e36082672aafed59d743037 → gen/out/stream.jsonl

@@ -7,3 +7,4 @@ dist/
 !docs/evidence/logs/*.log
 projection-java/build/
 projection-java/.gradle/
+gen/out/
