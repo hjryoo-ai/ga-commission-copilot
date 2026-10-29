@@ -1,0 +1,42 @@
+# Phase 1 항목 4 — G2 리플레이 CLI (projection-java, 상위 ga-agent-portal@126d848 복사본)
+# 2026-10-30 08:27 KST  java: openjdk version "25.0.5" 2026-10-20 LTS
+
+$ (cd gen && pnpm run world:plan --stub && pnpm run world:expand)
+plan: 425건(필수 12) source=vcr → gen/out/plan.json
+stream: 9429건 sha256=7ec81608f3f9a97e403cecfbfee896b0182bc4b74e36082672aafed59d743037 → gen/out/stream.jsonl
+
+$ projection-java replay gen/out/stream.jsonl --views <tmp>/v1   # 별도 프로세스 1회차
+{"ok":true,"stream":"gen/out/stream.jsonl","streamSha256":"7ec81608f3f9a97e403cecfbfee896b0182bc4b74e36082672aafed59d743037","events":9429,"viewsSha256":"26048a555480d36c0d8cdadb6efd839072e60501f211d481a954aca6135c95e4","viewsSha256Second":"26048a555480d36c0d8cdadb6efd839072e60501f211d481a954aca6135c95e4","tables":{"agent_profile":30,"earnings_line":5192,"earnings_month":962,"policy_limit":181,"policy_limit_history":214,"deferral_item":207,"clawback_item":30,"policy_flag":181,"recon_result":0},"violationCount":0,"violations":[]}
+exit=0
+
+$ projection-java replay gen/out/stream.jsonl --views <tmp>/v2   # 별도 프로세스 2회차
+{"ok":true,"stream":"gen/out/stream.jsonl","streamSha256":"7ec81608f3f9a97e403cecfbfee896b0182bc4b74e36082672aafed59d743037","events":9429,"viewsSha256":"26048a555480d36c0d8cdadb6efd839072e60501f211d481a954aca6135c95e4","viewsSha256Second":"26048a555480d36c0d8cdadb6efd839072e60501f211d481a954aca6135c95e4","tables":{"agent_profile":30,"earnings_line":5192,"earnings_month":962,"policy_limit":181,"policy_limit_history":214,"deferral_item":207,"clawback_item":30,"policy_flag":181,"recon_result":0},"violationCount":0,"violations":[]}
+exit=0
+
+$ diff -r v1 v2 && 뷰 파일 sha256
+diff: 없음(바이트 동일)
+ddf461313c9413a02b80f6816426d25b0849051d23e2a8dbc160202fa396dc92  agent_profile.jsonl
+0a451619bb2f64aa1093422e74f80b1921344eb9727a473c31ba15c486a49dca  clawback_item.jsonl
+e14bc202266cd0a6290e42a57512e22492b9ff2654d8a57b0e683d49e05f9b6b  deferral_item.jsonl
+a77ee2472f0d4780b141f498061ef5dd1e4158350ccbd68c3570203cd44ab5d2  earnings_line.jsonl
+671a0d3b8ddd480803b462dfb65a7353e1a5f8945869f883ef92702d13ac38d7  earnings_month.jsonl
+6959231c9ff2dbfc89bb979ef2e175e3338cc672c4d325924d928c00de348aed  policy_flag.jsonl
+d8aefb7e7e1f7701f1efc3f4e1d49c27cb77f832d809f795cf6f1a3dfc3d0938  policy_limit_history.jsonl
+bb99833ce753714ab3b3c42b22a6c383dff5673e5003728436c7c56516747da4  policy_limit.jsonl
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  recon_result.jsonl
+
+# 변이 스트림(생성 스트림에서 한 줄만 바꿈) — 모두 exit 1이어야 한다
+#  m1-sum: A-1004 첫 StatementConfirmed.gross +1원 / m2-limit: POL-2026-0007(LIMIT_CUT) 첫 양수 전기를 한도+1로 / m3-closed: 지급 끝난 A-1001 202608에 라인 추가
+## mutation m1-sum
+exit=1
+ok False violationCount 1
+   SUM_MISMATCH seq 93 eventId 01987975-7e80-7dbf-b78b-62343487d4b2 StatementConfirmed A-1004 202507
+## mutation m2-limit
+exit=1
+ok False violationCount 2
+   OVER_LIMIT seq 2077 eventId 01a1a3da-fc00-746e-814f-3c81b73b0b9f accumAfter (LimitLedgerPosted)
+   STATE_MISMATCH seq 2078 eventId 01a1a3da-fc00-7989-9d29-a2ae832a3be5 postingSeq (LimitLedgerPosted)
+## mutation m3-closed
+exit=1
+ok False violationCount 1
+   CLOSED_MONTH seq 9430 eventId 5eed0000-0000-7000-8000-000000000c04 month (CommissionCalculated)

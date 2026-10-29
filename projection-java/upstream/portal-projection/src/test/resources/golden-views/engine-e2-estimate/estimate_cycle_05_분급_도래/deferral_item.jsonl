@@ -1,0 +1,3 @@
+{"agent_id":"A-1001","amount":378000,"curve_version_id":"1","due_ym":"202801","last_seq":9,"pay_condition":"POLICY_INFORCE","policy_no":"POL-2027-0001","reason":"CURVE","schedule_id":"1","source_calc_id":"1","status":"RELEASED","status_reason":"DUE_RELEASED"}
+{"agent_id":"A-1001","amount":378000,"curve_version_id":"1","due_ym":"202901","last_seq":5,"pay_condition":"POLICY_INFORCE","policy_no":"POL-2027-0001","reason":"CURVE","schedule_id":"2","source_calc_id":"1","status":"SCHEDULED","status_reason":null}
+{"agent_id":"A-1001","amount":378000,"curve_version_id":"1","due_ym":"203001","last_seq":6,"pay_condition":"POLICY_INFORCE","policy_no":"POL-2027-0001","reason":"CURVE","schedule_id":"3","source_calc_id":"1","status":"SCHEDULED","status_reason":null}

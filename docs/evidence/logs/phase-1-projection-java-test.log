@@ -1,0 +1,20 @@
+> Task :compileJava
+> Task :processResources NO-SOURCE
+> Task :classes
+> Task :compileTestJava
+> Task :processTestResources NO-SOURCE
+> Task :testClasses
+> Task :upstreamRoot
+> Task :test
+
+BUILD SUCCESSFUL in 3s
+4 actionable tasks: 4 executed
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.0/userguide/configuration_cache_enabling.html
+com.ga.copilot.replay.ReplayTest tests 15 failures 0
+com.ga.copilot.replay.UpstreamPinTest tests 1 failures 0
+com.ga.portal.projection.FlagProjectorTest tests 10 failures 0
+com.ga.portal.projection.GoldenStreamsTest tests 8 failures 0
+com.ga.portal.projection.ProjectionGoldenTest tests 10 failures 0
+com.ga.portal.projection.ProjectionInvariantTest tests 15 failures 0
+com.ga.portal.projection.ProjectionScopeTest tests 1 failures 0
+com.ga.portal.projection.RecordingProjectorTest tests 1 failures 0

@@ -1,0 +1,3 @@
+{"accum_after":1890000,"amount":1890000,"calc_id":"1","kind":"POST","ledger_id":"1","limit_after":3600000,"occurred_at":"2026-09-05T09:00:00Z","posting_seq":1,"reason":null,"source_seq":3}
+{"accum_after":1890000,"amount":1890000,"calc_id":"6","kind":"POST","ledger_id":"2","limit_after":3600000,"occurred_at":"2026-09-05T09:00:00Z","posting_seq":1,"reason":null,"source_seq":14}
+{"accum_after":567000,"amount":-1323000,"calc_id":"5","kind":"POST","ledger_id":"1","limit_after":3600000,"occurred_at":"2026-09-05T09:00:00Z","posting_seq":2,"reason":null,"source_seq":8}

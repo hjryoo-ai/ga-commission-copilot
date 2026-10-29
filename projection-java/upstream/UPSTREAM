@@ -1,0 +1,17 @@
+# projection-java/upstream — 상위 저장소 복사본(설계서 §14.1-8 "복사 + 해시 고정", PHASES Phase 1 항목 4)
+# 파일은 고치지 않는다. 바꿀 때는 다시 복사하고 CHECKSUMS를 새로 만든다(UpstreamPinTest가 대조).
+# contracts/events/UPSTREAM과 같은 커밋이다.
+
+hjryoo-ai/ga-agent-portal@126d848aa13cf3576ec989b84a4e6a3ac07e2ecf
+  portal-domain/src/main/java/**
+  portal-projection/src/main/java/**
+  portal-projection/src/testFixtures/java/**
+  portal-projection/src/test/resources/golden-streams/**, golden-views/**
+  portal-projection/src/test/java/com/ga/portal/projection/{FlagProjectorTest,GoldenStreamsTest,ProjectionGoldenTest,ProjectionInvariantTest,ProjectionScopeTest,RecordingProjectorTest}.java
+  (빼 둔 시험: contracts/·notify/ — json-schema-validator·snakeyaml·platform-core 시험 픽스처·web/e2e가 필요하다. 계약 스키마 검사는 gen의 G1이 맡는다)
+
+hjryoo-ai/ga-disclosure@db82d5d4ca35de2e16ac1d6238fef5d39ae304a2 (태그 platform-v0.2.0, com.ga.platform:platform-core:0.2.0)
+  platform-core/src/main/java/com/ga/platform/core/tenant/{TenantId,AgentId}.java
+  출처: platform-core-0.2.0-sources.jar sha256 d7a9ad154272bfb4a7eaac040c3a6b2b7b88cc4a0e9d2091d4945f9c9a152b79
+        (상위 gradle/verification-metadata.xml의 값과 같다). portal-domain·portal-projection이 쓰는 platform-core 클래스는 이 둘뿐이다.
+        GitHub Packages(PAT 필요) 의존 대신 복사한다 — 시크릿 없이 CI에서 빌드되게.
