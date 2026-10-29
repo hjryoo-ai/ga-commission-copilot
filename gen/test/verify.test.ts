@@ -73,8 +73,8 @@ describe("G2: 종료 코드를 먼저 본다", () => {
   });
 });
 
-describe("G3: 상위 부록 B 8종 + A-1 payload 동등, 항목별 PASS/FAIL", () => {
-  it("항목 9개, id 고정 순서", () => {
+describe("G3: 상위 부록 B 8종(경계 넷은 4항목) + A-1 payload 동등, 항목별 PASS/FAIL", () => {
+  it("항목 12개, id 고정 순서", () => {
     expect(requiredCases(events).map((c) => c.id)).toEqual([
       "LIMIT_80_95_100",
       "CUT_AND_DEFER",
@@ -83,14 +83,16 @@ describe("G3: 상위 부록 B 8종 + A-1 payload 동등, 항목별 PASS/FAIL", (
       "RECEIVABLE_CARRIED",
       "REVERSAL_PAIR",
       "ADJUSTMENT_AFTER_CLOSE",
-      "BOUNDARY_4",
+      "BOUNDARY_LIMIT_BEFORE",
+      "BOUNDARY_LIMIT_AFTER",
+      "BOUNDARY_DEFERRAL_BEFORE",
+      "BOUNDARY_DEFERRAL_AFTER",
       "A1_GOLDEN",
     ]);
   });
 
-  it("경계 넷을 뺀 8항목은 생성 스트림에서 PASS", () => {
-    const cases = requiredCases(events).filter((c) => c.id !== "BOUNDARY_4");
-    expect(cases.filter((c) => c.status !== "PASS")).toEqual([]);
+  it("생성 스트림에서 12항목 전부 PASS(경계 넷 각각 포함)", () => {
+    expect(requiredCases(events).filter((c) => c.status !== "PASS")).toEqual([]);
   });
 
   it("각 항목은 근거 이벤트를 지우면 FAIL", () => {
@@ -108,13 +110,16 @@ describe("G3: 상위 부록 B 8종 + A-1 payload 동등, 항목별 PASS/FAIL", (
     expect(caseOf(changed, "A1_GOLDEN").status).toBe("FAIL");
   });
 
-  it("경계 넷: 날짜마다 '체결 계약이 있고 규칙이 그 날짜에서 갈린다'를 따로 본다", () => {
-    const detail = caseOf(events, "BOUNDARY_4").detail;
-    for (const d of ["2026-06-30 원장 없음", "2026-07-01 원장 있음", "2026-12-31 커브 분급 없음", "2027-01-01 커브 분급 있음"]) expect(detail).toContain(d);
-    // 2026-07-01 체결 계약의 원장을 지우면 그 경계가 깨진다
-    const julyFirst = new Set(events.filter((e) => e.type === "LimitLedgerOpened" && p(e).contractDate === "2026-07-01").map((e) => p(e).ledgerId));
-    expect(julyFirst.size).toBeGreaterThan(0);
-    expect(caseOf(without((e) => e.type === "LimitLedgerOpened" && julyFirst.has(p(e).ledgerId)), "BOUNDARY_4").detail).toMatch(/2026-07-01 원장 있음: 0\//);
+  it("경계 넷: 날짜마다 따로 판정 — 그 날 체결 계약이 없거나 규칙이 그 날짜에서 갈리지 않으면 그 항목만 FAIL", () => {
+    // 2026-07-01 체결 계약 하나의 원장을 지운다 → 한도 적용 경계만 깨진다
+    const one = events.find((e) => e.type === "LimitLedgerOpened" && p(e).contractDate === "2026-07-01")!;
+    const broken = requiredCases(without((e) => e.type === "LimitLedgerOpened" && p(e).ledgerId === p(one).ledgerId));
+    expect(broken.filter((c) => c.status === "FAIL").map((c) => c.id)).toEqual(["BOUNDARY_LIMIT_AFTER"]);
+    // 2027-01-01 체결 계약을 통째로 지운다 → 분급 적용 경계만 깨진다
+    const jan1 = new Set(events.filter((e) => e.type === "CommissionCalculated" && p(e).policySummary?.contractDate === "2027-01-01").map((e) => p(e).policyNo));
+    expect(jan1.size).toBeGreaterThan(0);
+    const gone = requiredCases(without((e) => jan1.has(p(e).policyNo)));
+    expect(gone.find((c) => c.id === "BOUNDARY_DEFERRAL_AFTER")).toMatchObject({ status: "FAIL", detail: expect.stringMatching(/^2027-01-01 체결 0건/) });
   });
 });
 
@@ -153,6 +158,6 @@ describe("verify: 앞 게이트가 실패하면 뒤는 SKIPPED", () => {
       plan: { prompt: "plan/v1", repairPrompt: "plan_repair/v1", source: "vcr", liveCalls: 0 },
       replay: { viewsSha256: goodSummary.viewsSha256 },
     });
-    expect(meta.requiredCases).toHaveLength(9);
+    expect(meta.requiredCases).toHaveLength(12);
   });
 });

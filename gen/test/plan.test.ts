@@ -4,7 +4,7 @@ import { fixtureChunk } from "../scripts/make-plan-fixture.ts";
 import { fixturePath } from "../providers/cassette.ts";
 import { loadPrompt, render } from "../providers/prompt.ts";
 import { AGENTS } from "../world/agents.ts";
-import { A1_RESERVED, FORCED } from "../world/forced.ts";
+import { A1_RESERVED, applyBoundaries, BOUNDARIES, FORCED, FORCED_CASE_COUNT } from "../world/forced.ts";
 import { agentRequest, buildPlan, chunkProblems, planProblems } from "../world/plan.ts";
 import { PRODUCTS } from "../world/rules/tables.ts";
 import { schemaJson } from "../world/schemas.ts";
@@ -21,6 +21,33 @@ describe("world:plan --stub", () => {
     expect(FORCED).toHaveLength(12);
     for (const f of FORCED) expect(plan.contracts).toContainEqual(f);
     expect(new Set(FORCED.map((f) => f.forcedCase)).size).toBe(12);
+  });
+
+  it("경계 4건: 그 날짜 LLM 계약이 있으면 태깅(중복 주입 없음), 없으면 주입 — 강제 케이스 16건", () => {
+    expect(FORCED_CASE_COUNT).toBe(16);
+    expect(plan.contracts.filter((c) => c.forcedCase)).toHaveLength(16);
+    for (const b of BOUNDARIES) {
+      const tagged = plan.contracts.filter((c) => c.forcedCase === b.forcedCase);
+      expect(tagged).toHaveLength(1);
+      expect(tagged[0]!.contractDate).toBe(b.date);
+      const others = plan.contracts.filter((c) => c.contractDate === b.date && c.policyNo !== b.inject.policyNo && !FORCED.some((f) => f.policyNo === c.policyNo));
+      // 주입은 그 날짜 다른 계약이 없을 때만
+      if (tagged[0]!.policyNo === b.inject.policyNo) expect(others.filter((c) => c.forcedCase !== b.forcedCase)).toEqual([]);
+      else expect(plan.contracts.some((c) => c.policyNo === b.inject.policyNo)).toBe(false);
+    }
+    expect(BOUNDARIES.map((b) => b.date)).toEqual(["2026-06-30", "2026-07-01", "2026-12-31", "2027-01-01"]);
+  });
+
+  it("경계 적용은 멱등·결정론: 태깅된 플랜에 다시 적용해도 그대로, 태그를 지우고 다시 적용하면 같은 결과", () => {
+    expect(applyBoundaries(plan.contracts)).toEqual(plan.contracts);
+    const isBoundary = (c: { forcedCase?: string }) => BOUNDARIES.some((b) => b.forcedCase === c.forcedCase);
+    const stripped = plan.contracts
+      .filter((c) => !BOUNDARIES.some((b) => b.inject.policyNo === c.policyNo))
+      .map((c) => (isBoundary(c) ? { ...c, forcedCase: undefined } : c))
+      .map(({ forcedCase, ...rest }) => (forcedCase ? { ...rest, forcedCase } : rest));
+    const again = applyBoundaries(stripped);
+    const key = (cs: readonly { policyNo: string; forcedCase?: string }[]) => cs.map((c) => `${c.policyNo}:${c.forcedCase ?? ""}`).sort();
+    expect(key(again)).toEqual(key(plan.contracts));
   });
 
   it("설계사 30명, 계약 약 400건(부록 B), 설계사별 비강제 계약 8~20건", () => {

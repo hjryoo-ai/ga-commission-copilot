@@ -10,7 +10,7 @@ import { canonicalHash, openStub, replay, type StubSource, type VcrEntry, vcrPat
 import { type ChatMessage, groqStructured, ProviderError, requestBody, type StructuredRequest } from "../providers/groq.ts";
 import { loadPrompt, render } from "../providers/prompt.ts";
 import { AGENT_CONSTRAINTS, AGENTS, type Agent } from "./agents.ts";
-import { FORCED } from "./forced.ts";
+import { applyBoundaries, BOUNDARIES, FORCED, FORCED_CASE_COUNT } from "./forced.ts";
 import { contractProblems } from "./plan-check.ts";
 import type { LlmPlanChunk, Plan, PlanContract } from "./plan-types.ts";
 import { CONTRACT_FROM, CONTRACT_TO, HORIZON_YM, PRODUCTS } from "./rules/tables.ts";
@@ -83,7 +83,7 @@ export function assemble(chunks: ReadonlyMap<string, LlmPlanChunk>): Plan {
     if (!c) throw new Error(`${a.agentId}: LLM 플랜 없음`);
     return assignPolicyNos(a, c);
   });
-  const contracts = [...FORCED, ...llm].sort(
+  const contracts = applyBoundaries([...FORCED, ...llm]).sort(
     (x, y) => x.agentId.localeCompare(y.agentId) || x.contractDate.localeCompare(y.contractDate) || x.policyNo.localeCompare(y.policyNo),
   );
   const plan: Plan = { contracts };
@@ -192,9 +192,22 @@ async function main(): Promise<void> {
   const { plan, source, calls } = await buildPlan(mode);
   mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(join(OUT_DIR, "plan.json"), `${JSON.stringify(plan, null, 2)}\n`);
-  const meta = { prompt: `${PROMPT.name}/${PROMPT.version}`, repairPrompt: `${REPAIR_PROMPT.name}/${REPAIR_PROMPT.version}`, mode, source, liveCalls: calls, contracts: plan.contracts.length, forced: FORCED.length };
+  const boundaries = BOUNDARIES.map((b) => {
+    const c = plan.contracts.find((x) => x.forcedCase === b.forcedCase)!;
+    return { forcedCase: b.forcedCase, date: b.date, policyNo: c.policyNo, how: c.policyNo === b.inject.policyNo ? "injected" : "tagged" };
+  });
+  const meta = {
+    prompt: `${PROMPT.name}/${PROMPT.version}`,
+    repairPrompt: `${REPAIR_PROMPT.name}/${REPAIR_PROMPT.version}`,
+    mode,
+    source,
+    liveCalls: calls,
+    contracts: plan.contracts.length,
+    forced: FORCED_CASE_COUNT,
+    boundaries,
+  };
   writeFileSync(join(OUT_DIR, "plan.meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
-  console.log(`plan: ${plan.contracts.length}건(필수 ${FORCED.length}) source=${source} → gen/out/plan.json`);
+  console.log(`plan: ${plan.contracts.length}건(강제 ${FORCED_CASE_COUNT} — 경계 ${boundaries.map((b) => `${b.date} ${b.how}`).join(", ")}) source=${source} → gen/out/plan.json`);
 }
 
 if (import.meta.main) await main();

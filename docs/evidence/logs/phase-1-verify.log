@@ -1,0 +1,130 @@
+# Phase 1 항목 5 — verify 2회차(경계 4건 적용 뒤) (2026-10-30 08:44 KST)
+$ pnpm run world:plan --stub && pnpm run world:expand && pnpm run verify
+plan: 426건(강제 16 — 경계 2026-06-30 tagged, 2026-07-01 tagged, 2026-12-31 tagged, 2027-01-01 injected) source=vcr → gen/out/plan.json
+stream: 9439건 sha256=e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f → gen/out/stream.jsonl
+stream e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f (9439건)
+G1 스키마      PASS  invalid 0/9439
+G2 리플레이    PASS  exit 0  views afb2bb9271e698943193c8ca38098aed1baf5bacd68daee322c1f92d9e3b1b1e (2회차 동일)
+G3 필수 케이스 PASS
+  PASS  LIMIT_80_95_100        80%대 2(l-POL-2026-10009) · 95%대 1(l-POL-2026-0006) · 100% 2(1)
+  PASS  CUT_AND_DEFER          CUT 1(첫 seq 2076) · DEFER_AFTER_FY 1(첫 seq 1308)
+  PASS  REBASE                 LimitLedgerRebased 13(첫 seq 3041 l-POL-2026-03013)
+  PASS  DEFERRAL_HELD          HELD 5(첫 seq 6734 s-POL-2027-0003-1)
+  PASS  RECEIVABLE_CARRIED     OPEN 30(첫 seq 190) · 그중 뒤에 상계·종결 30
+  PASS  REVERSAL_PAIR          짝 1(첫 seq 1922 c-POL-2026-0010-2→c-POL-2026-0010-1)
+  PASS  ADJUSTMENT_AFTER_CLOSE 1(첫 seq 2766 a-POL-2026-0011-1 → c-POL-2026-0011-1)
+  PASS  BOUNDARY_LIMIT_BEFORE  2026-06-30 체결 19건 중 한도 미적용(원장 없음) 19건(POL-2026-01004)
+  PASS  BOUNDARY_LIMIT_AFTER   2026-07-01 체결 5건 중 한도 적용(원장 있음) 5건(POL-2026-06013)
+  PASS  BOUNDARY_DEFERRAL_BEFORE 2026-12-31 체결 9건 중 분급 미적용(커브 스케줄 없음) 9건(POL-2026-03016)
+  PASS  BOUNDARY_DEFERRAL_AFTER 2027-01-01 체결 1건 중 분급 적용(커브 스케줄 있음) 1건(POL-2027-0016)
+  PASS  A1_GOLDEN              11건 동등·순서 일치
+verify: PASS
+→ data/stream/e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f.jsonl + .meta.json
+exit=0
+
+$ ls -l data/stream && cat data/stream/*.meta.json
+total 10376
+-rw-r--r--  1 hjr  staff  5176856 Oct 30 08:44 e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f.jsonl
+-rw-r--r--  1 hjr  staff     2696 Oct 30 08:44 e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f.meta.json
+{
+  "streamSha256": "e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f",
+  "generatedAt": "2026-10-29T23:44:23.770Z",
+  "eventCount": 9439,
+  "plan": {
+    "prompt": "plan/v1",
+    "repairPrompt": "plan_repair/v1",
+    "source": "vcr",
+    "mode": "stub",
+    "liveCalls": 0,
+    "sha256": "5d7b457012d58b41806316aa79e77f7975dd08692c487887a9dc20edadfa0b23"
+  },
+  "replay": {
+    "projection": "ga-agent-portal@126d848",
+    "viewsSha256": "afb2bb9271e698943193c8ca38098aed1baf5bacd68daee322c1f92d9e3b1b1e",
+    "tables": {
+      "agent_profile": 30,
+      "earnings_line": 5200,
+      "earnings_month": 962,
+      "policy_limit": 182,
+      "policy_limit_history": 215,
+      "deferral_item": 210,
+      "clawback_item": 30,
+      "policy_flag": 181,
+      "recon_result": 0
+    }
+  },
+  "gates": {
+    "G1": "PASS",
+    "G2": "PASS",
+    "G3": "PASS"
+  },
+  "requiredCases": [
+    {
+      "id": "LIMIT_80_95_100",
+      "status": "PASS",
+      "detail": "80%대 2(l-POL-2026-10009) · 95%대 1(l-POL-2026-0006) · 100% 2(1)"
+    },
+    {
+      "id": "CUT_AND_DEFER",
+      "status": "PASS",
+      "detail": "CUT 1(첫 seq 2076) · DEFER_AFTER_FY 1(첫 seq 1308)"
+    },
+    {
+      "id": "REBASE",
+      "status": "PASS",
+      "detail": "LimitLedgerRebased 13(첫 seq 3041 l-POL-2026-03013)"
+    },
+    {
+      "id": "DEFERRAL_HELD",
+      "status": "PASS",
+      "detail": "HELD 5(첫 seq 6734 s-POL-2027-0003-1)"
+    },
+    {
+      "id": "RECEIVABLE_CARRIED",
+      "status": "PASS",
+      "detail": "OPEN 30(첫 seq 190) · 그중 뒤에 상계·종결 30"
+    },
+    {
+      "id": "REVERSAL_PAIR",
+      "status": "PASS",
+      "detail": "짝 1(첫 seq 1922 c-POL-2026-0010-2→c-POL-2026-0010-1)"
+    },
+    {
+      "id": "ADJUSTMENT_AFTER_CLOSE",
+      "status": "PASS",
+      "detail": "1(첫 seq 2766 a-POL-2026-0011-1 → c-POL-2026-0011-1)"
+    },
+    {
+      "id": "BOUNDARY_LIMIT_BEFORE",
+      "status": "PASS",
+      "detail": "2026-06-30 체결 19건 중 한도 미적용(원장 없음) 19건(POL-2026-01004)"
+    },
+    {
+      "id": "BOUNDARY_LIMIT_AFTER",
+      "status": "PASS",
+      "detail": "2026-07-01 체결 5건 중 한도 적용(원장 있음) 5건(POL-2026-06013)"
+    },
+    {
+      "id": "BOUNDARY_DEFERRAL_BEFORE",
+      "status": "PASS",
+      "detail": "2026-12-31 체결 9건 중 분급 미적용(커브 스케줄 없음) 9건(POL-2026-03016)"
+    },
+    {
+      "id": "BOUNDARY_DEFERRAL_AFTER",
+      "status": "PASS",
+      "detail": "2027-01-01 체결 1건 중 분급 적용(커브 스케줄 있음) 1건(POL-2027-0016)"
+    },
+    {
+      "id": "A1_GOLDEN",
+      "status": "PASS",
+      "detail": "11건 동등·순서 일치"
+    }
+  ]
+}
+
+# 재실행(별도 프로세스) — 같은 스트림 해시·뷰 해시여야 한다
+stream: 9439건 sha256=e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f → gen/out/stream.jsonl
+G2 리플레이    PASS  exit 0  views afb2bb9271e698943193c8ca38098aed1baf5bacd68daee322c1f92d9e3b1b1e (2회차 동일)
+verify: PASS
+→ data/stream/e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f.jsonl + .meta.json
+e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f  data/stream/e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f.jsonl

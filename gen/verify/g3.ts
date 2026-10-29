@@ -1,4 +1,4 @@
-// G3 필수 케이스(설계서 §4.2, 상위 설계서 v1.9 부록 B "반드시 포함할 케이스" 8종 + 설계서 §4.1(a) A-1 payload 동등).
+// G3 필수 케이스(설계서 v0.1.6 §4.2, 상위 설계서 v1.9 부록 B "반드시 포함할 케이스" 8종 — 경계 넷은 날짜별 4항목 — + §4.1(a) A-1 payload 동등).
 // 스트림만 본다(플랜을 믿지 않는다). 항목마다 PASS/FAIL과 근거(seq·키)를 남긴다. 금액은 계산하지 않는다 — 소진율만(누적 ÷ 한도, 정수 %).
 import type { Envelope } from "../world/expand.ts";
 import { a1GoldenProblems } from "../world/golden.ts";
@@ -117,8 +117,8 @@ function adjustmentAfterClose(events: readonly Envelope[]): CaseResult {
   );
 }
 
-/** 경계 넷: 한도 시행일·분급 시행일 전날과 당일에 체결된 계약이 각각 있고, 규칙이 그 날짜에서 갈린다. */
-function boundaries(events: readonly Envelope[]): CaseResult {
+/** 경계 넷(항목 넷): 시행일 전날·당일에 체결된 계약이 있고, 규칙이 그 날짜에서 갈린다(체결 FY 라인의 policySummary.contractDate 기준). */
+function boundaries(events: readonly Envelope[]): CaseResult[] {
   const fyByDate = new Map<string, string[]>();
   for (const e of events) {
     if (e.type === "CommissionCalculated" && p(e).commType === "FY_COMM" && !p(e).reversalOfCalcId) {
@@ -128,18 +128,17 @@ function boundaries(events: readonly Envelope[]): CaseResult {
   }
   const ledger = new Set(events.filter((e) => e.type === "LimitLedgerOpened").map((e) => p(e).policyNo));
   const curve = new Set(events.filter((e) => e.type === "DeferralScheduled" && p(e).reason === "CURVE").map((e) => p(e).policyNo));
-  const checks: [string, string, (policyNo: string) => boolean][] = [
-    [addDays(LIMIT_FROM, -1), "원장 없음", (n) => !ledger.has(n)],
-    [LIMIT_FROM, "원장 있음", (n) => ledger.has(n)],
-    [addDays(CURVE_FROM, -1), "커브 분급 없음", (n) => !curve.has(n)],
-    [CURVE_FROM, "커브 분급 있음", (n) => curve.has(n)],
+  const checks: [string, string, string, (policyNo: string) => boolean][] = [
+    ["BOUNDARY_LIMIT_BEFORE", addDays(LIMIT_FROM, -1), "한도 미적용(원장 없음)", (n) => !ledger.has(n)],
+    ["BOUNDARY_LIMIT_AFTER", LIMIT_FROM, "한도 적용(원장 있음)", (n) => ledger.has(n)],
+    ["BOUNDARY_DEFERRAL_BEFORE", addDays(CURVE_FROM, -1), "분급 미적용(커브 스케줄 없음)", (n) => !curve.has(n)],
+    ["BOUNDARY_DEFERRAL_AFTER", CURVE_FROM, "분급 적용(커브 스케줄 있음)", (n) => curve.has(n)],
   ];
-  const parts = checks.map(([date, rule, holds]) => {
+  return checks.map(([id, date, rule, holds]) => {
     const policies = fyByDate.get(date) ?? [];
     const good = policies.filter(holds);
-    return { ok: good.length > 0, text: `${date} ${rule}: ${good.length}/${policies.length}건${good[0] ? `(${good[0]})` : ""}` };
+    return result(id, `경계 — ${date} 체결 계약이 ${rule}`, good.length > 0 && good.length === policies.length, `${date} 체결 ${policies.length}건 중 ${rule} ${good.length}건${good[0] ? `(${good[0]})` : ""}`);
   });
-  return result("BOUNDARY_4", "경계 넷 — 2026-06-30/07-01(한도 미적용/적용), 2026-12-31/2027-01-01(분급 미적용/적용) 체결 계약", parts.every((x) => x.ok), parts.map((x) => x.text).join(" · "));
 }
 
 function a1Golden(events: readonly Envelope[]): CaseResult {
@@ -156,7 +155,7 @@ export function requiredCases(events: readonly Envelope[]): CaseResult[] {
     receivableCarried(events),
     reversalPair(events),
     adjustmentAfterClose(events),
-    boundaries(events),
+    ...boundaries(events),
     a1Golden(events),
   ];
 }

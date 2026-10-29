@@ -12,15 +12,15 @@ evals test: Done
 web test:  RUN  v4.1.12 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/web
 web test:  Test Files  1 passed (1)
 web test:       Tests  2 passed (2)
-web test:    Start at  21:46:49
-web test:    Duration  147ms (transform 17ms, setup 0ms, import 40ms, tests 2ms, environment 0ms)
+web test:    Start at  08:44:37
+web test:    Duration  166ms (transform 18ms, setup 0ms, import 44ms, tests 2ms, environment 0ms)
 web test: Done
-gen test:  Test Files  3 passed (3)
-gen test:       Tests  91 passed (91)
-gen test:    Start at  21:46:49
-gen test:    Duration  448ms (transform 103ms, setup 0ms, import 339ms, tests 345ms, environment 0ms)
+gen test:  Test Files  4 passed (4)
+gen test:       Tests  107 passed (107)
+gen test:    Start at  08:44:37
+gen test:    Duration  565ms (transform 134ms, setup 0ms, import 532ms, tests 633ms, environment 0ms)
 gen test: Done
-worker test: (node:54765) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+worker test: (node:88552) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 worker test: (Use `node --trace-deprecation ...` to show where the warning was created)
 worker test:  RUN  v4.1.12 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/worker
 worker test: Using secrets defined in .dev.vars
@@ -34,7 +34,7 @@ worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mAI bindings alwa
 worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mVectorize Index bindings do not support local development, and so parts of your Worker may not work correctly. You can set `remote: true` for the binding definition in your configuration file to access a remote version of the resource.[0m
 worker test:  Test Files  3 passed (3)
 worker test:       Tests  22 passed (22)
-worker test:    Start at  21:46:50
-worker test:    Duration  642ms (transform 163ms, setup 318ms, import 43ms, tests 21ms, environment 0ms)
+worker test:    Start at  08:44:37
+worker test:    Duration  726ms (transform 202ms, setup 374ms, import 48ms, tests 20ms, environment 0ms)
 worker test: Done
 exit=0
