@@ -5,6 +5,7 @@
 공통 머리말(모든 블록 앞에 붙는 것으로 간주):
 
 > `CLAUDE.md`의 절대 규약 10개를 먼저 읽는다. 정본은 `docs/GA수수료설명코파일럿_설계서.md`다. 아래 지시 범위 밖의 파일은 만들지 않는다. 완료 기준을 테스트로 증명하고 `docs/evidence/phase-N.md`에 명령·출력을 남긴다. 미결정 사항(§14.1)을 만나면 `docs/DECISIONS.md`에 선택지를 적고 멈춘다.
+> 이 문서의 수치(금액·건수·seq)가 설계서와 다르면 설계서 부록 A가 정본이다.
 
 ---
 
@@ -38,7 +39,7 @@
 5. gen/verify/index.ts: G1 → G2(projection-java 호출) → G3(필수 케이스 존재) 순서. 통과 시 data/stream/<sha256>.jsonl 저장 + data/stream/<hash>.meta.json.
 6. gen/load/d1.ts: 스트림을 D1 적재용 SQL로 변환(배치 INSERT, 트랜잭션), stream_meta.active 전환. `wrangler d1 execute --file`로 적용.
 
-골든: 부록 A 데이터 전제(설계사 A, 2026-08-01 체결, 월납 300,000, 한도 3,600,000 …)가 스트림에 그대로 존재해야 한다(테스트가 seq 1~13 패턴을 찾는다).
+골든: 부록 A 데이터 전제(설계사 A-1001, 2026-08-01 체결, POL-2026-0001, 월납 150,000, 한도 1,800,000 …)가 스트림에 그대로 존재해야 한다(테스트가 A-1 정본 11건(seq 1~11)을 payload 필드 단위로 대조한다 — 설계서 v0.1.5 §4.1(a)).
 
 완료 기준: `pnpm run world:plan --stub && pnpm run world:expand && pnpm run verify` 통과, 리플레이 2회 뷰 바이트 동일, D1 적재 후 `SELECT COUNT(*) FROM earnings_line` > 5000, 필수 케이스 12건 테스트 통과.
 ```
