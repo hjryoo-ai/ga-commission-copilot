@@ -5,6 +5,7 @@
   "scripts": {
     "world:plan": "node world/plan.ts",
     "world:expand": "node world/expand.ts",
+    "verify": "node verify/index.ts",
     "fixture:plan": "node scripts/make-plan-fixture.ts",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run"

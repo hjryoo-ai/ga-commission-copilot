@@ -192,7 +192,7 @@ async function main(): Promise<void> {
   const { plan, source, calls } = await buildPlan(mode);
   mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(join(OUT_DIR, "plan.json"), `${JSON.stringify(plan, null, 2)}\n`);
-  const meta = { prompt: `${PROMPT.name}/${PROMPT.version}`, mode, source, liveCalls: calls, contracts: plan.contracts.length, forced: FORCED.length };
+  const meta = { prompt: `${PROMPT.name}/${PROMPT.version}`, repairPrompt: `${REPAIR_PROMPT.name}/${REPAIR_PROMPT.version}`, mode, source, liveCalls: calls, contracts: plan.contracts.length, forced: FORCED.length };
   writeFileSync(join(OUT_DIR, "plan.meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
   console.log(`plan: ${plan.contracts.length}건(필수 ${FORCED.length}) source=${source} → gen/out/plan.json`);
 }

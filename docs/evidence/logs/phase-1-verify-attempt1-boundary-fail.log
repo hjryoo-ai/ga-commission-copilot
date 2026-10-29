@@ -1,0 +1,22 @@
+# Phase 1 항목 5 — verify 1회차 (2026-10-30 08:36 KST)
+$ pnpm run world:plan --stub && pnpm run world:expand && pnpm run verify
+plan: 425건(필수 12) source=vcr → gen/out/plan.json
+stream: 9429건 sha256=7ec81608f3f9a97e403cecfbfee896b0182bc4b74e36082672aafed59d743037 → gen/out/stream.jsonl
+stream 7ec81608f3f9a97e403cecfbfee896b0182bc4b74e36082672aafed59d743037 (9429건)
+G1 스키마      PASS  invalid 0/9429
+G2 리플레이    PASS  exit 0  views 26048a555480d36c0d8cdadb6efd839072e60501f211d481a954aca6135c95e4 (2회차 동일)
+G3 필수 케이스 FAIL
+  PASS  LIMIT_80_95_100        80%대 2(l-POL-2026-10009) · 95%대 1(l-POL-2026-0006) · 100% 2(1)
+  PASS  CUT_AND_DEFER          CUT 1(첫 seq 2076) · DEFER_AFTER_FY 1(첫 seq 1308)
+  PASS  REBASE                 LimitLedgerRebased 13(첫 seq 3034 l-POL-2026-03013)
+  PASS  DEFERRAL_HELD          HELD 5(첫 seq 6727 s-POL-2027-0003-1)
+  PASS  RECEIVABLE_CARRIED     OPEN 30(첫 seq 190) · 그중 뒤에 상계·종결 30
+  PASS  REVERSAL_PAIR          짝 1(첫 seq 1922 c-POL-2026-0010-2→c-POL-2026-0010-1)
+  PASS  ADJUSTMENT_AFTER_CLOSE 1(첫 seq 2759 a-POL-2026-0011-1 → c-POL-2026-0011-1)
+  FAIL  BOUNDARY_4             2026-06-30 원장 없음: 19/19건(POL-2026-01004) · 2026-07-01 원장 있음: 5/5건(POL-2026-06013) · 2026-12-31 커브 분급 없음: 9/9건(POL-2026-03016) · 2027-01-01 커브 분급 있음: 0/0건
+  PASS  A1_GOLDEN              11건 동등·순서 일치
+verify: FAIL
+exit=1
+
+$ ls data/stream
+ls: ../data/stream: No such file or directory
