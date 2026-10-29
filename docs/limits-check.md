@@ -101,17 +101,17 @@
 | # | 항목 | 처리 |
 |---|---|---|
 | 1 | §7 한도 초과 응답 1027 vs 429 | v0.1.3 반영됨(양쪽 처리) |
-| 2 | 정적 자산 출처·`run_worker_first`·Workers Caching | 원문 인용 아래 — Phase 1 종료 시 설계서에 합침 |
-| 3 | 내부 서비스 서브리퀘스트 1,000 | 원문 인용 아래 — Phase 1 종료 시 합침 |
-| 4 | Vectorize Free 인덱스 100·저장분 차원 | 원문 인용 아래 — Phase 1 종료 시 합침 |
+| 2 | 정적 자산 출처·`run_worker_first`·Workers Caching | v0.1.6 반영됨(§10.1·§10.2, 2026-10-30) |
+| 3 | 내부 서비스 서브리퀘스트 1,000 | v0.1.6 반영됨(§10.1·§10.2, 2026-10-30) |
+| 4 | Vectorize Free 인덱스 100·저장분 차원 | v0.1.6 반영됨(§10.1·§10.2, 2026-10-30) |
 | 5 | Workers AI `kimi-k2.7-code` | v0.1.3 반영됨 |
-| 6 | AI Gateway 로그 기준·갱신일·게이트웨이 수 | 원문 인용 아래 — Phase 1 종료 시 합침 |
+| 6 | AI Gateway 로그 기준·갱신일·게이트웨이 수 | v0.1.6 반영됨(§10.1·§10.2, 2026-10-30) |
 | 7 | Groq 무료 조건 출처 URL | 사람 작업(운영자 설계서 편집) — 근거 #34 |
-| 8 | OpenRouter "모델별 아님" | 원문 인용 아래 — Phase 1 종료 시 합침 |
+| 8 | OpenRouter "모델별 아님" | v0.1.6 반영됨(§10.1·§10.2, 2026-10-30) |
 | 9 | GitHub Actions 행 | 사람 작업(운영자 설계서 편집) — 근거 #41~#45 |
 | 10 | Supabase·Vercel 출처 | v0.1.3 반영됨(Vercel URL). Supabase 공식 출처는 #46 |
 
-### Phase 1 종료 시 합칠 원문 인용 (2026-10-27 재열람, 따옴표 안은 원문 그대로)
+### 설계서 v0.1.6에 합친 원문 인용 (2026-10-27 재열람, 따옴표 안은 원문 그대로)
 
 **2. Workers 정적 자산** — §10.1 정적 자산 행의 출처 `workers/platform/limits/`에는 파일 수·크기 표만 있다.
 - "Requests to static assets are free and unlimited. Requests to the Worker script (for example, in the case of SSR content) are billed according to Workers pricing." — https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/ (갱신 2026-04-23)

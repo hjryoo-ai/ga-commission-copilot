@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.5)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.6)
 
 > 변경 이력
+> - v0.1.6 (2026-10-30, Phase 1): §14.1-8 확정 — `projection-java`는 상위 소스 복사 + CHECKSUMS 고정(§3.3·§11·§12·§14.0, `docs/DECISIONS.md`) · §4.1(a) 필수 케이스에 경계 넷 추가, 강제 케이스 16건(경계 4건은 플랜에 그 날짜 계약이 있으면 태깅, 없으면 주입)·부록 B.3 · §4.2 G3 판정 단위 명시 · §10 limits-check 남은 차이 2·3·4·6·8 원문 반영(정적 자산 `run_worker_first`·Workers Caching, 내부 서비스 서브리퀘스트 1,000, Vectorize Free 인덱스 100·차원 계산식, AI Gateway 로그 기준·게이트웨이 10개, OpenRouter 모델별 한도 차이).
 > - v0.1.5 (2026-10-27): A-1 골든 (B) 후속 — §1.1·§6.1·§13·§13.1 예시 수치를 A-1 정본 값으로 · §6.1 파생 허용값에 라인 요청액(`requested = amount + limit_cut_amt`) 추가 · §9 설계사 ID 패턴 `A-\d{4}` · §4.1(a) A-1 예약 ID 규칙 · 부록 A A-01(요청액)·A-02(G4 조건)·A-07(`before` 스텁 값) 보강.
 > - v0.1.4 (2026-10-27): A-1 골든 수치를 상위 v1.9 부록 A-1 정본(월납 150,000·한도 1,800,000, 스트림 `a1_portal_150000_e2.jsonl`)으로 교체(`docs/DECISIONS.md` 결정 (B) — 30만원은 상위 v1.1 값) · 부록 A 데이터 전제·12문항에 근거 `seq` 표기 · §7 응답 예시 JSON · §13.2 예시 문구 · §4.1(a) A-1 계약의 payload 필드 동등 기준 추가.
 > - v0.1.3 (2026-10-27): §7 일일 한도 초과 응답을 1027/429 양쪽 처리로 명시 · Workers AI 결제 필요 모델에 `kimi-k2.7-code` 추가 · Vercel 출처 URL 정정 · §10 잔여 차이(서브리퀘스트 내부 1,000, Vectorize 무료 인덱스 100개·저장분 차원 계산, AI Gateway 로그 방식 판단 기준, OpenRouter 원문 표현, Groq/Supabase 출처)는 `docs/limits-check.md`를 근거로 Phase 1 종료 시 반영 예정 · VCR 녹화 전 수기 픽스처 허용 규칙을 §12 Phase 1에 추가.
@@ -143,7 +144,7 @@ ga-commission-copilot/
 │   ├── rulebook/         #   가상 사규집 생성·청킹·임베딩
 │   ├── verify/           #   스키마·불변식·필수 케이스·그라운딩 게이트
 │   └── providers/        #   Gemini/Groq 클라이언트, 백오프, 요청 예산
-├── projection-java/      # 상위 저장소 portal-projection 모듈 (git subtree), CI에서 불변식·결정론 검사
+├── projection-java/      # 상위 저장소 portal-projection 모듈 (복사 + CHECKSUMS 고정, 상위 126d848), CI에서 불변식·결정론 검사
 ├── worker/               # Cloudflare Worker (Hono): API, 툴, 그라운딩 검증기, 예산, 폴백
 │   ├── src/api/          #   /api/v1/demo/**
 │   ├── src/llm/          #   provider chain, prompt registry, grounding verifier
@@ -172,7 +173,7 @@ ga-commission-copilot/
 
 **(a) 데모 세계 생성** — 입력: 상위 설계서 부록 B 사양(설계사 30명, 조직 트리, 계약 약 400건, 체결일 2025-07~2027-06, 필수 케이스 목록). 두 단계로 나눈다.
 
-1. *시나리오 플랜*(LLM, 구조화 출력): 계약마다 `{policyNo, agentId, productKey, contractDate, monthlyPremium, lifecycle: [{ym, event}]}`를 생성. 필수 케이스(한도 80/95/100% 각 1건 이상, CUT·DEFER 각 1건, 재산정 1건, HELD 분급 1건, 환수 채권 이월 1건, 취소·재분개 짝 1건, 마감 후 ADJUSTMENT 1건)는 **LLM에게 맡기지 않고 플랜에 강제 주입**한다. 데모 설계사 1의 A-1 계약은 상위 샘플 스트림과 **payload 필드 단위로 동등**해야 한다(eventId·occurredAt·전역 seq 오프셋 제외). 이를 위해 A-1 계약의 `agentId` `A-1001`·`policyNo` `POL-2026-0001`·calcId `1`·`2`·`6`·ledgerId `1`·productKey `WHOLE-LIFE-20Y`·`basis.ruleVersionIds` 문자열은 상위 샘플 값 그대로 쓰고, ID 할당기는 예약 ID(`POL-2026-0001`, calcId `1`·`2`·`6`, ledgerId `1`)를 건너뛰어 다른 계약에는 충돌할 수 없는 접두 체계(예: calcId `c-<policyNo>-<n>`)를 쓴다 — 예약 ID가 다른 계약에 쓰이면 테스트 실패. LLM은 나머지 분포(상품 구성·보험료·해약 시점)만 채운다.
+1. *시나리오 플랜*(LLM, 구조화 출력): 계약마다 `{policyNo, agentId, productKey, contractDate, monthlyPremium, lifecycle: [{ym, event}]}`를 생성. 필수 케이스(한도 80/95/100% 각 1건 이상, CUT·DEFER 각 1건, 재산정 1건, HELD 분급 1건, 환수 채권 이월 1건, 취소·재분개 짝 1건, 마감 후 ADJUSTMENT 1건, 경계 넷 — 2026-06-30·2026-07-01 체결(한도 미적용/적용)·2026-12-31·2027-01-01 체결(분급 미적용/적용))는 **LLM에게 맡기지 않고 플랜에 강제 주입**한다. 강제 케이스는 16건이다(A-1·A-2·A-3와 위 케이스를 담은 12건 + 경계 4건). 경계 4건은 LLM 출력 뒤에 정한다 — 플랜에 그 날짜 계약이 이미 있으면 중복 주입하지 않고 그 계약을 경계 케이스로 표시하고, 없을 때만 주입한다. 데모 설계사 1의 A-1 계약은 상위 샘플 스트림과 **payload 필드 단위로 동등**해야 한다(eventId·occurredAt·전역 seq 오프셋 제외). 이를 위해 A-1 계약의 `agentId` `A-1001`·`policyNo` `POL-2026-0001`·calcId `1`·`2`·`6`·ledgerId `1`·productKey `WHOLE-LIFE-20Y`·`basis.ruleVersionIds` 문자열은 상위 샘플 값 그대로 쓰고, ID 할당기는 예약 ID(`POL-2026-0001`, calcId `1`·`2`·`6`, ledgerId `1`)를 건너뛰어 다른 계약에는 충돌할 수 없는 접두 체계(예: calcId `c-<policyNo>-<n>`)를 쓴다 — 예약 ID가 다른 계약에 쓰이면 테스트 실패. LLM은 나머지 분포(상품 구성·보험료·해약 시점)만 채운다.
 2. *이벤트 스트림 생성*(결정론 코드, LLM 아님): 플랜을 상위 설계서 §4.2 이벤트 카탈로그로 전개한다. 금액·한도·분급 스케줄은 `projection-java`의 데모 생성기 규칙(가상 요율표)으로 계산한다. **LLM은 금액을 만들지 않는다** — 대전제 1이 생성 단계에도 적용된다.
 
 **(b) 설명 사전 생성** (Q1~Q3) — 라인마다 `{calcId, basis, policySummary, limitCut?, linkedDeferrals[], linkedClawback?}`를 컨텍스트로 넣고 한국어 설명 3~5문장을 구조화 출력으로 받는다: `{text, citedFields[], numbersUsed[]}`. `numbersUsed`의 모든 값이 컨텍스트에 있어야 통과(§4.2). 약 6,000라인 × 1회 = 6,000 요청이므로 Gemini 무료 배치 또는 Groq(1,000 RPD)로 **여러 날에 나눠** 돌리고, 스트림 해시가 같으면 재생성하지 않는다(캐시 키 = `streamHash + promptVersion + calcId`).
@@ -185,7 +186,7 @@ ga-commission-copilot/
 |---|---|---|---|
 | G1 스키마 | 플랜·스트림·설명·사규집 | `contracts/` JSON Schema 2020-12 | 해당 항목 재생성(최대 3회) |
 | G2 불변식 | 스트림 | `projection-java` 리플레이: 월 합산=Σ라인, `accum_paid ≤ limit_amount`, 이력 연속성, 마감월 불변, 2회 리플레이 동일 | 배치 전체 거부 |
-| G3 필수 케이스 | 스트림 | 부록 B 케이스 목록이 모두 존재 | 플랜 재생성 |
+| G3 필수 케이스 | 스트림 | 상위 부록 B 케이스 목록이 모두 존재 — 8종(경계 넷은 날짜별 4항목) + A-1 payload 동등, 항목별 PASS/FAIL | 플랜 재생성 |
 | G4 숫자 그라운딩 | 설명·답변 | 텍스트의 숫자 토큰(원·%·회차·날짜) ⊆ 컨텍스트 숫자 집합 (§6.1) | 해당 설명 폐기, 재생성 1회, 재실패 시 "설명 없음" 상태 |
 | G5 인용 필드 | 설명 | `citedFields` ⊆ 컨텍스트 키 | 폐기 |
 | G6 금지어 | 설명·답변·사규집 | "확정", "보장", "고객에게 안내" 등 금지 표현 목록, 타 설계사 ID 노출 | 폐기 |
@@ -472,14 +473,14 @@ CREATE TABLE eval_case_result (
 
 | 서비스 | 무료 한도 | 초과 시 | 출처 |
 |---|---|---|---|
-| Workers | 100,000 요청/일, CPU 10ms/호출, 서브리퀘스트 50/호출. 초당 요청 수 일반 한도 없음(버스트 한도 기재 없음). 네트워크 대기는 CPU 시간에 불포함. 자정 UTC 리셋 | Error 1027 (fail-open 경로는 Worker 우회, fail-closed는 오류 페이지). 과금 없음 | https://developers.cloudflare.com/workers/platform/limits/ |
-| Workers 정적 자산 | 정적 자산 요청은 무료·무제한, 일일 요청 한도에 미집계(Free: 버전당 파일 20,000개, 파일당 25MiB) | — | https://developers.cloudflare.com/workers/platform/limits/ (Phase 0 공식 확인) |
+| Workers | 100,000 요청/일, CPU 10ms/호출, 서브리퀘스트 50/호출(D1·KV·R2 같은 내부 서비스 서브리퀘스트는 1,000/호출). 초당 요청 수 일반 한도 없음(버스트 한도 기재 없음). 네트워크 대기는 CPU 시간에 불포함. 자정 UTC 리셋 | Error 1027 (fail-open 경로는 Worker 우회, fail-closed는 오류 페이지). 과금 없음 | https://developers.cloudflare.com/workers/platform/limits/ |
+| Workers 정적 자산 | 정적 자산 요청은 무료·무제한, 일일 요청 한도에 미집계(Free: 버전당 파일 20,000개, 파일당 25MiB). 단 `run_worker_first` 패턴에 맞는 요청은 늘 Worker를 부른다. Workers Caching을 켜면 캐시에서 내준 요청(정적 자산 포함)도 Worker 호출과 같은 요청당 단가로 센다 — 켜지 않는다 | `run_worker_first` 경로만 429(정적 자산으로 대체되지 않음) | https://developers.cloudflare.com/workers/platform/limits/ , https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/ (갱신 2026-04-23), https://developers.cloudflare.com/workers/platform/pricing/ (갱신 2026-10-02) |
 | D1 | 500만 행 읽기/일, 10만 행 쓰기/일, 저장 5GB(계정 합) | 당일 쿼리 오류 반환, 00:00 UTC 리셋. "무료 플랜은 항상 유지" 명시 | https://developers.cloudflare.com/d1/platform/pricing/ (갱신 2026-04-21) |
-| Vectorize | 질의 3,000만 차원/월, 저장 500만 차원 | 원문 미기재(공식 문서에 초과 시 동작 설명 없음) | https://developers.cloudflare.com/vectorize/platform/pricing/ |
+| Vectorize | 질의 3,000만 차원/월, 저장 500만 차원. 사용량은 "(질의 벡터 + 저장 벡터) × 차원"으로 센다 — 1024차원이면 저장 약 4,882벡터. Free 계정 인덱스 100개 | 원문 미기재(공식 문서에 초과 시 동작 설명 없음) | https://developers.cloudflare.com/vectorize/platform/pricing/ (갱신 2026-04-21), https://developers.cloudflare.com/vectorize/platform/limits/ (갱신 2026-08-05) |
 | Vectorize 한계 | 벡터당 최대 1,536차원(float32), 인덱스당 2,000만 벡터, 메타데이터 10KiB/벡터 | — | https://developers.cloudflare.com/vectorize/platform/limits/ (갱신 2026-08-05) |
 | Workers AI | 10,000뉴런/일, 00:00 UTC 리셋. 초과 시 실패(Free) 또는 $0.011/1,000뉴런(Paid). 일부 모델(kimi-k2.6, kimi-k2.7-code, glm-5.2/5.3/5.3-flash, deepseek-v4 계열)은 결제 수단 필요 | 실패 | https://developers.cloudflare.com/workers-ai/platform/pricing/ (갱신 2026-10-20) |
 | Workers KV | 저장 1GB, 읽기 100,000/일, **쓰기·삭제·목록 1,000/일** | — | https://www.cloudflare.com/plans.md — D-6의 근거 |
-| AI Gateway | 핵심 기능(분석·캐시·레이트리밋) 전 플랜 무료, DLP 무료. 2026-09-24 이후 생성 게이트웨이는 Workers Logs 요금·보존을 따름 | 로그 저장 중단 | https://developers.cloudflare.com/ai-gateway/reference/pricing/ (갱신 2026-09-24) |
+| AI Gateway | 핵심 기능(분석·캐시·레이트리밋) 전 플랜 무료, DLP 무료. 로그는 계정 기준: 첫 게이트웨이를 2026-09-24 이후 만든 계정은 Workers Logs 요금·보존, 그 전 계정은 Legacy Logs. Free 게이트웨이 10개/계정 | 로그 저장 중단 | https://developers.cloudflare.com/ai-gateway/reference/pricing/ (표시 갱신 2026-10-15), https://developers.cloudflare.com/ai-gateway/reference/limits/ (표시 갱신 2026-09-24) |
 | 로그·트레이스 (Workers Logs·AI Gateway 로그 공통) | **2026-12-01부터** 모든 로그·트레이스 통합 요금. Free: 수집 0.5GB/일, 7일 보존. 기존 Free 고객 자동 이전, 수집 과금은 그 날 이후 데이터만 | 수집 중단 | https://developers.cloudflare.com/observability/pricing/ (갱신 2026-10-25) |
 
 **Workers AI 모델별 단가 (뉴런/100만 토큰, 공식 표 그대로)**
@@ -499,7 +500,7 @@ CREATE TABLE eval_case_result (
 | 공급자 | 무료 조건 | 한도 | 초과 시 | 출처 |
 |---|---|---|---|---|
 | **Groq** (런타임 1순위) | 카드 없이 가입. Free 플랜은 과금 없음(초과분은 429만) | `openai/gpt-oss-120b`·`gpt-oss-20b`·`qwen/qwen3.8-27b`: **30 RPM · 1,000 RPD · 8K TPM · 200K TPD**. 조직 단위·모델별 적용, 캐시 토큰은 미집계 | 429, `retry-after` 헤더 | https://console.groq.com/docs/rate-limits (2026-10-27 열람), https://community.groq.com/t/do-i-get-charged-for-anything-on-the-groq-free-plan/832 |
-| **OpenRouter** `:free` (런타임 3순위) | 카드 없이 가입 | 20 RPM. 누적 결제 $10 미만: **50 RPD**, $10 이상: 1,000 RPD(영구). 계정 전체 기준, 모델별 아님. 무료 용량은 상류 공급자 제공분이라 변동·중단 가능 | 429 | https://openrouter.ai/docs/api/reference/limits , https://www.openrouter.ai/docs/guides/routing/model-variants/free.md — 수치는 2026-10-17 열람 기록(https://www.developersdigest.tech/rate-limits/openrouter)으로 교차 확인 |
+| **OpenRouter** `:free` (런타임 3순위) | 카드 없이 가입 | 20 RPM. 누적 결제 $10 미만: **50 RPD**, $10 이상: 1,000 RPD(영구). 계정·API 키를 늘려도 한도는 같다(전역 관리). 단 모델마다 한도가 다를 수 있다. 무료 용량은 상류 공급자 제공분이라 변동·중단 가능 | 429 | https://openrouter.ai/docs/api/reference/limits , https://www.openrouter.ai/docs/guides/routing/model-variants/free.md — 수치는 2026-10-17 열람 기록(https://www.developersdigest.tech/rate-limits/openrouter)으로 교차 확인 |
 | **Gemini API** Free (오프라인 배치) | 활성 프로젝트 또는 무료 체험, 결제 연결 불필요, 지출 한도 없음 | **모델별 RPM·TPM·RPD는 공식 페이지에 표가 없고 AI Studio 콘솔에서 프로젝트별로만 확인** 가능. RPD는 태평양 시간 자정 리셋. 배치 API는 별도 한도 | 429 | https://ai.google.dev/gemini-api/docs/rate-limits (갱신 2026-10-26) — 수치는 Phase 0에서 콘솔 캡처로 기입 |
 | GitHub Actions (생성·평가 실행) | 공개 저장소 표준 러너 | 본 문서에서 공식 확인 미수행 — Phase 0에서 GitHub 문서로 확인 후 기입 | — | — |
 
@@ -537,7 +538,7 @@ CREATE TABLE eval_case_result (
 | 임베딩 | `@cf/baai/bge-m3` (Workers AI 바인딩) | 1024차원 |
 | 프론트 | React 19 + TypeScript + Vite 8.1 | TanStack Query, 차트 라이브러리 1종(경량), PWA 불필요(v0.1) |
 | 오프라인 생성 | Node.js 24 LTS + TypeScript | Node 26은 2026-10 LTS 진입 예정 — 진입 확인 후 전환. GitHub Actions `ubuntu-latest` |
-| 불변식 검증 | Java 25 LTS + Gradle, `projection-java`(상위 저장소 subtree) | 상위 설계서 §11과 동일 버전 계열. CI에서만 실행 |
+| 불변식 검증 | Java 25 LTS + Gradle, `projection-java`(복사 + CHECKSUMS 고정, 상위 126d848) | 상위 설계서 §11과 동일 버전 계열. CI에서만 실행 |
 | 스키마 | JSON Schema 2020-12 + ajv(TS) / networknt(Java) | 양쪽에서 같은 `contracts/`를 검증 |
 | 테스트 | Vitest + `@cloudflare/vitest-plugin` ^1.0(실제 런타임; 구 `@cloudflare/vitest-pool-workers`는 2026-08 대체됨), Playwright(E2E), JUnit 5(Java) | §13 |
 | 평가 | 자체 하네스(`evals/`): 골든 JSONL + 채점기 TS | 외부 eval 프레임워크는 v0.1에서 쓰지 않는다 — 채점 규칙(그라운딩·거부·툴)이 도메인 특화라 직접 쓰는 편이 짧다 |
@@ -558,7 +559,7 @@ CREATE TABLE eval_case_result (
    - §10 표의 각 공식 페이지를 다시 열어 날짜 갱신, Gemini 콘솔 한도·GitHub Actions 무료 조건 기입, Static Assets 미집계 공식 확인
    - *완료 기준*: `*.workers.dev`에 "Hello" 페이지 배포, D1에 `SELECT 1`, §10 표에 "미확인" 항목은 사람 작업(Gemini 콘솔 캡처, GitHub Actions 조건)뿐. `projection-java`는 빈 모듈이며 Java 25 툴체인만 선언하고 루트 테스트에서 제외한다(JDK 25 설치는 Phase 1 전 사람 작업).
 2. **Phase 1 — 데모 세계 생성기 + 불변식 게이트** (2일)
-   - `gen/world`(플랜 LLM + 결정론 전개), `projection-java` subtree, G1·G2·G3
+   - `gen/world`(플랜 LLM + 결정론 전개), `projection-java`(복사 + CHECKSUMS 고정), G1·G2·G3
    - *VCR 규칙*: `--stub`은 `gen/providers/vcr/`의 실호출 녹화본을 재생한다. 녹화 전에는 `gen/providers/fixtures/`의 **수기 픽스처**를 쓸 수 있으나, 파일명·로그·증거 문서에 "fixture(수기)"로 표기하고 "녹화"라 부르지 않는다. 첫 실호출 녹화는 Groq 키(`.dev.vars`)가 생긴 뒤 수행하며 `budget_counter(scope=dev)`에 집계한다.
    - *완료 기준*: 스트림 1개 생성·검증·커밋, D1 적재 후 리플레이 2회 바이트 동일, 필수 케이스 전부 존재
 3. **Phase 2 — 읽기 API·화면 1차** (2일)
@@ -643,6 +644,7 @@ CREATE TABLE eval_case_result (
 | 평가 채점 | 결정론 채점만, LLM-as-judge 없음 | §13.1 |
 | 그라운딩 실패 처리 | 답변 폐기 + 거부 코드 `NOT_GROUNDED`, 재시도 없음(런타임) | §4.4, §6.1 |
 | 데모 인증 | 로그인 없음, 서명 쿠키로 데모 설계사 3명 중 선택 | §7 |
+| 상위 프로젝터 반입(§14.1-8, 2026-10-30) | 복사 + CHECKSUMS 고정: `ga-agent-portal@126d848`의 portal-domain·portal-projection, `ga-disclosure@db82d5d`의 `TenantId`·`AgentId`(GitHub Packages PAT 없이 빌드). 상위 변경은 다시 복사해 따라간다 | §3.3, §11, `projection-java/upstream/UPSTREAM` |
 
 ### 14.1 미결정 사항 (Phase 0~1에서 확인, 전부 파라미터로 흡수)
 
@@ -653,7 +655,7 @@ CREATE TABLE eval_case_result (
 5. **사규집 조항 수·청크 크기** — 40개 조항·400토큰은 가정. Groq TPM 8K 안에서 topK를 결정.
 6. **스트림 교체 주기** — 주 1회가 기본이나, 설명 6,000건 재생성이 무료 한도를 넘으면 월 1회로 늦추고 변경분만 재생성(diff 기반).
 7. **Turnstile 도입 시 UX 마찰** — 평가자가 한 번만 통과하면 되도록 토큰 TTL 24시간.
-8. **상위 저장소와의 subtree vs 복사** — `projection-java`를 subtree로 당기면 상위 변경에 추종 가능하나 빌드가 무거워진다. 복사본 + 해시 고정으로 시작할지 결정.
+8. ~~**상위 저장소와의 subtree vs 복사**~~ — v0.1.6에서 "복사 + CHECKSUMS 고정"으로 확정(§14.0).
 9. **공개 도메인** — `*.workers.dev`로 충분한지, 보유 도메인 연결 시 DNS 무료 범위 확인.
 
 ---
@@ -733,7 +735,7 @@ output_schema: contracts/answer/v1/answer.schema.json
 
 ### B.3 시나리오 플랜 프롬프트 요지 (`prompts/plan/v1.md`)
 
-입력: 조직 트리, 상품 목록(가상 5종, 각 월납 범위), 체결일 분포 구간, **강제 케이스 목록**(이미 채워진 계약 12건). 출력: 나머지 계약 약 388건의 `{policyNo, agentId, productKey, contractDate, monthlyPremium, lifecycle[]}`. 제약: 상품별 월납 범위 준수, 해약률 연 5%·감액 연 2% 근방, 설계사별 계약 수 8~20, 실존 보험사·상품명 금지. 금액 필드는 없다 — 금액은 결정론 전개기가 만든다.
+입력: 조직 트리, 상품 목록(가상 5종, 각 월납 범위), 체결일 분포 구간, **강제 케이스 목록**(코드가 채우는 계약 16건 — 경계 4건은 LLM 출력 뒤 태깅 또는 주입). 출력: 나머지 계약 약 384건의 `{policyNo, agentId, productKey, contractDate, monthlyPremium, lifecycle[]}`. 제약: 상품별 월납 범위 준수, 해약률 연 5%·감액 연 2% 근방, 설계사별 계약 수 8~20, 실존 보험사·상품명 금지. 금액 필드는 없다 — 금액은 결정론 전개기가 만든다.
 
 ### B.4 라인 설명 프롬프트 요지 (`prompts/explain_line/v1.md`)
 
