@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.9)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.10)
 
 > 변경 이력
+> - v0.1.10 (2026-10-30, Phase 1 수용): §5.4 되돌리기 절차(`load:d1 --rollback <hash>` — 같은 해시·같은 슬롯 행을 새 rowid로 다시 넣고 같은 UPDATE 한 문장으로 전환, 재적재 없음)·§12 Phase 7 복구 수단으로 참조 · §3.3 의존 방향에 `worker`·`web`·`packages` → `gen` 금지(규약 2 예외인 엔진 대역은 gen 안에서만) · §4.1(a) 분급 커브 각주(상위 엔진 샘플 연 40/20/20/20%, 상위 A-2 "48개월" 표현과 다름)와 전개 규칙 위치 정정(`gen/world/rules/`).
 > - v0.1.9 (2026-10-30, Phase 1 항목 6): §5.4 전환 문장의 행 순서 제약 — 부분 유일 인덱스는 UPDATE가 행을 바꿀 때마다 검사되므로 전환 대상은 활성 행보다 나중에 들어간 행(rowid 큼)이어야 한다. 되돌리기는 같은 문장으로 할 수 없다(문장 전체 실패, 변경 없음).
 > - v0.1.8 (2026-10-30, Phase 1 항목 6): 읽기 모델 8표를 A/B 슬롯(`<표>_a`·`<표>_b`, 인덱스 `<원래이름>_<slot>`)으로 두고 활성 슬롯은 Worker 조회 계층이 고른다(뷰 없음) · `stream_meta.slot` 열과 `active=1` 부분 유일 인덱스, 전환은 `UPDATE` 한 문장(§5.1·§5.4) · §5.3에 적재 쓰기 행 수 · §14.1-10 재적재 시 이전 슬롯 삭제 지연. 근거: `wrangler d1 execute --file`·`--command`의 다중 문장 트랜잭션은 공식 문서에 없다(D1 문서는 Worker `batch()`와 문장 단위 커밋만 보장).
 > - v0.1.7 (2026-10-30, Phase 1): 강제 케이스 16 → 15 — 2026-06-30 경계는 기존 필수 케이스 계약 `POL-2026-0012`에 `BOUNDARY_LIMIT_BEFORE`로 태깅하고 별도 케이스(`BOUNDARY_PRE_LIMIT`)를 없앤다(§4.1(a)·부록 B.3) · §4.2 G3 항목 수 12 명시.
@@ -160,7 +161,7 @@ ga-commission-copilot/
 └── .github/workflows/    # weekly-generate.yml, eval-on-prompt-change.yml, deploy.yml
 ```
 
-의존 방향: `web → worker API`, `worker → D1/Vectorize/Workers AI/외부 LLM`, `gen → providers + verify`, `verify → projection-java(불변식)`. `worker/src/tools`는 **읽기 전용 SQL만** 가진다(아키텍처 테스트로 `INSERT/UPDATE` 금지).
+의존 방향: `web → worker API`, `worker → D1/Vectorize/Workers AI/외부 LLM`, `gen → providers + verify`, `verify → projection-java(불변식)`. `worker`·`web`·`packages`는 `gen`을 import하지 않는다 — `gen/world/rules/`·`gen/world/expand.ts`는 데모 세계의 엔진 대역이라 금액을 계산하며(CLAUDE.md 규약 2의 예외), 그 예외는 gen 안에만 머문다(ESLint `import-x/no-restricted-paths` + 아키텍처 테스트). `worker/src/tools`는 **읽기 전용 SQL만** 가진다(아키텍처 테스트로 `INSERT/UPDATE` 금지).
 
 ### 3.4 데이터 흐름 3종
 
@@ -177,7 +178,9 @@ ga-commission-copilot/
 **(a) 데모 세계 생성** — 입력: 상위 설계서 부록 B 사양(설계사 30명, 조직 트리, 계약 약 400건, 체결일 2025-07~2027-06, 필수 케이스 목록). 두 단계로 나눈다.
 
 1. *시나리오 플랜*(LLM, 구조화 출력): 계약마다 `{policyNo, agentId, productKey, contractDate, monthlyPremium, lifecycle: [{ym, event}]}`를 생성. 필수 케이스(한도 80/95/100% 각 1건 이상, CUT·DEFER 각 1건, 재산정 1건, HELD 분급 1건, 환수 채권 이월 1건, 취소·재분개 짝 1건, 마감 후 ADJUSTMENT 1건, 경계 넷 — 2026-06-30·2026-07-01 체결(한도 미적용/적용)·2026-12-31·2027-01-01 체결(분급 미적용/적용))는 **LLM에게 맡기지 않고 플랜에 강제 주입**한다. 강제 케이스는 15건이다(A-1·A-2·A-3와 위 케이스를 담은 11건 + 경계 4건 — 2026-06-30 경계는 그 11건과 함께 미리 넣는 계약 `POL-2026-0012`에 붙인다). 경계 4건은 LLM 출력 뒤에 정한다 — 플랜에 그 날짜 계약이 이미 있으면 중복 주입하지 않고 그 계약을 경계 케이스로 표시하고, 없을 때만 주입한다. 데모 설계사 1의 A-1 계약은 상위 샘플 스트림과 **payload 필드 단위로 동등**해야 한다(eventId·occurredAt·전역 seq 오프셋 제외). 이를 위해 A-1 계약의 `agentId` `A-1001`·`policyNo` `POL-2026-0001`·calcId `1`·`2`·`6`·ledgerId `1`·productKey `WHOLE-LIFE-20Y`·`basis.ruleVersionIds` 문자열은 상위 샘플 값 그대로 쓰고, ID 할당기는 예약 ID(`POL-2026-0001`, calcId `1`·`2`·`6`, ledgerId `1`)를 건너뛰어 다른 계약에는 충돌할 수 없는 접두 체계(예: calcId `c-<policyNo>-<n>`)를 쓴다 — 예약 ID가 다른 계약에 쓰이면 테스트 실패. LLM은 나머지 분포(상품 구성·보험료·해약 시점)만 채운다.
-2. *이벤트 스트림 생성*(결정론 코드, LLM 아님): 플랜을 상위 설계서 §4.2 이벤트 카탈로그로 전개한다. 금액·한도·분급 스케줄은 `projection-java`의 데모 생성기 규칙(가상 요율표)으로 계산한다. **LLM은 금액을 만들지 않는다** — 대전제 1이 생성 단계에도 적용된다.
+2. *이벤트 스트림 생성*(결정론 코드, LLM 아님): 플랜을 상위 설계서 §4.2 이벤트 카탈로그로 전개한다. 금액·한도·분급 스케줄은 `gen/world/rules/`의 데모 생성기 규칙(가상 요율표 — 엔진 대역)으로 계산하고, 결과 스트림은 `projection-java`가 검사한다(G2). **LLM은 금액을 만들지 않는다** — 대전제 1이 생성 단계에도 적용된다.¹
+
+   ¹ 분급 커브는 상위 엔진 샘플을 따른다 — 초년도 40%, 이후 12·24·36개월에 20%씩(연 40/20/20/20%). 상위 설계서 A-2 본문의 "타임라인에 48개월 예정" 표현과 다르다(v0.1.10).
 
 **(b) 설명 사전 생성** (Q1~Q3) — 라인마다 `{calcId, basis, policySummary, limitCut?, linkedDeferrals[], linkedClawback?}`를 컨텍스트로 넣고 한국어 설명 3~5문장을 구조화 출력으로 받는다: `{text, citedFields[], numbersUsed[]}`. `numbersUsed`의 모든 값이 컨텍스트에 있어야 통과(§4.2). 약 6,000라인 × 1회 = 6,000 요청이므로 Gemini 무료 배치 또는 Groq(1,000 RPD)로 **여러 날에 나눠** 돌리고, 스트림 해시가 같으면 재생성하지 않는다(캐시 키 = `streamHash + promptVersion + calcId`).
 
@@ -335,7 +338,7 @@ CREATE TABLE eval_case_result (
 - 상위 설계서 §5의 세 불변식(월 합산, 한도 누적, 마감월 불변) — `projection-java`가 적재 전 검사, Worker 기동 시 샘플 재검사.
 - `explanation.grounding_status='PASS'`인 행의 `numbers_used` ⊆ 해당 subject의 컨텍스트 숫자 집합 — 적재 후 전수 재검증(검증기 버그 방어).
 - `answer_log.refused=0`이면 `grounding_status='PASS'`여야 한다.
-- `stream_meta.active=1`인 행은 정확히 1개(첫 적재 뒤). 부분 유일 인덱스가 2개 이상을 막고, 전환이 `UPDATE` 한 문장이라 0개인 순간이 없다. 적재기가 전환 직후 `COUNT(*)`로 확인한다. 부분 유일 인덱스는 UPDATE가 행을 하나씩 바꿀 때마다 검사되므로(SQLite) 전환 대상은 활성 행보다 나중에 들어간 행(rowid 큼)이어야 한다 — 새로 적재한 행은 늘 그렇고, 적재기가 전환 전에 확인한다. 먼저 들어간 행으로 되돌리는 같은 문장은 문장 전체가 실패하고 아무것도 바뀌지 않는다(되돌리려면 그 스트림을 비활성 슬롯에 다시 적재한다).
+- `stream_meta.active=1`인 행은 정확히 1개(첫 적재 뒤). 부분 유일 인덱스가 2개 이상을 막고, 전환이 `UPDATE` 한 문장이라 0개인 순간이 없다. 적재기가 전환 직후 `COUNT(*)`로 확인한다. 부분 유일 인덱스는 UPDATE가 행을 하나씩 바꿀 때마다 검사되므로(SQLite) 전환 대상은 활성 행보다 나중에 들어간 행(rowid 큼)이어야 한다 — 새로 적재한 행은 늘 그렇고, 적재기가 전환 전에 확인한다. 먼저 들어간 행으로 되돌리는 같은 문장은 문장 전체가 실패하고 아무것도 바뀌지 않는다**되돌리기(v0.1.10)**: 이전 스트림이 비활성 슬롯에 그대로 있을 때(이전 슬롯을 비우기 전 — §14.1-10의 지연 덕에 전환 다음 날 00:00 UTC 전까지)는 재적재 없이 되돌린다 — `load:d1 --rollback <hash>`가 ① 그 슬롯 표를 재검사(표별 COUNT·월 합산)하고 ② `INSERT OR REPLACE INTO stream_meta … SELECT … FROM stream_meta WHERE stream_hash = ? AND active = 0` 한 문장으로 같은 해시·같은 슬롯 행을 새 rowid로 다시 넣고(REPLACE가 옛 행을 지운다 — 활성 행은 건드리지 않는다) ③ 같은 `UPDATE` 한 문장으로 전환하고 ④ `COUNT(*) … active = 1`이 1인지 확인한다. 이전 슬롯이 이미 비었으면 그 스트림을 다시 적재한다.
 
 ---
 
@@ -588,6 +591,7 @@ CREATE TABLE eval_case_result (
    - *완료 기준*: 프롬프트 열화 PR(의도적으로 숫자 발명 유도)이 체크 실패로 머지 차단됨을 캡처
 8. **Phase 7 — 주간 배치·재구축·관측** (1일)
    - `weekly-generate.yml` 전체 체인, 스트림 교체 시 설명 무효화·재생성, Workers Logs 확인
+   - 단계별 실패 시 이전 `stream_meta.active`를 유지한다. 전환 뒤 문제가 드러나면 복구 수단은 `load:d1 --rollback <이전 hash>`(§5.4 되돌리기 — 재적재 없음)
    - *완료 기준*: 배치 1회 완주 로그, 새 `stream_hash`로 교체 후 화면 정상, 구 설명 미노출
 9. **Phase 8 — README·데모 정리·E2E** (1일)
    - 포트폴리오 README(부록 C), 데모 설계사 소개 카드, Playwright 전 화면, 번들 상한

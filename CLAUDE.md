@@ -12,6 +12,7 @@
 
 1. **LLM은 숫자를 만들지 않는다.** 모든 LLM 출력은 `GroundingVerifier`(G4·G5·G6)를 통과해야 저장·응답된다. 검증기를 우회하는 경로를 만들지 않는다.
 2. **금액 계산 코드는 `DerivedNumbers` 클래스 밖에 두지 않는다.** 합계·잔여·소진율만 허용. 요율 곱하기·세액 계산·환수액 계산 금지(그건 엔진 영역).
+   적용 범위는 `worker/`·`packages/`·`web/`. `gen/world/rules/`·`gen/world/expand.ts`는 데모 세계의 엔진 대역이라 예외이고, 그래서 worker·web·packages는 `gen`을 import할 수 없다(ESLint `import-x/no-restricted-paths` + 아키텍처 테스트).
 3. **`tenant_id`·`agent_id` 조건 없는 쿼리 금지.** 저장소 계층은 `ScopedQuery` 빌더만 사용. 아키텍처 테스트가 원시 SQL을 스캔한다.
 4. **툴은 읽기 전용.** `worker/src/tools/**`에 `INSERT`·`UPDATE`·`DELETE` 금지. `agentId`는 서버가 주입하고 LLM 인자에서 받지 않는다.
 5. **예산 카운터는 D1**(`budget_counter`). KV에 카운터 두지 않는다. 카운터 갱신은 `UPDATE … SET used = used + 1 WHERE used < ?` 단일 문장.
