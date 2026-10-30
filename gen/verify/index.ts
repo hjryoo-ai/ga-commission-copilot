@@ -8,7 +8,7 @@ import { REPO_ROOT } from "../providers/prompt.ts";
 import { type Envelope, sha256 } from "../world/expand.ts";
 import { errorsOf, SCHEMA_IDS, validator } from "../world/schemas.ts";
 import { type CliRunner, type G2Result, runG2, runReplayCli } from "./g2.ts";
-import { type CaseResult, requiredCases } from "./g3.ts";
+import { type CaseResult, type DemoAgent, requiredCases, selectDemoAgents } from "./g3.ts";
 
 export const OUT_DIR = join(import.meta.dirname, "../out");
 export const DATA_DIR = join(REPO_ROOT, "data/stream");
@@ -26,7 +26,7 @@ export interface G1Result {
 
 export interface Report {
   stream: { path: string; sha256: string; events: number };
-  gates: { G1: G1Result; G2: G2Result | { status: "SKIPPED" }; G3: { status: Status; cases: CaseResult[] } };
+  gates: { G1: G1Result; G2: G2Result | { status: "SKIPPED" }; G3: { status: Status; cases: CaseResult[]; demoAgents: DemoAgent[] } };
   ok: boolean;
 }
 
@@ -59,10 +59,11 @@ export function verify(streamPath: string, run: CliRunner = runReplayCli): Repor
   const g1 = runG1(events);
   const g2: Report["gates"]["G2"] = g1.status === "PASS" ? runG2(streamPath, { sha256: hash, events: events.length }, run) : { status: "SKIPPED" };
   const cases = g2.status === "PASS" ? requiredCases(events) : [];
+  const demoAgents = g2.status === "PASS" ? selectDemoAgents(events) : [];
   const g3Status: Status = g2.status !== "PASS" ? "SKIPPED" : cases.every((c) => c.status === "PASS") ? "PASS" : "FAIL";
   return {
     stream: { path: streamPath, sha256: hash, events: events.length },
-    gates: { G1: g1, G2: g2, G3: { status: g3Status, cases } },
+    gates: { G1: g1, G2: g2, G3: { status: g3Status, cases, demoAgents } },
     ok: g1.status === "PASS" && g2.status === "PASS" && g3Status === "PASS",
   };
 }
@@ -94,6 +95,8 @@ export function streamMeta(report: Report, planMeta: PlanMeta, planSha256: strin
     replay: { projection: PROJECTION_PIN, viewsSha256: g2.summary!.viewsSha256, tables: g2.summary!.tables },
     gates: { G1: report.gates.G1.status, G2: g2.status, G3: report.gates.G3.status },
     requiredCases: report.gates.G3.cases.map(({ id, status, detail }) => ({ id, status, detail })),
+    // 설계서 v0.1.11 §4.1(a) — load:d1이 demo_agents 표에 그대로 넣는다
+    demoAgents: report.gates.G3.demoAgents,
   };
 }
 
@@ -132,7 +135,9 @@ function main(): void {
   mkdirSync(DATA_DIR, { recursive: true });
   const base = join(DATA_DIR, report.stream.sha256);
   copyFileSync(streamPath, `${base}.jsonl`);
-  const meta = streamMeta(report, planMeta, streamMetaIn.planSha256 ?? null, new Date().toISOString());
+  // 같은 스트림을 다시 검증하면 처음 생성 시각을 그대로 둔다(D1 stream_meta.generated_at과 어긋나지 않게)
+  const prev = existsSync(`${base}.meta.json`) ? (JSON.parse(readFileSync(`${base}.meta.json`, "utf8")) as { generatedAt?: string }).generatedAt : undefined;
+  const meta = streamMeta(report, planMeta, streamMetaIn.planSha256 ?? null, prev ?? new Date().toISOString());
   writeFileSync(`${base}.meta.json`, `${JSON.stringify(meta, null, 2)}\n`);
   console.log(`→ data/stream/${report.stream.sha256}.jsonl + .meta.json`);
 }

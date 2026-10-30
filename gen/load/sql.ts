@@ -93,14 +93,18 @@ export interface WriteEstimate {
   rowsWritten: number;
 }
 
-/** 적재 rows written 추정 = 행 수 × (1 + 인덱스 수). stream_meta 1행(PK·유일 인덱스 2)도 더한다. */
+/**
+ * 적재 rows written 추정 = 행 수 × (1 + 인덱스 수). stream_meta 1행(PK·유일 인덱스 2) + line_count UPDATE 1,
+ * demo_agents 3행(PK·UNIQUE 2)도 더한다(설계서 v0.1.11).
+ */
 export function estimateWrites(counts: Readonly<Record<string, number>>, migrationSql: string): { tables: WriteEstimate[]; rows: number; rowsWritten: number } {
   const tables: WriteEstimate[] = READ_MODEL.map((t) => {
     const rows = counts[t] ?? 0;
     const indexes = indexesPerRow(migrationSql, t);
     return { table: t, rows, indexes, rowsWritten: rows * (1 + indexes) };
   });
-  tables.push({ table: "stream_meta", rows: 1, indexes: 3, rowsWritten: 4 });
+  tables.push({ table: "stream_meta", rows: 1, indexes: 3, rowsWritten: 4 + 1 });
+  tables.push({ table: "demo_agents", rows: 3, indexes: 2, rowsWritten: 3 * (1 + 2) });
   return { tables, rows: tables.reduce((a, x) => a + x.rows, 0), rowsWritten: tables.reduce((a, x) => a + x.rowsWritten, 0) };
 }
 

@@ -3,12 +3,13 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { REPO_ROOT } from "../providers/prompt.ts";
+import type { DemoAgent } from "../verify/g3.ts";
 import { type D1Exec, insertPlan, loadSlot, metaRows, purgeInactive, rollback, slotCounts, type StreamInfo } from "../load/flow.ts";
 import { loadMigration, type Row } from "../load/sql.ts";
 
-// Phase 1 항목 6 흐름 시험: 마이그레이션 0001·0002를 node:sqlite에 그대로 적용하고 적재·재개·전환·되돌리기·비우기를 돌린다.
+// Phase 1 항목 6 흐름 시험(+ 설계서 v0.1.11 demo_agents·line_count): 마이그레이션 0001~0003을 node:sqlite에 그대로 적용하고 적재·재개·전환·되돌리기·비우기를 돌린다.
 // (D1과 같은 SQLite 엔진이다. 원격 wrangler 실행 자체는 증거 문서의 로그로 본다.)
-const MIGRATIONS = ["0001_init.sql", "0002_ab_slots.sql"].map((f) => readFileSync(join(REPO_ROOT, "worker/migrations", f), "utf8"));
+const MIGRATIONS = ["0001_init.sql", "0002_ab_slots.sql", "0003_demo_agents.sql"].map((f) => readFileSync(join(REPO_ROOT, "worker/migrations", f), "utf8"));
 
 function sqliteExec(db: DatabaseSync): D1Exec {
   return {
@@ -38,7 +39,11 @@ function views(prefix: string, n: number, grossOverride?: number): Record<string
   };
 }
 
-const info = (hash: string): StreamInfo => ({ hash, generatedAt: "2026-10-30T00:00:00Z", eventCount: 1, planPrompt: "plan/v1" });
+const demo = (agentIds: readonly string[]): DemoAgent[] =>
+  agentIds.map((agentId, i) => ({ demoNo: (i + 1) as 1 | 2 | 3, agentId, scenario: `A${i + 1}` as "A1", cardLabel: `카드 ${i + 1}`, contractCount: 1, basis: { seq: i } }));
+const info = (hash: string, agents = ["A-1001", "A-1002", "A-1003"]): StreamInfo => ({ hash, generatedAt: "2026-10-30T00:00:00Z", eventCount: 1, planPrompt: "plan/v1", demoAgents: demo(agents) });
+const demoRows = (x: D1Exec) => x.query("SELECT stream_hash, demo_no, agent_id FROM demo_agents ORDER BY stream_hash, demo_no").map((r) => `${r.stream_hash}${r.demo_no}=${r.agent_id}`);
+const lineCounts = (x: D1Exec) => Object.fromEntries(x.query("SELECT stream_hash, line_count FROM stream_meta").map((r) => [r.stream_hash, r.line_count]));
 const opts = { migrationSql: loadMigration(), log: () => {}, now: () => "2026-10-30T00:00:00Z" };
 const activeHash = (x: D1Exec) => metaRows(x).active?.stream_hash ?? null;
 const activeCount = (x: D1Exec) => Number(x.query("SELECT COUNT(*) AS n FROM stream_meta WHERE active = 1")[0]!.n);
@@ -56,6 +61,32 @@ describe("적재 → 전환", () => {
     const r = loadSlot(db, info("X"), views("x", 3), opts);
     expect(r).toMatchObject({ slot: "a", resumed: false, activeAfter: { n: 1, hash: "X", slot: "a" } });
     expect(slotCounts(db, "a")).toMatchObject({ agent_profile: 1, earnings_line: 4, earnings_month: 1 });
+  });
+
+  it("④에 demo_agents 3행이 함께 들어가고, ⑤ 재검사 행 수가 stream_meta.line_count에 쓰인다", () => {
+    loadSlot(db, info("X"), views("x", 3), opts);
+    expect(demoRows(db)).toEqual(["X1=A-1001", "X2=A-1002", "X3=A-1003"]);
+    expect(lineCounts(db)).toEqual({ X: 4 });
+  });
+
+  it("meta.demoAgents가 3명이 아니면 쓰기 전에 멈춘다", () => {
+    expect(() => loadSlot(db, info("X", ["A-1001", "A-1002"]), views("x", 3), opts)).toThrow(/2명/);
+    expect(metaRows(db).rows).toEqual([]);
+    expect(slotCounts(db, "a").earnings_line).toBe(0);
+  });
+
+  it("0003 이전에 적재돼 이미 활성인 스트림은 슬롯 표를 건드리지 않고 demo_agents만 채운다", () => {
+    loadSlot(db, info("X"), views("x", 3), opts);
+    sqlite.exec("DELETE FROM demo_agents");
+    const applied: string[][] = [];
+    const spy: D1Exec = { query: db.query, apply: (s, l) => (applied.push([...s]), db.apply(s, l)) };
+    expect(loadSlot(spy, info("X"), views("x", 3), opts).noop).toBe(true);
+    expect(applied).toEqual([[expect.stringMatching(/^INSERT INTO demo_agents /)]]);
+    expect(demoRows(db)).toHaveLength(3);
+    // 다시 돌리면 아무것도 쓰지 않고, meta와 다르면 멈춘다
+    expect(loadSlot(spy, info("X"), views("x", 3), opts).noop).toBe(true);
+    expect(applied).toHaveLength(1);
+    expect(() => loadSlot(db, info("X", ["A-1001", "A-1003", "A-1002"]), views("x", 3), opts)).toThrow(/≠ meta/);
   });
 
   it("두 번째 스트림은 비어 있는 슬롯 b로, 전환 뒤 a는 그대로 남는다", () => {
@@ -76,6 +107,7 @@ describe("적재 → 전환", () => {
     loadSlot(db, info("Y"), views("y", 5), opts);
     expect(() => loadSlot(db, info("Z"), views("z", 2), opts)).toThrow(/비어 있지 않다/);
     purgeInactive(db, () => {});
+    expect(demoRows(db).map((r) => r[0])).toEqual(["Y", "Y", "Y"]); // 비운 슬롯의 demo_agents도 지운다
     expect(loadSlot(db, info("Z"), views("z", 2), opts).activeAfter).toEqual({ n: 1, hash: "Z", slot: "a" });
   });
 });
@@ -91,6 +123,7 @@ describe("재개 경로: 같은 해시가 비활성 슬롯에 같은 행 수로 
     expect(r).toMatchObject({ resumed: true, activeAfter: { n: 1, hash: "Y", slot: "b" } });
     expect(applied.flat().some((s) => s.startsWith("INSERT"))).toBe(false);
     expect(slotCounts(db, "b").earnings_line).toBe(6);
+    expect(lineCounts(db)).toEqual({ X: 4, Y: 6 });
   });
 
   it("행 수가 다르면(부분 적재) 이어 가지 않고 멈춘다", () => {
@@ -101,7 +134,7 @@ describe("재개 경로: 같은 해시가 비활성 슬롯에 같은 행 수로 
   });
 });
 
-describe("되돌리기(v0.1.10 §5.4): 같은 해시·같은 슬롯 행을 새 rowid로 → 같은 UPDATE 한 문장", () => {
+describe("되돌리기(v0.1.10 §5.4): 같은 해시·같은 슬롯 행을 새 rowid로 → 같은 UPDATE 한 문장(INSERT + UPDATE 두 문장)", () => {
   it("이전 스트림으로 재적재 없이 되돌리고, 다시 앞으로도 되돌린다 — 매번 active=1 정확히 1행", () => {
     loadSlot(db, info("X"), views("x", 3), opts);
     loadSlot(db, info("Y"), views("y", 5), opts);
@@ -123,6 +156,8 @@ describe("되돌리기(v0.1.10 §5.4): 같은 해시·같은 슬롯 행을 새 r
 
     expect(rollback(db, "Y", null, () => {}).activeAfter).toEqual({ n: 1, hash: "Y", slot: "b" });
     expect(metaRows(db).rows.map((x) => x.stream_hash)).toEqual(["X", "Y"]);
+    expect(lineCounts(db)).toEqual({ X: 4, Y: 6 }); // 다시 넣어도 line_count가 따라간다
+    expect(demoRows(db)).toHaveLength(6);
   });
 
   it("이전 슬롯을 이미 비웠으면 되돌릴 수 없다", () => {

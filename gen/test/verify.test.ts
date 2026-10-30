@@ -6,7 +6,7 @@ import { type Envelope, expand, sha256, toJsonl } from "../world/expand.ts";
 import { buildPlan } from "../world/plan.ts";
 import type { CliRun, ReplaySummary } from "../verify/g2.ts";
 import { runG2 } from "../verify/g2.ts";
-import { requiredCases } from "../verify/g3.ts";
+import { DEMO_CARD_LABELS, requiredCases, selectDemoAgents } from "../verify/g3.ts";
 import { runG1, streamMeta, verify } from "../verify/index.ts";
 
 // Phase 1 항목 5: G1 → G2 → G3. G2의 실제 CLI 실행은 증거 문서(pnpm run verify)로 보고, 여기서는 종료 코드·요약 처리 규칙을 가짜 실행기로 본다.
@@ -73,8 +73,8 @@ describe("G2: 종료 코드를 먼저 본다", () => {
   });
 });
 
-describe("G3: 상위 부록 B 8종(경계 넷은 4항목) + A-1 payload 동등, 항목별 PASS/FAIL", () => {
-  it("항목 12개, id 고정 순서", () => {
+describe("G3: 상위 부록 B 8종(경계 넷은 4항목) + A-1 payload 동등 + 데모 설계사 선정, 항목별 PASS/FAIL", () => {
+  it("항목 13개, id 고정 순서", () => {
     expect(requiredCases(events).map((c) => c.id)).toEqual([
       "LIMIT_80_95_100",
       "CUT_AND_DEFER",
@@ -88,10 +88,11 @@ describe("G3: 상위 부록 B 8종(경계 넷은 4항목) + A-1 payload 동등, 
       "BOUNDARY_DEFERRAL_BEFORE",
       "BOUNDARY_DEFERRAL_AFTER",
       "A1_GOLDEN",
+      "DEMO_AGENTS",
     ]);
   });
 
-  it("생성 스트림에서 12항목 전부 PASS(경계 넷 각각 포함)", () => {
+  it("생성 스트림에서 13항목 전부 PASS(경계 넷 각각 포함)", () => {
     expect(requiredCases(events).filter((c) => c.status !== "PASS")).toEqual([]);
   });
 
@@ -108,6 +109,30 @@ describe("G3: 상위 부록 B 8종(경계 넷은 4항목) + A-1 payload 동등, 
   it("A-1 계약 payload가 1원이라도 다르면 A1_GOLDEN FAIL", () => {
     const changed = events.map((e) => (e.type === "CommissionCalculated" && p(e).calcId === "1" ? { ...e, payload: { ...p(e), amount: p(e).amount + 1 } } : e));
     expect(caseOf(changed, "A1_GOLDEN").status).toBe("FAIL");
+  });
+
+  it("데모 설계사: 운영자 결정(DECISIONS 2026-10-30)과 같은 3명을 규칙으로 고른다", () => {
+    const d = selectDemoAgents(events);
+    expect(d.map((x) => [x.demoNo, x.agentId, x.scenario, x.cardLabel])).toEqual([
+      [1, "A-1001", "A1", DEMO_CARD_LABELS[1]],
+      [2, "A-1002", "A2", DEMO_CARD_LABELS[2]],
+      [3, "A-1003", "A3", DEMO_CARD_LABELS[3]],
+    ]);
+    expect(d[1]!.basis).toMatchObject({ scheduleId: "s-POL-2027-0003-1" });
+    expect(d[2]!.basis).toMatchObject({ ledgerId: "l-POL-2026-03013", receivableId: "r-A-1003-1" });
+    expect(d.every((x) => x.contractCount > 0)).toBe(true);
+  });
+
+  it("데모 설계사: 조건을 못 채우면 다음 후보로, 3명을 못 채우면 DEMO_AGENTS FAIL", () => {
+    // A-1003의 환수 상계를 지우면 3번은 조건(OPEN 뒤 OFFSET)을 채우는 다음 재산정 설계사로 넘어간다
+    const noOffset = without((e) => e.type === "ClawbackReceivableUpdated" && p(e).agentId === "A-1003" && p(e).status === "OFFSET");
+    const next = selectDemoAgents(noOffset).find((x) => x.demoNo === 3);
+    expect(next?.agentId).not.toBe("A-1003");
+    // 재산정이 하나도 없으면 3번을 못 채운다
+    const r = caseOf(without((e) => e.type === "LimitLedgerRebased"), "DEMO_AGENTS");
+    expect(r).toMatchObject({ status: "FAIL", detail: expect.stringMatching(/3 없음$/) });
+    // HELD가 없으면 2번을 못 채운다
+    expect(caseOf(without((e) => e.type === "DeferralStatusChanged" && p(e).to === "HELD"), "DEMO_AGENTS").status).toBe("FAIL");
   });
 
   it("경계 넷: 날짜마다 따로 판정 — 그 날 체결 계약이 없거나 규칙이 그 날짜에서 갈리지 않으면 그 항목만 FAIL", () => {
@@ -132,7 +157,7 @@ describe("verify: 앞 게이트가 실패하면 뒤는 SKIPPED", () => {
     const r = verify(file, fake({ status: 1 }));
     expect(r.gates.G1.status).toBe("PASS");
     expect(r.gates.G2.status).toBe("FAIL");
-    expect(r.gates.G3).toEqual({ status: "SKIPPED", cases: [] });
+    expect(r.gates.G3).toEqual({ status: "SKIPPED", cases: [], demoAgents: [] });
     expect(r.ok).toBe(false);
   });
 
@@ -148,7 +173,7 @@ describe("verify: 앞 게이트가 실패하면 뒤는 SKIPPED", () => {
     expect([r.gates.G1.status, r.gates.G2.status, r.gates.G3.status]).toEqual(["FAIL", "SKIPPED", "SKIPPED"]);
   });
 
-  it("meta에는 생성 시각·프롬프트 버전·이벤트 수·뷰 해시·필수 케이스·픽스처/녹화 여부가 있다", () => {
+  it("meta에는 생성 시각·프롬프트 버전·이벤트 수·뷰 해시·필수 케이스·픽스처/녹화 여부·데모 설계사가 있다", () => {
     const r = verify(file, fake({ stdout: JSON.stringify(goodSummary) }));
     const meta = streamMeta(r, { prompt: "plan/v1", repairPrompt: "plan_repair/v1", mode: "stub", source: "vcr", liveCalls: 0 }, "f".repeat(64), "2026-10-30T00:00:00.000Z");
     expect(meta).toMatchObject({
@@ -158,6 +183,7 @@ describe("verify: 앞 게이트가 실패하면 뒤는 SKIPPED", () => {
       plan: { prompt: "plan/v1", repairPrompt: "plan_repair/v1", source: "vcr", liveCalls: 0 },
       replay: { viewsSha256: goodSummary.viewsSha256 },
     });
-    expect(meta.requiredCases).toHaveLength(12);
+    expect(meta.requiredCases).toHaveLength(13);
+    expect(meta.demoAgents.map((d) => d.agentId)).toEqual(["A-1001", "A-1002", "A-1003"]);
   });
 });

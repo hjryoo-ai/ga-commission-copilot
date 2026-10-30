@@ -1,4 +1,4 @@
-// D1 적재 CLI(설계서 v0.1.10 §5.1·§5.4, PHASES Phase 1 항목 6). 흐름은 flow.ts, 여기는 wrangler 실행기와 projection-java 뷰 재생성.
+// D1 적재 CLI(설계서 v0.1.11 §5.1·§5.4, PHASES Phase 1 항목 6). 흐름은 flow.ts, 여기는 wrangler 실행기와 projection-java 뷰 재생성.
 //   pnpm run load:d1 -- --local|--remote [--stream <sha256>]     비활성 슬롯에 적재 → SQL 재검사 → UPDATE 한 문장으로 전환
 //   pnpm run load:d1 -- --local|--remote --rollback <sha256>      비활성 슬롯에 남은 이전 스트림으로 재적재 없이 되돌리기
 //   pnpm run load:d1 -- --local|--remote --purge-inactive         비활성 슬롯 비우기(§14.1-10: 전환 다음 날 00:00 UTC 이후)
@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT } from "../providers/prompt.ts";
+import type { DemoAgent } from "../verify/g3.ts";
 import { buildReplayCli, REPLAY_BIN } from "../verify/g2.ts";
 import { type D1Exec, type ExecMeta, loadSlot, purgeInactive, rollback } from "./flow.ts";
 import { loadMigration, READ_MODEL, type Row } from "./sql.ts";
@@ -59,6 +60,7 @@ interface StreamMeta {
   eventCount: number;
   plan: { prompt: string };
   replay: { viewsSha256: string };
+  demoAgents?: DemoAgent[];
 }
 
 function pickStream(arg: string | undefined): string {
@@ -126,7 +128,7 @@ function main(): void {
   const meta = readMeta(hash);
   const views = viewsOf(hash, meta);
   try {
-    const report = loadSlot(db, { hash, generatedAt: meta.generatedAt, eventCount: meta.eventCount, planPrompt: meta.plan.prompt }, views, {
+    const report = loadSlot(db, { hash, generatedAt: meta.generatedAt, eventCount: meta.eventCount, planPrompt: meta.plan.prompt, demoAgents: meta.demoAgents ?? [] }, views, {
       migrationSql: loadMigration(),
       log,
     });

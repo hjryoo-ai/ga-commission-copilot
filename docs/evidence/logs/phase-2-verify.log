@@ -1,0 +1,23 @@
+
+> @copilot/gen@ verify /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node verify/index.ts
+
+stream e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f (9439건)
+G1 스키마      PASS  invalid 0/9439
+G2 리플레이    PASS  exit 0  views afb2bb9271e698943193c8ca38098aed1baf5bacd68daee322c1f92d9e3b1b1e (2회차 동일)
+G3 필수 케이스 PASS
+  PASS  LIMIT_80_95_100        80%대 2(l-POL-2026-10009) · 95%대 1(l-POL-2026-0006) · 100% 2(1)
+  PASS  CUT_AND_DEFER          CUT 1(첫 seq 2076) · DEFER_AFTER_FY 1(첫 seq 1308)
+  PASS  REBASE                 LimitLedgerRebased 13(첫 seq 3041 l-POL-2026-03013)
+  PASS  DEFERRAL_HELD          HELD 5(첫 seq 6734 s-POL-2027-0003-1)
+  PASS  RECEIVABLE_CARRIED     OPEN 30(첫 seq 190) · 그중 뒤에 상계·종결 30
+  PASS  REVERSAL_PAIR          짝 1(첫 seq 1922 c-POL-2026-0010-2→c-POL-2026-0010-1)
+  PASS  ADJUSTMENT_AFTER_CLOSE 1(첫 seq 2766 a-POL-2026-0011-1 → c-POL-2026-0011-1)
+  PASS  BOUNDARY_LIMIT_BEFORE  2026-06-30 체결 19건 중 한도 미적용(원장 없음) 19건(POL-2026-01004)
+  PASS  BOUNDARY_LIMIT_AFTER   2026-07-01 체결 5건 중 한도 적용(원장 있음) 5건(POL-2026-06013)
+  PASS  BOUNDARY_DEFERRAL_BEFORE 2026-12-31 체결 9건 중 분급 미적용(커브 스케줄 없음) 9건(POL-2026-03016)
+  PASS  BOUNDARY_DEFERRAL_AFTER 2027-01-01 체결 1건 중 분급 적용(커브 스케줄 있음) 1건(POL-2027-0016)
+  PASS  A1_GOLDEN              11건 동등·순서 일치
+  PASS  DEMO_AGENTS            1 A-1001(POL-2026-0001 1 100) · 2 A-1002(6734 s-POL-2027-0003-1 15 4) · 3 A-1003(3041 l-POL-2026-03013 r-A-1003-1 1341 1561)
+verify: PASS
+→ data/stream/e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f.jsonl + .meta.json

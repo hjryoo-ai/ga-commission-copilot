@@ -1,6 +1,8 @@
-// G3 필수 케이스(설계서 v0.1.6 §4.2, 상위 설계서 v1.9 부록 B "반드시 포함할 케이스" 8종 — 경계 넷은 날짜별 4항목 — + §4.1(a) A-1 payload 동등).
+// G3 필수 케이스(설계서 v0.1.11 §4.2, 상위 설계서 v1.9 부록 B "반드시 포함할 케이스" 8종 — 경계 넷은 날짜별 4항목 — + §4.1(a) A-1 payload 동등
+// + 데모 설계사 3명 선정).
 // 스트림만 본다(플랜을 믿지 않는다). 항목마다 PASS/FAIL과 근거(seq·키)를 남긴다. 금액은 계산하지 않는다 — 소진율만(누적 ÷ 한도, 정수 %).
 import type { Envelope } from "../world/expand.ts";
+import { A1_RESERVED } from "../world/forced.ts";
 import { a1GoldenProblems } from "../world/golden.ts";
 import { CURVE_FROM, LIMIT_FROM } from "../world/rules/tables.ts";
 import { addDays } from "../world/calendar.ts";
@@ -146,6 +148,92 @@ function a1Golden(events: readonly Envelope[]): CaseResult {
   return result("A1_GOLDEN", "A-1 계약 11건이 상위 정본 스트림과 payload 필드 단위로 동등(설계서 §4.1(a))", problems.length === 0, problems.length === 0 ? "11건 동등·순서 일치" : problems.slice(0, 3).join(" | "));
 }
 
+/** 데모 설계사 카드 문구(설계서 §8 화면 1 — demo_agents.card_label 그대로). */
+export const DEMO_CARD_LABELS = { 1: "한도 100% 소진 계약 보유", 2: "분급제 계약 보유", 3: "재산정·환수 상계 있음" } as const;
+
+export interface DemoAgent {
+  demoNo: 1 | 2 | 3;
+  agentId: string;
+  scenario: "A1" | "A2" | "A3";
+  cardLabel: string;
+  /** 그 설계사 라인의 서로 다른 증권 수(earnings_line의 policy_no 수와 같다). */
+  contractCount: number;
+  basis: Record<string, string | number>;
+}
+
+/**
+ * 데모 설계사 선정(설계서 v0.1.11 §4.1(a)) — 스트림만 보고 결정론으로 고른다.
+ * 1: A-1 정본 원장의 설계사(그 설계사 원장 중 소진율 100%가 있어야 한다).
+ * 2: HELD 전이를 seq 순으로 보며, 커브 스케줄과 RELEASED가 있는 첫 설계사(1과 다름).
+ * 3: 재산정을 seq 순으로 보며, 환수 채권이 OPEN 뒤 OFFSET까지 간 첫 설계사(1·2와 다름).
+ * 못 채운 번호는 빠진다 — 3명이 아니면 G3 DEMO_AGENTS FAIL.
+ */
+export function selectDemoAgents(events: readonly Envelope[]): DemoAgent[] {
+  const ledgerAgent = new Map<string, string>();
+  const scheduleAgent = new Map<string, string>();
+  const policies = new Map<string, Set<string>>();
+  const curve = new Map<string, number>();
+  const released = new Map<string, number>();
+  type Receivable = { agentId: string; openSeq?: number; offsetSeq?: number };
+  const receivable = new Map<string, Receivable>();
+  const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
+  for (const e of events) {
+    const x = p(e);
+    if (e.type === "LimitLedgerOpened") ledgerAgent.set(x.ledgerId, x.agentId);
+    if (e.type === "DeferralScheduled") {
+      scheduleAgent.set(x.scheduleId, x.agentId);
+      if (x.reason === "CURVE") bump(curve, x.agentId);
+    }
+    if (e.type === "DeferralStatusChanged" && x.to === "RELEASED") bump(released, scheduleAgent.get(x.scheduleId) ?? "");
+    if (e.type === "CommissionCalculated") policies.set(x.agentId, (policies.get(x.agentId) ?? new Set()).add(x.policyNo));
+    if (e.type === "ClawbackReceivableUpdated") {
+      const r: Receivable = receivable.get(x.receivableId) ?? { agentId: x.agentId };
+      if (x.status === "OPEN") r.openSeq ??= e.seq;
+      if (x.status === "OFFSET" && r.openSeq !== undefined) r.offsetSeq ??= e.seq;
+      receivable.set(x.receivableId, r);
+    }
+  }
+  const usage = maxUsage(events);
+  const picked: DemoAgent[] = [];
+  const taken = (agentId: string) => picked.some((d) => d.agentId === agentId);
+  const pick = (demoNo: 1 | 2 | 3, agentId: string, basis: DemoAgent["basis"]) =>
+    picked.push({ demoNo, agentId, scenario: `A${demoNo}`, cardLabel: DEMO_CARD_LABELS[demoNo], contractCount: policies.get(agentId)?.size ?? 0, basis });
+
+  const a1 = ledgerAgent.get(A1_RESERVED.ledgerId);
+  const full = a1 ? [...usage.entries()].find(([id, u]) => u >= 100 && ledgerAgent.get(id) === a1) : undefined;
+  if (a1 && full) pick(1, a1, { a1PolicyNo: A1_RESERVED.policyNo, fullLedgerId: full[0], usagePct: full[1] });
+
+  for (const e of events) {
+    if (e.type !== "DeferralStatusChanged" || p(e).to !== "HELD") continue;
+    const agentId = scheduleAgent.get(p(e).scheduleId);
+    if (!agentId || taken(agentId) || !curve.get(agentId) || !released.get(agentId)) continue;
+    pick(2, agentId, { heldSeq: e.seq, scheduleId: p(e).scheduleId, curveSchedules: curve.get(agentId)!, released: released.get(agentId)! });
+    break;
+  }
+
+  for (const e of events) {
+    if (e.type !== "LimitLedgerRebased") continue;
+    const agentId = ledgerAgent.get(p(e).ledgerId);
+    if (!agentId || taken(agentId)) continue;
+    const r = [...receivable.entries()].find(([, v]) => v.agentId === agentId && v.offsetSeq !== undefined);
+    if (!r) continue;
+    pick(3, agentId, { rebaseSeq: e.seq, ledgerId: p(e).ledgerId, receivableId: r[0], openSeq: r[1].openSeq!, offsetSeq: r[1].offsetSeq! });
+    break;
+  }
+  return picked;
+}
+
+function demoAgents(events: readonly Envelope[]): CaseResult {
+  const picked = selectDemoAgents(events);
+  const missing = ([1, 2, 3] as const).filter((n) => !picked.some((d) => d.demoNo === n));
+  return result(
+    "DEMO_AGENTS",
+    "데모 설계사 3명 선정(설계서 §4.1(a) 규칙 — A-1·분급제·재산정+환수 상계)",
+    missing.length === 0,
+    [...picked.map((d) => `${d.demoNo} ${d.agentId}(${Object.values(d.basis).join(" ")})`), ...missing.map((n) => `${n} 없음`)].join(" · "),
+  );
+}
+
 export function requiredCases(events: readonly Envelope[]): CaseResult[] {
   return [
     limitBands(events),
@@ -157,5 +245,6 @@ export function requiredCases(events: readonly Envelope[]): CaseResult[] {
     adjustmentAfterClose(events),
     ...boundaries(events),
     a1Golden(events),
+    demoAgents(events),
   ];
 }

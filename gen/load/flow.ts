@@ -1,5 +1,6 @@
-// 적재·전환·되돌리기·비우기 흐름(설계서 v0.1.10 §5.1·§5.4·§14.1-10). 실행기(D1Exec)만 받는다 —
-// CLI(d1.ts)는 wrangler로, 시험은 node:sqlite로 같은 흐름을 돌린다(마이그레이션 0001·0002를 그대로 적용).
+// 적재·전환·되돌리기·비우기 흐름(설계서 v0.1.11 §5.1·§5.4·§14.1-10). 실행기(D1Exec)만 받는다 —
+// CLI(d1.ts)는 wrangler로, 시험은 node:sqlite로 같은 흐름을 돌린다(마이그레이션 0001~0003을 그대로 적용).
+import type { DemoAgent } from "../verify/g3.ts";
 import { TENANT } from "../world/rules/tables.ts";
 import { countSql, estimateWrites, insertStatements, monthInvariantSql, READ_MODEL, type Row, type Slot, slotTable, sqlValue } from "./sql.ts";
 
@@ -22,6 +23,8 @@ export interface StreamInfo {
   generatedAt: string;
   eventCount: number;
   planPrompt: string;
+  /** meta.json demoAgents(G3가 고른 3명) — demo_agents 표에 그대로 넣는다. */
+  demoAgents: readonly DemoAgent[];
 }
 
 type Log = (line: string) => void;
@@ -82,9 +85,38 @@ export function switchTo(db: D1Exec, hash: string): { n: number; hash: string; s
   return n;
 }
 
-/** ④에 쓰는 문장들: 슬롯 표 INSERT + stream_meta(active=0) 한 행. */
+/** demo_agents 3행 INSERT 한 문장(설계서 v0.1.11 §5.1). 3명이 아니면 G3가 막았어야 한다. */
+export function demoAgentsInsert(info: StreamInfo, tenant = TENANT): string {
+  if (info.demoAgents.length !== 3) throw new Error(`meta.demoAgents ${info.demoAgents.length}명 — G3 DEMO_AGENTS가 PASS인 스트림만 적재한다`);
+  const rows = info.demoAgents.map((d) =>
+    `(${[info.hash, d.demoNo, tenant, d.agentId, d.scenario, d.cardLabel, d.contractCount, JSON.stringify(d.basis)].map(sqlValue).join(", ")})`,
+  );
+  return `INSERT INTO demo_agents (stream_hash, demo_no, tenant_id, agent_id, scenario, card_label, contract_count, basis) VALUES ${rows.join(", ")};`;
+}
+
+/** demo_agents에 그 해시 행이 없으면 넣고, 있으면 meta와 같은지 본다(재개·이미 활성 경로 — 0003 이전에 적재된 스트림). */
+export function ensureDemoAgents(db: D1Exec, info: StreamInfo, log: Log, tenant = TENANT): void {
+  const have = db.query(`SELECT demo_no, agent_id FROM demo_agents WHERE stream_hash = ${sqlValue(info.hash)} ORDER BY demo_no`) as { demo_no: number; agent_id: string }[];
+  if (have.length === 0) {
+    db.apply([demoAgentsInsert(info, tenant)], "demo-agents");
+    log(`demo_agents ${info.hash.slice(0, 12)}… 3행 넣음: ${info.demoAgents.map((d) => `${d.demoNo}=${d.agentId}`).join(" ")}`);
+    return;
+  }
+  const want = info.demoAgents.map((d) => `${d.demoNo}=${d.agentId}`).join(" ");
+  const got = have.map((r) => `${r.demo_no}=${r.agent_id}`).join(" ");
+  if (got !== want) throw new Error(`demo_agents ${got} ≠ meta ${want}`);
+}
+
+/** ⑤ 재검사에서 센 earnings_line 행 수를 비활성 행에 쓴다(설계서 v0.1.11 — /health는 stream_meta 1행만 읽는다). */
+function lineCountUpdate(hash: string, n: number): string {
+  if (!Number.isSafeInteger(n) || n < 0) throw new Error(`line_count ${n}`);
+  return `UPDATE stream_meta SET line_count = ${n} WHERE stream_hash = ${sqlValue(hash)} AND active = 0`;
+}
+
+/** ④에 쓰는 문장들: 슬롯 표 INSERT + demo_agents 3행 + stream_meta(active=0) 한 행. */
 export function insertPlan(slot: Slot, info: StreamInfo, views: Readonly<Record<string, Row[]>>, verifiedAt: string, tenant = TENANT): string[] {
   const statements = READ_MODEL.flatMap((t) => insertStatements(t, slot, tenant, views[t] ?? []));
+  statements.push(demoAgentsInsert(info, tenant));
   const metaRow = [info.hash, info.generatedAt, info.eventCount, info.planPrompt, verifiedAt, 0, slot].map(sqlValue).join(", ");
   statements.push(`INSERT INTO stream_meta (stream_hash, generated_at, event_count, plan_prompt_version, verified_at, active, slot) VALUES (${metaRow});`);
   return statements;
@@ -126,7 +158,8 @@ export function loadSlot(
 
   const { active, rows } = metaRows(db);
   if (active?.stream_hash === info.hash) {
-    log(`이미 활성: ${info.hash} (slot ${active.slot}) — 할 일 없음`);
+    log(`이미 활성: ${info.hash} (slot ${active.slot}) — 슬롯 표는 그대로, demo_agents만 확인`);
+    ensureDemoAgents(db, info, log, tenant);
     return { ...report, noop: true };
   }
   const slot = active ? other(active.slot) : "a";
@@ -138,8 +171,10 @@ export function loadSlot(
   }
   Object.assign(report, { slot, previousActive: active?.stream_hash ?? null, resumed: resumable });
 
-  if (resumable) log(`④ 건너뜀: slot ${slot}에 ${info.hash}가 이미 적재돼 있고 표별 행 수가 뷰와 같다 → 재검사부터`);
-  else {
+  if (resumable) {
+    log(`④ 건너뜀: slot ${slot}에 ${info.hash}가 이미 적재돼 있고 표별 행 수가 뷰와 같다 → 재검사부터`);
+    ensureDemoAgents(db, info, log, tenant);
+  } else {
     const statements = insertPlan(slot, info, views, (opts.now ?? (() => new Date().toISOString()))(), tenant);
     log(`④ 문장 ${statements.length}개 → slot ${slot}`);
     report.applyMeta = db.apply(statements, `load-${info.hash.slice(0, 12)}-${slot}`);
@@ -150,6 +185,8 @@ export function loadSlot(
   log(`⑤ 재검사 slot ${slot}: ${JSON.stringify(check.counts)}`);
   log(`   월 합산 불변식: 월 행 ${check.monthInvariant.months}, 라인 있는 (설계사, 월) ${check.monthInvariant.line_months}, 합계 불일치 ${check.monthInvariant.month_mismatch}, 월 행 없는 라인 묶음 ${check.monthInvariant.line_without_month}`);
   if (check.problems.length) throw Object.assign(new Error(`재검사 실패 — 전환하지 않는다: ${check.problems.join("; ")}`), { report });
+  db.apply([lineCountUpdate(info.hash, check.counts.earnings_line!)], "line-count");
+  log(`   stream_meta.line_count = ${check.counts.earnings_line} (비활성 행)`);
 
   report.activeAfter = switchTo(db, info.hash);
   log(`⑦ 전환 완료: active=1 ${report.activeAfter.n}행, ${report.activeAfter.hash} slot ${report.activeAfter.slot}`);
@@ -159,7 +196,7 @@ export function loadSlot(
 /**
  * 되돌리기(v0.1.10 §5.4): 비활성 슬롯에 남아 있는 이전 스트림으로 재적재 없이 전환한다.
  * ① 그 슬롯 재검사 ② 같은 해시·같은 슬롯 행을 INSERT OR REPLACE 한 문장으로 새 rowid에 다시 넣는다(활성 행은 건드리지 않는다)
- * ③ 같은 UPDATE 한 문장으로 전환 ④ active=1 COUNT = 1 확인.
+ * ③ 같은 UPDATE 한 문장으로 전환 ④ active=1 COUNT = 1 확인. 쓰는 문장은 ②·③ 두 개다 — ②는 활성 상태를 바꾸지 않는다(v0.1.11).
  */
 export function rollback(db: D1Exec, hash: string, expected: Readonly<Record<string, number>> | null, log: Log, tenant = TENANT): LoadReport {
   const { active, rows } = metaRows(db);
@@ -174,8 +211,8 @@ export function rollback(db: D1Exec, hash: string, expected: Readonly<Record<str
   if (check.problems.length) throw new Error(`되돌릴 슬롯 재검사 실패: ${check.problems.join("; ")}`);
   const [m] = db.apply(
     [
-      `INSERT OR REPLACE INTO stream_meta (stream_hash, generated_at, event_count, plan_prompt_version, verified_at, active, slot)
-SELECT stream_hash, generated_at, event_count, plan_prompt_version, verified_at, 0, slot FROM stream_meta WHERE stream_hash = ${sqlValue(hash)} AND active = 0`,
+      `INSERT OR REPLACE INTO stream_meta (stream_hash, generated_at, event_count, plan_prompt_version, verified_at, active, slot, line_count)
+SELECT stream_hash, generated_at, event_count, plan_prompt_version, verified_at, 0, slot, line_count FROM stream_meta WHERE stream_hash = ${sqlValue(hash)} AND active = 0`,
     ],
     "rollback-reinsert",
   );
@@ -193,7 +230,11 @@ export function purgeInactive(db: D1Exec, log: Log, tenant = TENANT): { slot: Sl
   const slot = other(active.slot);
   const before = slotCounts(db, slot, tenant);
   const meta = db.apply(
-    [...READ_MODEL.map((t) => `DELETE FROM ${slotTable(t, slot)} WHERE tenant_id = ${sqlValue(tenant)}`), `DELETE FROM stream_meta WHERE slot = '${slot}' AND active = 0`],
+    [
+      ...READ_MODEL.map((t) => `DELETE FROM ${slotTable(t, slot)} WHERE tenant_id = ${sqlValue(tenant)}`),
+      `DELETE FROM demo_agents WHERE stream_hash IN (SELECT stream_hash FROM stream_meta WHERE slot = '${slot}' AND active = 0)`,
+      `DELETE FROM stream_meta WHERE slot = '${slot}' AND active = 0`,
+    ],
     `purge-${slot}`,
   );
   log(`purge slot ${slot}: ${JSON.stringify(before)} → rows_written ${meta.reduce((a, x) => a + (x.rows_written ?? 0), 0)}`);

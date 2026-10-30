@@ -90,6 +90,52 @@
       "id": "A1_GOLDEN",
       "status": "PASS",
       "detail": "11건 동등·순서 일치"
+    },
+    {
+      "id": "DEMO_AGENTS",
+      "status": "PASS",
+      "detail": "1 A-1001(POL-2026-0001 1 100) · 2 A-1002(6734 s-POL-2027-0003-1 15 4) · 3 A-1003(3041 l-POL-2026-03013 r-A-1003-1 1341 1561)"
+    }
+  ],
+  "demoAgents": [
+    {
+      "demoNo": 1,
+      "agentId": "A-1001",
+      "scenario": "A1",
+      "cardLabel": "한도 100% 소진 계약 보유",
+      "contractCount": 9,
+      "basis": {
+        "a1PolicyNo": "POL-2026-0001",
+        "fullLedgerId": "1",
+        "usagePct": 100
+      }
+    },
+    {
+      "demoNo": 2,
+      "agentId": "A-1002",
+      "scenario": "A2",
+      "cardLabel": "분급제 계약 보유",
+      "contractCount": 15,
+      "basis": {
+        "heldSeq": 6734,
+        "scheduleId": "s-POL-2027-0003-1",
+        "curveSchedules": 15,
+        "released": 4
+      }
+    },
+    {
+      "demoNo": 3,
+      "agentId": "A-1003",
+      "scenario": "A3",
+      "cardLabel": "재산정·환수 상계 있음",
+      "contractCount": 19,
+      "basis": {
+        "rebaseSeq": 3041,
+        "ledgerId": "l-POL-2026-03013",
+        "receivableId": "r-A-1003-1",
+        "openSeq": 1341,
+        "offsetSeq": 1561
+      }
     }
   ]
 }

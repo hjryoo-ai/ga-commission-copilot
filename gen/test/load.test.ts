@@ -63,7 +63,7 @@ describe("rows written 추정(마이그레이션 0002에서 인덱스 수를 센
   it("Phase 1 스트림 행 수로 약 24,800", () => {
     const counts = { agent_profile: 30, earnings_line: 5200, earnings_month: 962, policy_limit: 182, policy_limit_history: 215, deferral_item: 210, clawback_item: 30, policy_flag: 181 };
     const e = estimateWrites(counts, migration);
-    expect(e.rows).toBe(7011);
-    expect(e.rowsWritten).toBe(24_816);
+    expect(e.rows).toBe(7014); // + demo_agents 3
+    expect(e.rowsWritten).toBe(24_826); // + demo_agents 9 + line_count UPDATE 1
   });
 });
