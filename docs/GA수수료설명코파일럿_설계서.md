@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.10)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.11)
 
 > 변경 이력
+> - v0.1.11 (2026-10-30, Phase 2): §4.1(a) 데모 설계사 선정 결정론 규칙과 §4.2 G3 13항목(규칙이 3명을 못 채우면 FAIL) · §5.1 추가 테이블 9개 — `demo_agents` 표(PK `stream_hash, demo_no`)·`stream_meta.line_count`(적재기 ⑤ 재검사 값 — health는 stream_meta 1행만 읽어 규약 3 예외가 없어진다) · §5.4 되돌리기는 INSERT + UPDATE 두 문장(INSERT는 활성 상태를 바꾸지 않는다) · §7 `asOf {streamHash, generatedAt, demoNo}`, 공개 `GET /api/v1/demo/agents`(화면 1 카드) · §8 화면 1 카드 3 문구 "재산정·환수 상계 있음" · §11 CI/CD에 `ci.yml`(`pnpm lint`·`pnpm -r test`·`./gradlew test`).
 > - v0.1.10 (2026-10-30, Phase 1 수용): §5.4 되돌리기 절차(`load:d1 --rollback <hash>` — 같은 해시·같은 슬롯 행을 새 rowid로 다시 넣고 같은 UPDATE 한 문장으로 전환, 재적재 없음)·§12 Phase 7 복구 수단으로 참조 · §3.3 의존 방향에 `worker`·`web`·`packages` → `gen` 금지(규약 2 예외인 엔진 대역은 gen 안에서만) · §4.1(a) 분급 커브 각주(상위 엔진 샘플 연 40/20/20/20%, 상위 A-2 "48개월" 표현과 다름)와 전개 규칙 위치 정정(`gen/world/rules/`).
 > - v0.1.9 (2026-10-30, Phase 1 항목 6): §5.4 전환 문장의 행 순서 제약 — 부분 유일 인덱스는 UPDATE가 행을 바꿀 때마다 검사되므로 전환 대상은 활성 행보다 나중에 들어간 행(rowid 큼)이어야 한다. 되돌리기는 같은 문장으로 할 수 없다(문장 전체 실패, 변경 없음).
 > - v0.1.8 (2026-10-30, Phase 1 항목 6): 읽기 모델 8표를 A/B 슬롯(`<표>_a`·`<표>_b`, 인덱스 `<원래이름>_<slot>`)으로 두고 활성 슬롯은 Worker 조회 계층이 고른다(뷰 없음) · `stream_meta.slot` 열과 `active=1` 부분 유일 인덱스, 전환은 `UPDATE` 한 문장(§5.1·§5.4) · §5.3에 적재 쓰기 행 수 · §14.1-10 재적재 시 이전 슬롯 삭제 지연. 근거: `wrangler d1 execute --file`·`--command`의 다중 문장 트랜잭션은 공식 문서에 없다(D1 문서는 Worker `batch()`와 문장 단위 커밋만 보장).
@@ -177,7 +178,7 @@ ga-commission-copilot/
 
 **(a) 데모 세계 생성** — 입력: 상위 설계서 부록 B 사양(설계사 30명, 조직 트리, 계약 약 400건, 체결일 2025-07~2027-06, 필수 케이스 목록). 두 단계로 나눈다.
 
-1. *시나리오 플랜*(LLM, 구조화 출력): 계약마다 `{policyNo, agentId, productKey, contractDate, monthlyPremium, lifecycle: [{ym, event}]}`를 생성. 필수 케이스(한도 80/95/100% 각 1건 이상, CUT·DEFER 각 1건, 재산정 1건, HELD 분급 1건, 환수 채권 이월 1건, 취소·재분개 짝 1건, 마감 후 ADJUSTMENT 1건, 경계 넷 — 2026-06-30·2026-07-01 체결(한도 미적용/적용)·2026-12-31·2027-01-01 체결(분급 미적용/적용))는 **LLM에게 맡기지 않고 플랜에 강제 주입**한다. 강제 케이스는 15건이다(A-1·A-2·A-3와 위 케이스를 담은 11건 + 경계 4건 — 2026-06-30 경계는 그 11건과 함께 미리 넣는 계약 `POL-2026-0012`에 붙인다). 경계 4건은 LLM 출력 뒤에 정한다 — 플랜에 그 날짜 계약이 이미 있으면 중복 주입하지 않고 그 계약을 경계 케이스로 표시하고, 없을 때만 주입한다. 데모 설계사 1의 A-1 계약은 상위 샘플 스트림과 **payload 필드 단위로 동등**해야 한다(eventId·occurredAt·전역 seq 오프셋 제외). 이를 위해 A-1 계약의 `agentId` `A-1001`·`policyNo` `POL-2026-0001`·calcId `1`·`2`·`6`·ledgerId `1`·productKey `WHOLE-LIFE-20Y`·`basis.ruleVersionIds` 문자열은 상위 샘플 값 그대로 쓰고, ID 할당기는 예약 ID(`POL-2026-0001`, calcId `1`·`2`·`6`, ledgerId `1`)를 건너뛰어 다른 계약에는 충돌할 수 없는 접두 체계(예: calcId `c-<policyNo>-<n>`)를 쓴다 — 예약 ID가 다른 계약에 쓰이면 테스트 실패. LLM은 나머지 분포(상품 구성·보험료·해약 시점)만 채운다.
+1. *시나리오 플랜*(LLM, 구조화 출력): 계약마다 `{policyNo, agentId, productKey, contractDate, monthlyPremium, lifecycle: [{ym, event}]}`를 생성. 필수 케이스(한도 80/95/100% 각 1건 이상, CUT·DEFER 각 1건, 재산정 1건, HELD 분급 1건, 환수 채권 이월 1건, 취소·재분개 짝 1건, 마감 후 ADJUSTMENT 1건, 경계 넷 — 2026-06-30·2026-07-01 체결(한도 미적용/적용)·2026-12-31·2027-01-01 체결(분급 미적용/적용))는 **LLM에게 맡기지 않고 플랜에 강제 주입**한다. 강제 케이스는 15건이다(A-1·A-2·A-3와 위 케이스를 담은 11건 + 경계 4건 — 2026-06-30 경계는 그 11건과 함께 미리 넣는 계약 `POL-2026-0012`에 붙인다). 경계 4건은 LLM 출력 뒤에 정한다 — 플랜에 그 날짜 계약이 이미 있으면 중복 주입하지 않고 그 계약을 경계 케이스로 표시하고, 없을 때만 주입한다. **데모 설계사 선정(v0.1.11)**: G3가 스트림에서 결정론 규칙으로 3명을 고르고 `data/stream/<hash>.meta.json`의 `demoAgents`에 근거와 함께 기록한다 — 1번은 A-1 정본 계약의 설계사(그 설계사에게 소진율 100% 원장이 있어야 한다, 카드 "한도 100% 소진 계약 보유"), 2번은 HELD 분급 전이 중 seq가 가장 앞선 것의 설계사(커브 스케줄과 RELEASED가 있어야 하고 1번과 달라야 한다, "분급제 계약 보유"), 3번은 재산정 중 seq가 가장 앞선 것의 설계사(그 설계사의 환수 채권이 OPEN 뒤 OFFSET까지 가야 하고 1·2번과 달라야 한다, "재산정·환수 상계 있음"). 조건을 못 채우면 seq 순으로 다음 후보를 보고, 3명을 못 채우면 G3 FAIL이다(적재가 아니라 verify에서 막는다). 데모 설계사 1의 A-1 계약은 상위 샘플 스트림과 **payload 필드 단위로 동등**해야 한다(eventId·occurredAt·전역 seq 오프셋 제외). 이를 위해 A-1 계약의 `agentId` `A-1001`·`policyNo` `POL-2026-0001`·calcId `1`·`2`·`6`·ledgerId `1`·productKey `WHOLE-LIFE-20Y`·`basis.ruleVersionIds` 문자열은 상위 샘플 값 그대로 쓰고, ID 할당기는 예약 ID(`POL-2026-0001`, calcId `1`·`2`·`6`, ledgerId `1`)를 건너뛰어 다른 계약에는 충돌할 수 없는 접두 체계(예: calcId `c-<policyNo>-<n>`)를 쓴다 — 예약 ID가 다른 계약에 쓰이면 테스트 실패. LLM은 나머지 분포(상품 구성·보험료·해약 시점)만 채운다.
 2. *이벤트 스트림 생성*(결정론 코드, LLM 아님): 플랜을 상위 설계서 §4.2 이벤트 카탈로그로 전개한다. 금액·한도·분급 스케줄은 `gen/world/rules/`의 데모 생성기 규칙(가상 요율표 — 엔진 대역)으로 계산하고, 결과 스트림은 `projection-java`가 검사한다(G2). **LLM은 금액을 만들지 않는다** — 대전제 1이 생성 단계에도 적용된다.¹
 
    ¹ 분급 커브는 상위 엔진 샘플을 따른다 — 초년도 40%, 이후 12·24·36개월에 20%씩(연 40/20/20/20%). 상위 설계서 A-2 본문의 "타임라인에 48개월 예정" 표현과 다르다(v0.1.10).
@@ -192,7 +193,7 @@ ga-commission-copilot/
 |---|---|---|---|
 | G1 스키마 | 플랜·스트림·설명·사규집 | `contracts/` JSON Schema 2020-12 | 해당 항목 재생성(최대 3회) |
 | G2 불변식 | 스트림 | `projection-java` 리플레이: 월 합산=Σ라인, `accum_paid ≤ limit_amount`, 이력 연속성, 마감월 불변, 2회 리플레이 동일 | 배치 전체 거부 |
-| G3 필수 케이스 | 스트림 | 상위 부록 B 케이스 목록이 모두 존재 — 12항목: 8종 중 경계 넷은 날짜별 4항목(7 + 4) + A-1 payload 동등 1, 항목별 PASS/FAIL | 플랜 재생성 |
+| G3 필수 케이스 | 스트림 | 상위 부록 B 케이스 목록이 모두 존재 — 13항목: 8종 중 경계 넷은 날짜별 4항목(7 + 4) + A-1 payload 동등 1 + 데모 설계사 3명 선정 1(§4.1(a) — 규칙이 3명을 못 채우면 FAIL), 항목별 PASS/FAIL | 플랜 재생성 |
 | G4 숫자 그라운딩 | 설명·답변 | 텍스트의 숫자 토큰(원·%·회차·날짜) ⊆ 컨텍스트 숫자 집합 (§6.1) | 해당 설명 폐기, 재생성 1회, 재실패 시 "설명 없음" 상태 |
 | G5 인용 필드 | 설명 | `citedFields` ⊆ 컨텍스트 키 | 폐기 |
 | G6 금지어 | 설명·답변·사규집 | "확정", "보장", "고객에게 안내" 등 금지 표현 목록, 타 설계사 ID 노출 | 폐기 |
@@ -243,7 +244,7 @@ ga-commission-copilot/
 
 상위 설계서의 `agent_profile`, `earnings_line`, `earnings_month`, `policy_limit`, `policy_limit_history`, `deferral_item`, `clawback_item`, `policy_flag`를 **컬럼명 그대로** 옮긴다(PostgreSQL → SQLite 타입만 변환: `BIGINT→INTEGER`, `JSONB→TEXT(JSON)`, `TIMESTAMPTZ→TEXT(ISO)`). `tenant_id`는 데모 테넌트 1개지만 컬럼과 PK에 그대로 둔다 — 쿼리 빌더가 `tenant_id`·`agent_id` 조건을 강제하는 규약을 유지하기 위해서다.
 
-**A/B 슬롯(v0.1.8)**: 읽기 모델 8표는 같은 DDL로 두 벌(`<표>_a`, `<표>_b`)을 둔다. 인덱스 이름은 `<원래이름>_<slot>`(예: `ix_line_agent_ym_a`). 원래 이름의 표·뷰는 없다. 활성 슬롯은 `stream_meta`의 `active=1` 행의 `slot`이고, Worker는 요청마다 그 한 행을 읽어(isolate 안에서는 `stream_hash`를 키로 파생 값을 캐시) `<표>_<slot>`을 직접 조회한다 — 슬롯 선택은 `ScopedQuery`가 맡는다(UNION ALL 뷰는 비활성 쪽까지 읽어 rows read가 늘고 `EXPLAIN QUERY PLAN` 검사가 흐려진다). 적재기(`gen/load/d1.ts`)는 비어 있는 비활성 슬롯에만 쓰고, 슬롯 표를 SQL로 재검사한 뒤 `UPDATE stream_meta SET active = CASE WHEN stream_hash = ? THEN 1 ELSE 0 END` **한 문장**으로 전환하고, 직후 `SELECT COUNT(*) FROM stream_meta WHERE active = 1`이 1인지 확인한다. 이전 슬롯 비우기는 별도 단계다(§14.1-10). 아래는 추가 테이블 **8개**(`stream_meta`, `explanation`, `rulebook_chunk`, `sim_stub`, `answer_log`, `budget_counter`, `eval_run`, `eval_case_result`).
+**A/B 슬롯(v0.1.8)**: 읽기 모델 8표는 같은 DDL로 두 벌(`<표>_a`, `<표>_b`)을 둔다. 인덱스 이름은 `<원래이름>_<slot>`(예: `ix_line_agent_ym_a`). 원래 이름의 표·뷰는 없다. 활성 슬롯은 `stream_meta`의 `active=1` 행의 `slot`이고, Worker는 요청마다 그 한 행을 읽어(isolate 안에서는 `stream_hash`를 키로 파생 값을 캐시) `<표>_<slot>`을 직접 조회한다 — 슬롯 선택은 `ScopedQuery`가 맡는다(UNION ALL 뷰는 비활성 쪽까지 읽어 rows read가 늘고 `EXPLAIN QUERY PLAN` 검사가 흐려진다). 적재기(`gen/load/d1.ts`)는 비어 있는 비활성 슬롯에만 쓰고, 슬롯 표를 SQL로 재검사한 뒤 `UPDATE stream_meta SET active = CASE WHEN stream_hash = ? THEN 1 ELSE 0 END` **한 문장**으로 전환하고, 직후 `SELECT COUNT(*) FROM stream_meta WHERE active = 1`이 1인지 확인한다. v0.1.11: 슬롯 표와 함께 `demo_agents` 3행(그 스트림 해시)을 넣고, 재검사에서 센 earnings_line 행 수를 비활성 행의 `stream_meta.line_count`에 쓴 뒤 전환한다. 이전 슬롯 비우기는 별도 단계다(§14.1-10) — 그 스트림의 `demo_agents`도 함께 지운다. 아래는 추가 테이블 **9개**(`stream_meta`, `demo_agents`(v0.1.11), `explanation`, `rulebook_chunk`, `sim_stub`, `answer_log`, `budget_counter`, `eval_run`, `eval_case_result`).
 
 ```sql
 CREATE TABLE stream_meta (          -- 적재된 스트림의 정체(슬롯마다 최대 1행)
@@ -253,6 +254,15 @@ CREATE TABLE stream_meta (          -- 적재된 스트림의 정체(슬롯마�
 );
 CREATE UNIQUE INDEX ux_stream_meta_active ON stream_meta (active) WHERE active = 1;  -- 활성은 많아야 1행
 CREATE UNIQUE INDEX ux_stream_meta_slot ON stream_meta (slot);                       -- 슬롯당 1행
+-- v0.1.11: stream_meta.line_count INTEGER — 적재기가 ⑤ 재검사에서 센 그 슬롯 earnings_line 행 수. /health는 stream_meta 1행만 읽는다
+
+CREATE TABLE demo_agents (          -- v0.1.11: 스트림별 데모 설계사 3명(gen G3가 고르고, load:d1이 비활성 슬롯 적재 때 넣고 비울 때 지운다)
+  stream_hash TEXT NOT NULL, demo_no INTEGER NOT NULL CHECK (demo_no IN (1, 2, 3)),
+  tenant_id TEXT NOT NULL, agent_id TEXT NOT NULL,
+  scenario TEXT NOT NULL CHECK (scenario IN ('A1', 'A2', 'A3')), card_label TEXT NOT NULL,
+  contract_count INTEGER NOT NULL, basis TEXT NOT NULL,         -- basis: 선정 근거 JSON(seq·키)
+  PRIMARY KEY (stream_hash, demo_no), UNIQUE (stream_hash, agent_id)
+);
 
 CREATE TABLE explanation (          -- Q1~Q3 사전 생성 설명
   tenant_id TEXT, agent_id TEXT NOT NULL, kind TEXT NOT NULL,   -- LINE / LIMIT / MONTH_DIFF
@@ -338,7 +348,7 @@ CREATE TABLE eval_case_result (
 - 상위 설계서 §5의 세 불변식(월 합산, 한도 누적, 마감월 불변) — `projection-java`가 적재 전 검사, Worker 기동 시 샘플 재검사.
 - `explanation.grounding_status='PASS'`인 행의 `numbers_used` ⊆ 해당 subject의 컨텍스트 숫자 집합 — 적재 후 전수 재검증(검증기 버그 방어).
 - `answer_log.refused=0`이면 `grounding_status='PASS'`여야 한다.
-- `stream_meta.active=1`인 행은 정확히 1개(첫 적재 뒤). 부분 유일 인덱스가 2개 이상을 막고, 전환이 `UPDATE` 한 문장이라 0개인 순간이 없다. 적재기가 전환 직후 `COUNT(*)`로 확인한다. 부분 유일 인덱스는 UPDATE가 행을 하나씩 바꿀 때마다 검사되므로(SQLite) 전환 대상은 활성 행보다 나중에 들어간 행(rowid 큼)이어야 한다 — 새로 적재한 행은 늘 그렇고, 적재기가 전환 전에 확인한다. 먼저 들어간 행으로 되돌리는 같은 문장은 문장 전체가 실패하고 아무것도 바뀌지 않는다**되돌리기(v0.1.10)**: 이전 스트림이 비활성 슬롯에 그대로 있을 때(이전 슬롯을 비우기 전 — §14.1-10의 지연 덕에 전환 다음 날 00:00 UTC 전까지)는 재적재 없이 되돌린다 — `load:d1 --rollback <hash>`가 ① 그 슬롯 표를 재검사(표별 COUNT·월 합산)하고 ② `INSERT OR REPLACE INTO stream_meta … SELECT … FROM stream_meta WHERE stream_hash = ? AND active = 0` 한 문장으로 같은 해시·같은 슬롯 행을 새 rowid로 다시 넣고(REPLACE가 옛 행을 지운다 — 활성 행은 건드리지 않는다) ③ 같은 `UPDATE` 한 문장으로 전환하고 ④ `COUNT(*) … active = 1`이 1인지 확인한다. 이전 슬롯이 이미 비었으면 그 스트림을 다시 적재한다.
+- `stream_meta.active=1`인 행은 정확히 1개(첫 적재 뒤). 부분 유일 인덱스가 2개 이상을 막고, 전환이 `UPDATE` 한 문장이라 0개인 순간이 없다. 적재기가 전환 직후 `COUNT(*)`로 확인한다. 부분 유일 인덱스는 UPDATE가 행을 하나씩 바꿀 때마다 검사되므로(SQLite) 전환 대상은 활성 행보다 나중에 들어간 행(rowid 큼)이어야 한다 — 새로 적재한 행은 늘 그렇고, 적재기가 전환 전에 확인한다. 먼저 들어간 행으로 되돌리는 같은 문장은 문장 전체가 실패하고 아무것도 바뀌지 않는다**되돌리기(v0.1.10)**: 문장은 INSERT + UPDATE 두 개다 — INSERT(새 rowid로 다시 넣기)는 활성 상태를 바꾸지 않으므로 둘 사이 어느 시점에도 active=1은 정확히 1행이다(v0.1.11). 이전 스트림이 비활성 슬롯에 그대로 있을 때(이전 슬롯을 비우기 전 — §14.1-10의 지연 덕에 전환 다음 날 00:00 UTC 전까지)는 재적재 없이 되돌린다 — `load:d1 --rollback <hash>`가 ① 그 슬롯 표를 재검사(표별 COUNT·월 합산)하고 ② `INSERT OR REPLACE INTO stream_meta … SELECT … FROM stream_meta WHERE stream_hash = ? AND active = 0` 한 문장으로 같은 해시·같은 슬롯 행을 새 rowid로 다시 넣고(REPLACE가 옛 행을 지운다 — 활성 행은 건드리지 않는다) ③ 같은 `UPDATE` 한 문장으로 전환하고 ④ `COUNT(*) … active = 1`이 1인지 확인한다. 이전 슬롯이 이미 비었으면 그 스트림을 다시 적재한다.
 
 ---
 
@@ -399,7 +409,8 @@ CREATE TABLE eval_case_result (
 | 메서드/경로 | 응답 요약 | 예산 |
 |---|---|---|
 | `POST /api/v1/demo/session {demoAgent: 1\|2\|3}` | 세션 쿠키, 프로필 | — |
-| `GET /api/v1/me` | 프로필, `asOf {streamHash, generatedAt}`, `budget {remainingToday, userRemaining}`, `promptVersions` | — |
+| `GET /api/v1/demo/agents` | (공개, v0.1.11) 활성 스트림의 데모 설계사 3명 카드: `demoNo`·이름·등급·소속·계약 수·`cardLabel` | — |
+| `GET /api/v1/me` | 프로필, `asOf {streamHash, generatedAt, demoNo}`, `budget {remainingToday, userRemaining}`, `promptVersions` | — |
 | `GET /api/v1/me/earnings?from&to` / `/{ym}` / `/{ym}/lines` | 상위 설계서 §7과 동일 구조 | — |
 | `GET /api/v1/me/earnings/lines/{calcId}` | 라인 상세 + `explanation {text, citedFields, numbersUsed, groundingStatus, promptVersion}` (없으면 `null`) | — |
 | `GET /api/v1/me/limits` / `/{ledgerId}` | 한도 카드·상세 + `explanation`(kind=LIMIT) | — |
@@ -409,7 +420,7 @@ CREATE TABLE eval_case_result (
 | `GET /api/v1/evals` / `/{runId}` | 평가 런 목록·케이스별 결과 (공개) | — |
 | `GET /api/v1/budget` | 오늘·최근 7일 공급자별 사용, 폴백 깊이 분포, 캐시 적중률 (공개) | — |
 
-공통 필드: `asOf`, `dataStatus: OK|DEGRADED`(저하 모드), `disclaimer`(고정 문구). 금액은 정수 원.
+공통 필드: `asOf {streamHash, generatedAt, demoNo}`(v0.1.11 — 화면 칩이 "데모 설계사 n"을 표시), `dataStatus: OK|DEGRADED`(저하 모드), `disclaimer`(고정 문구). 금액은 정수 원.
 
 **응답 예시 — `POST /api/v1/me/ask`**
 
@@ -442,7 +453,7 @@ CREATE TABLE eval_case_result (
 **공통**: 상단 칩 3개 — `기준 데이터 10-26 생성` · `오늘 남은 질문 n회` · `프롬프트 answer=v5`. 모든 LLM 텍스트 블록 하단에 고정 문구 + "근거 보기" 토글. 상위 설계서의 상태 라벨(예상·확정·지급완료)과 금액 표기 규약을 그대로 따른다.
 
 1. **설계사 선택** (`/`)
-   - 데모 설계사 3명 카드(이름·등급·소속·계약 수·대표 케이스: "한도 100% 소진 계약 보유", "분급제 계약 보유", "환수 상계 있음")
+   - 데모 설계사 3명 카드(이름·등급·소속·계약 수·대표 케이스: "한도 100% 소진 계약 보유", "분급제 계약 보유", "재산정·환수 상계 있음" — `demo_agents.card_label` 그대로)
    - 서비스 한 줄 설명 + "이 데모가 하지 않는 것"(계산·고객 제시·실제 규정 판정) 3줄
 2. **월별 명세** (`/me/earnings/:ym`)
    - 월 요약 카드(상위 설계서 §8-5와 동일) + **"전월과 달라진 이유"** 접힘 블록(kind=MONTH_DIFF 설명)
@@ -556,7 +567,7 @@ CREATE TABLE eval_case_result (
 | 평가 | 자체 하네스(`evals/`): 골든 JSONL + 채점기 TS | 외부 eval 프레임워크는 v0.1에서 쓰지 않는다 — 채점 규칙(그라운딩·거부·툴)이 도메인 특화라 직접 쓰는 편이 짧다 |
 | 관측 | AI Gateway 분석·캐시, Workers Logs(무료 범위), `/budget` 자체 집계 | OpenTelemetry는 v0.1 제외 |
 | 봇 방지 | Cloudflare Turnstile(무료) | `/ask`만 |
-| CI/CD | GitHub Actions: `deploy.yml`(main 푸시 → `wrangler deploy`), `weekly-generate.yml`(cron 일 03:00 KST), `eval-on-prompt-change.yml`(`prompts/**` 변경 PR) | 시크릿은 Actions Secrets |
+| CI/CD | GitHub Actions: `ci.yml`(push·PR → `pnpm lint`(의존 방향, CLAUDE.md 규약 2)·`pnpm -r test`·`./gradlew test`), `deploy.yml`(main 푸시 → `wrangler deploy`), `weekly-generate.yml`(cron 일 03:00 KST), `eval-on-prompt-change.yml`(`prompts/**` 변경 PR) | 시크릿은 Actions Secrets |
 
 버전은 구현 시작 시점에 `npm view <pkg> version`·`gradle --version`으로 재확인하고 `package.json`·`gradle/libs.versions.toml`에 고정한다. 본 표는 메이저 라인을 정하는 용도다.
 
