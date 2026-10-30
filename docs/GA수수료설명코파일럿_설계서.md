@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.7)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.8)
 
 > 변경 이력
+> - v0.1.8 (2026-10-30, Phase 1 항목 6): 읽기 모델 8표를 A/B 슬롯(`<표>_a`·`<표>_b`, 인덱스 `<원래이름>_<slot>`)으로 두고 활성 슬롯은 Worker 조회 계층이 고른다(뷰 없음) · `stream_meta.slot` 열과 `active=1` 부분 유일 인덱스, 전환은 `UPDATE` 한 문장(§5.1·§5.4) · §5.3에 적재 쓰기 행 수 · §14.1-10 재적재 시 이전 슬롯 삭제 지연. 근거: `wrangler d1 execute --file`·`--command`의 다중 문장 트랜잭션은 공식 문서에 없다(D1 문서는 Worker `batch()`와 문장 단위 커밋만 보장).
 > - v0.1.7 (2026-10-30, Phase 1): 강제 케이스 16 → 15 — 2026-06-30 경계는 기존 필수 케이스 계약 `POL-2026-0012`에 `BOUNDARY_LIMIT_BEFORE`로 태깅하고 별도 케이스(`BOUNDARY_PRE_LIMIT`)를 없앤다(§4.1(a)·부록 B.3) · §4.2 G3 항목 수 12 명시.
 > - v0.1.6 (2026-10-30, Phase 1): §14.1-8 확정 — `projection-java`는 상위 소스 복사 + CHECKSUMS 고정(§3.3·§11·§12·§14.0, `docs/DECISIONS.md`) · §4.1(a) 필수 케이스에 경계 넷 추가, 강제 케이스 16건(경계 4건은 플랜에 그 날짜 계약이 있으면 태깅, 없으면 주입)·부록 B.3 · §4.2 G3 판정 단위 명시 · §10 limits-check 남은 차이 2·3·4·6·8 원문 반영(정적 자산 `run_worker_first`·Workers Caching, 내부 서비스 서브리퀘스트 1,000, Vectorize Free 인덱스 100·차원 계산식, AI Gateway 로그 기준·게이트웨이 10개, OpenRouter 모델별 한도 차이).
 > - v0.1.5 (2026-10-27): A-1 골든 (B) 후속 — §1.1·§6.1·§13·§13.1 예시 수치를 A-1 정본 값으로 · §6.1 파생 허용값에 라인 요청액(`requested = amount + limit_cut_amt`) 추가 · §9 설계사 ID 패턴 `A-\d{4}` · §4.1(a) A-1 예약 ID 규칙 · 부록 A A-01(요청액)·A-02(G4 조건)·A-07(`before` 스텁 값) 보강.
@@ -236,13 +237,18 @@ ga-commission-copilot/
 
 ### 5.1 D1 (SQLite) — 읽기 모델은 상위 설계서 §5를 그대로, LLM 테이블만 추가
 
-상위 설계서의 `agent_profile`, `earnings_line`, `earnings_month`, `policy_limit`, `policy_limit_history`, `deferral_item`, `clawback_item`, `policy_flag`를 **컬럼명 그대로** 옮긴다(PostgreSQL → SQLite 타입만 변환: `BIGINT→INTEGER`, `JSONB→TEXT(JSON)`, `TIMESTAMPTZ→TEXT(ISO)`). `tenant_id`는 데모 테넌트 1개지만 컬럼과 PK에 그대로 둔다 — 쿼리 빌더가 `tenant_id`·`agent_id` 조건을 강제하는 규약을 유지하기 위해서다. 아래는 추가 테이블 **8개**(`stream_meta`, `explanation`, `rulebook_chunk`, `sim_stub`, `answer_log`, `budget_counter`, `eval_run`, `eval_case_result`).
+상위 설계서의 `agent_profile`, `earnings_line`, `earnings_month`, `policy_limit`, `policy_limit_history`, `deferral_item`, `clawback_item`, `policy_flag`를 **컬럼명 그대로** 옮긴다(PostgreSQL → SQLite 타입만 변환: `BIGINT→INTEGER`, `JSONB→TEXT(JSON)`, `TIMESTAMPTZ→TEXT(ISO)`). `tenant_id`는 데모 테넌트 1개지만 컬럼과 PK에 그대로 둔다 — 쿼리 빌더가 `tenant_id`·`agent_id` 조건을 강제하는 규약을 유지하기 위해서다.
+
+**A/B 슬롯(v0.1.8)**: 읽기 모델 8표는 같은 DDL로 두 벌(`<표>_a`, `<표>_b`)을 둔다. 인덱스 이름은 `<원래이름>_<slot>`(예: `ix_line_agent_ym_a`). 원래 이름의 표·뷰는 없다. 활성 슬롯은 `stream_meta`의 `active=1` 행의 `slot`이고, Worker는 요청마다 그 한 행을 읽어(isolate 안에서는 `stream_hash`를 키로 파생 값을 캐시) `<표>_<slot>`을 직접 조회한다 — 슬롯 선택은 `ScopedQuery`가 맡는다(UNION ALL 뷰는 비활성 쪽까지 읽어 rows read가 늘고 `EXPLAIN QUERY PLAN` 검사가 흐려진다). 적재기(`gen/load/d1.ts`)는 비어 있는 비활성 슬롯에만 쓰고, 슬롯 표를 SQL로 재검사한 뒤 `UPDATE stream_meta SET active = CASE WHEN stream_hash = ? THEN 1 ELSE 0 END` **한 문장**으로 전환하고, 직후 `SELECT COUNT(*) FROM stream_meta WHERE active = 1`이 1인지 확인한다. 이전 슬롯 비우기는 별도 단계다(§14.1-10). 아래는 추가 테이블 **8개**(`stream_meta`, `explanation`, `rulebook_chunk`, `sim_stub`, `answer_log`, `budget_counter`, `eval_run`, `eval_case_result`).
 
 ```sql
-CREATE TABLE stream_meta (          -- 현재 적재된 스트림의 정체
+CREATE TABLE stream_meta (          -- 적재된 스트림의 정체(슬롯마다 최대 1행)
   stream_hash TEXT PRIMARY KEY, generated_at TEXT NOT NULL, event_count INTEGER NOT NULL,
-  plan_prompt_version TEXT NOT NULL, verified_at TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0
+  plan_prompt_version TEXT NOT NULL, verified_at TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0,
+  slot TEXT NOT NULL CHECK (slot IN ('a', 'b'))                  -- v0.1.8
 );
+CREATE UNIQUE INDEX ux_stream_meta_active ON stream_meta (active) WHERE active = 1;  -- 활성은 많아야 1행
+CREATE UNIQUE INDEX ux_stream_meta_slot ON stream_meta (slot);                       -- 슬롯당 1행
 
 CREATE TABLE explanation (          -- Q1~Q3 사전 생성 설명
   tenant_id TEXT, agent_id TEXT NOT NULL, kind TEXT NOT NULL,   -- LINE / LIMIT / MONTH_DIFF
@@ -319,6 +325,7 @@ CREATE TABLE eval_case_result (
 | `explanation` | 약 6,500 | 라인 6,000 + 한도 400 + 월비교 30×24 |
 | `answer_log` | 하루 ≤ 300 | 예산 상한 |
 | 전체 저장 | < 50MB | 무료 5GB의 1% |
+| 적재 쓰기(rows written) | 첫 적재 약 2.5만, 재적재 최대 약 5만 | 행 수 × (1 + PK 자동 인덱스 + 보조 인덱스). Phase 1 스트림 7,010행 → 약 24,800(무료 10만/일의 25%). 재적재는 이전 슬롯 삭제분이 더해진다(§14.1-10) |
 
 하루 읽기: 홈·명세 조회가 PK/인덱스 단건이라 방문자 1,000명 × 20쿼리 × 평균 50행 = 1M행, 무료 5M/일 이내. **풀스캔 금지**는 CI에서 `EXPLAIN QUERY PLAN`으로 검사한다.
 
@@ -327,7 +334,7 @@ CREATE TABLE eval_case_result (
 - 상위 설계서 §5의 세 불변식(월 합산, 한도 누적, 마감월 불변) — `projection-java`가 적재 전 검사, Worker 기동 시 샘플 재검사.
 - `explanation.grounding_status='PASS'`인 행의 `numbers_used` ⊆ 해당 subject의 컨텍스트 숫자 집합 — 적재 후 전수 재검증(검증기 버그 방어).
 - `answer_log.refused=0`이면 `grounding_status='PASS'`여야 한다.
-- `stream_meta.active=1`인 행은 정확히 1개.
+- `stream_meta.active=1`인 행은 정확히 1개(첫 적재 뒤). 부분 유일 인덱스가 2개 이상을 막고, 전환이 `UPDATE` 한 문장이라 0개인 순간이 없다. 적재기가 전환 직후 `COUNT(*)`로 확인한다.
 
 ---
 
@@ -658,6 +665,7 @@ CREATE TABLE eval_case_result (
 7. **Turnstile 도입 시 UX 마찰** — 평가자가 한 번만 통과하면 되도록 토큰 TTL 24시간.
 8. ~~**상위 저장소와의 subtree vs 복사**~~ — v0.1.6에서 "복사 + CHECKSUMS 고정"으로 확정(§14.0).
 9. **공개 도메인** — `*.workers.dev`로 충분한지, 보유 도메인 연결 시 DNS 무료 범위 확인.
+10. **재적재 쓰기 예산(v0.1.8)** — 재적재는 이전 슬롯 삭제(약 2.5만) + 새 슬롯 적재(약 2.5만) ≈ 5만 rows written이고, 같은 날 `explanation` 적재(약 6,500행 + 인덱스)가 겹치면 무료 10만/일의 70% 가까이 된다. Phase 7 주간 배치의 기본: 전환 날에는 비활성 슬롯이 이미 비어 있어야 하고, 방금 비활성이 된 슬롯 삭제는 **다음 날 00:00 UTC 이후** 별도 단계(`load:d1 --purge-inactive`)로 미룬다. 실측 rows written(대시보드·`meta`)으로 확정한다.
 
 ---
 
