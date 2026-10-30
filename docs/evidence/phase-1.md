@@ -208,5 +208,5 @@ $ curl https://ga-commission-copilot.ga-copilot-demo.workers.dev/api/v1/health  
 
 ## 사람 작업
 
-- [ ] `git push` — 로컬 main이 origin보다 앞서 있다. 푸시 뒤 `ci.yml` 첫 실행 결과(특히 ubuntu에서 `./gradlew test`) 확인.
+- [x] `git push`(2026-10-30, `cbe571d..604be8f`) — `ci.yml` 첫 실행 성공(run 41047348401, 1분 16초: pnpm -r test web 1·gen 5·worker 3 파일 통과, `./gradlew test` BUILD SUCCESSFUL 44초), deploy 성공(run 41047348261). 배포 뒤 `/api/v1/health` 동일 응답.
 - [ ] 원격 D1 실측 rows written: 2026-10-30 20:13 KST 적재분이 `wrangler d1 info copilot`의 `rows_written_24h`(또는 대시보드)에 반영된 뒤 값을 이 문서에 적는다(추정 24,816).
