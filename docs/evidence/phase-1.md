@@ -5,7 +5,7 @@
 - 도구 버전: node v25.5.0(로컬; CI는 `.nvmrc` 24), pnpm 10.28.2, wrangler 4.153.0, JDK Temurin 25.0.5, Gradle 9.3.0
 - 공개 URL: https://ga-commission-copilot.ga-copilot-demo.workers.dev
 - 활성 스트림: `e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f`(9,439 이벤트, `data/stream/`), 원격 D1 슬롯 `a`
-- 상태: **수용 대기**
+- 상태: **수용됨**(2026-10-30) — 수용 후속 4건은 맨 아래 "수용 후속"
 
 ## 완료 기준 대조
 
@@ -210,3 +210,15 @@ $ curl https://ga-commission-copilot.ga-copilot-demo.workers.dev/api/v1/health  
 
 - [x] `git push`(2026-10-30, `cbe571d..604be8f`) — `ci.yml` 첫 실행 성공(run 41047348401, 1분 16초: pnpm -r test web 1·gen 5·worker 3 파일 통과, `./gradlew test` BUILD SUCCESSFUL 44초), deploy 성공(run 41047348261). 배포 뒤 `/api/v1/health` 동일 응답.
 - [ ] 원격 D1 실측 rows written: 2026-10-30 20:13 KST 적재분이 `wrangler d1 info copilot`의 `rows_written_24h`(또는 대시보드)에 반영된 뒤 값을 이 문서에 적는다(추정 24,816).
+
+## 수용 후속(2026-10-30, 설계서 v0.1.10)
+
+| # | 결정 | 반영 | 시험 |
+|---|---|---|---|
+| 1 | 전환은 앞으로만 — 되돌리기 경로 문서화 | §5.4 되돌리기 절차, `load:d1 -- --rollback <hash>`(`gen/load/flow.ts` `rollback`): 그 슬롯 재검사 → `INSERT OR REPLACE … SELECT … WHERE stream_hash = ? AND active = 0` 한 문장으로 같은 해시·같은 슬롯 행을 새 rowid에 → 같은 UPDATE 한 문장 → active=1 COUNT = 1. 슬롯 표에는 쓰지 않는다. §12 Phase 7·PHASES Phase 7에 복구 수단으로 참조 | `gen/test/load-flow.test.ts` "되돌리기" 2건: X→Y 뒤 그냥 UPDATE는 UNIQUE로 실패·변화 없음, `rollback(X)`은 stream_meta 2문장만 쓰고 전환, 다시 `rollback(Y)`도 됨 / 이전 슬롯을 비웠으면 거부 |
+| 2 | 원격 `--file` 파싱·재개 경로·스칼라 서브쿼리 | 재개 경로 시험이 없었다 → 추가. 흐름을 실행기(`D1Exec`)로 분리해 CLI는 wrangler, 시험은 `node:sqlite`(마이그레이션 0001·0002 그대로)로 같은 코드를 돌린다 | "재개 경로" 2건: ④까지 된 상태에서 다시 실행하면 INSERT 0문장으로 재검사·전환 / 행 수가 다르면 멈춤. 그 밖에 적재·전환 4건(월 합산이 틀리면 전환 안 함, 비활성 슬롯이 차 있으면 거부 등) |
+| 3 | CLAUDE.md 규약 2 범위 | CLAUDE.md 규약 2에 한 줄(적용 범위 worker/·packages/·web/, gen 엔진 대역 예외, gen import 금지), 설계서 §3.3 의존 방향. 루트 `eslint.config.mjs`(ESLint 10.12.0, `import-x/no-restricted-paths`: worker·web·packages → gen 금지, web → worker 금지), `pnpm lint`를 CI에 추가 | 탐침 파일(worker → gen, web → worker) 2건 ESLint 오류 확인 뒤 삭제. 아키텍처 시험 `worker/test/arch.test.ts`(worker/src → gen), `web/test/arch.test.ts`(web/src → gen·worker) |
+| 4 | 분급 커브 연 40/20/20/20 | §4.1(a) 각주(상위 A-2 "48개월" 표현과 다름), 전개 규칙 위치를 `gen/world/rules/`로 정정 | — |
+
+시험: gen 123, worker 51, web 7, `pnpm lint` 오류 0.
+

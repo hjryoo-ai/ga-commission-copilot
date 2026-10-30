@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractStringLiterals, sqlWithoutTenant, tenantTableSqlWithoutTenant, touchesTenantTable, writeKeywords } from "./arch-scan";
+import { extractStringLiterals, importSpecifiers, pointsIntoGen, sqlWithoutTenant, tenantTableSqlWithoutTenant, touchesTenantTable, writeKeywords } from "./arch-scan";
 
 // CLAUDE.md 규약 3(tenant_id 없는 쿼리 금지)·4(툴은 읽기 전용). 원문은 Vite가 번들 시점에 읽는다(Workers 런타임에는 fs가 없다).
 const sources = import.meta.glob<string>("../src/**/*.ts", { query: "?raw", import: "default", eager: true });
@@ -42,7 +42,31 @@ describe("아키텍처: worker/src/** 의 SQL 문자열은 tenant_id 조건을 �
   });
 });
 
+describe("아키텍처: worker/src/** 는 gen을 import하지 않는다(CLAUDE.md 규약 2 — 엔진 대역은 gen 안에만)", () => {
+  it.each(files)("$path", ({ text }) => {
+    expect(importSpecifiers(text).filter(pointsIntoGen)).toEqual([]);
+  });
+});
+
 describe("스캐너 자체 검사", () => {
+  it("gen을 가리키는 import를 잡고 그 밖은 통과시킨다", () => {
+    const src = [
+      'import { TENANT } from "../../../gen/world/rules/tables.ts";',
+      "import type { Plan } from '@copilot/gen/world/plan-types';",
+      'const m = await import("../../gen/world/expand.ts");',
+      'export { x } from "../../gen";',
+      'import { Hono } from "hono";',
+      'import { health } from "./api/health";',
+      'import { general } from "./general";',
+    ].join("\n");
+    expect(importSpecifiers(src).filter(pointsIntoGen)).toEqual([
+      "../../../gen/world/rules/tables.ts",
+      "@copilot/gen/world/plan-types",
+      "../../gen/world/expand.ts",
+      "../../gen",
+    ]);
+  });
+
   it("툴 금지어를 대소문자 구분 없이 찾는다", () => {
     expect(writeKeywords('db.prepare("insert into x values (1)")')).toEqual(["insert"]);
     expect(writeKeywords("db.prepare(`UPDATE budget_counter SET used = used + 1`)")).toEqual(["UPDATE"]);

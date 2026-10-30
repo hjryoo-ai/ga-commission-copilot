@@ -60,3 +60,14 @@ export function tenantTableSqlWithoutTenant(src: string): string[] {
 export function writeKeywords(src: string): string[] {
   return src.match(/\b(INSERT|UPDATE|DELETE)\b/gi) ?? [];
 }
+
+/** import·export from·동적 import의 모듈 지정자. */
+export function importSpecifiers(src: string): string[] {
+  return [...src.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s+)["'`]([^"'`]+)["'`]/gm)].map((m) => m[1]!);
+}
+
+/** gen 패키지를 가리키는 지정자(상대 경로의 gen/ 디렉터리 또는 @copilot/gen) — CLAUDE.md 규약 2: 엔진 대역은 gen 밖으로 새지 않는다. */
+export function pointsIntoGen(spec: string): boolean {
+  return /^@copilot\/gen(\/|$)/.test(spec) || /^(\.\.?\/)+(\.\.\/)*gen(\/|$)/.test(spec) || /\/gen\/(world|providers|verify|load)\b/.test(spec);
+}
+

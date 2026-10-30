@@ -1,4 +1,5 @@
-# 시험만 돌린다: pnpm -r test(web·gen·worker) + projection-java ./gradlew test. 배포는 deploy.yml, 주간 생성 파이프라인은 Phase 7.
+# 시험만 돌린다: pnpm lint(의존 방향 — CLAUDE.md 규약 2) + pnpm -r test(web·gen·worker) + projection-java ./gradlew test.
+# 배포는 deploy.yml, 주간 생성 파이프라인은 Phase 7.
 # 시크릿을 쓰지 않는다 — gen 시험은 VCR 녹화를 재생하고(실호출 없음), worker 시험은 로컬 D1(miniflare)만 쓴다.
 name: ci
 
@@ -33,6 +34,9 @@ jobs:
           cache: gradle
 
       - run: pnpm install --frozen-lockfile
+
+      - name: pnpm lint
+        run: pnpm lint
 
       - name: pnpm -r test
         run: pnpm -r test
