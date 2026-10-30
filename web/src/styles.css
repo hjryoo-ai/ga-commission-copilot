@@ -1,0 +1,380 @@
+/* 모바일 우선(설계서 §8 — 상위 §8 공통 규약: 44px 터치, 큰 숫자 우선, 다크 모드 없음). */
+:root {
+  color-scheme: light;
+  --ink: #1b1f24;
+  --muted: #5b6470;
+  --line: #d9dee4;
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --accent: #1f5fbf;
+  --warn: #9a5b00;
+  --warn-bg: #fff3dc;
+  --crit: #a32020;
+  --crit-bg: #fde8e8;
+  font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+#root {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 16px 24px;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 8px 0 12px;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 0 0 8px;
+}
+
+h3 {
+  font-size: 1rem;
+  margin: 20px 0 8px;
+}
+
+a {
+  color: var(--accent);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.lead {
+  color: var(--muted);
+  margin-top: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 12px 0 0;
+  margin: 0;
+}
+
+.chip {
+  font-size: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 10px;
+  background: var(--card);
+}
+
+.chip.placeholder {
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.tabs a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.tabs .switch {
+  margin-left: auto;
+}
+
+.cards {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.card {
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+button.card {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.card.agent {
+  display: grid;
+  gap: 2px;
+}
+
+.card.agent .demo-no {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.card.agent .case {
+  margin-top: 6px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.card.ledger {
+  display: grid;
+  gap: 6px;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.amount .num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.amount .tag {
+  font-size: 0.75rem;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.amount.big .num {
+  font-size: 1.6rem;
+}
+
+.headline {
+  margin: 4px 0 12px;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 12px;
+  margin: 0;
+}
+
+dt {
+  color: var(--muted);
+}
+
+dd {
+  margin: 0;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-right: 4px;
+  background: #eef1f5;
+}
+
+.badge.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.badge.crit {
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.badge.muted {
+  color: var(--muted);
+}
+
+.lines {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.lines > li {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 0;
+}
+
+.line-link {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 8px;
+  min-height: 44px;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+.line-link .policy {
+  grid-column: 1;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.line-link .amount {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.folded {
+  margin-left: 12px;
+  font-size: 0.9rem;
+}
+
+.folded summary,
+.explain summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--accent);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th {
+  font-weight: normal;
+  color: var(--muted);
+  width: 40%;
+}
+
+.mono {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.month-pick {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.month-pick select,
+.filter button {
+  min-height: 44px;
+  font: inherit;
+}
+
+.filter {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.filter button {
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+
+.filter button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 소진 바: 폭은 utilization 문자열 그대로(--w) — 숫자로 바꾸지 않는다 */
+.bar {
+  position: relative;
+  height: 20px;
+  background: #e8ebef;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.bar .fill {
+  display: block;
+  height: 100%;
+  width: var(--w, 0);
+  max-width: 100%;
+  background: var(--accent);
+}
+
+.bar .pct {
+  position: absolute;
+  right: 8px;
+  top: 0;
+  font-size: 0.8rem;
+  line-height: 20px;
+}
+
+.formula {
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline {
+  padding-left: 20px;
+}
+
+.timeline li {
+  margin-bottom: 6px;
+}
+
+.timeline .when {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.note ul,
+.plain {
+  padding-left: 20px;
+}
+
+footer {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

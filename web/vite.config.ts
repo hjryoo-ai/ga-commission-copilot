@@ -8,5 +8,6 @@ export default defineConfig({
     // wrangler dev(기본 8787)의 API로 프록시
     proxy: { "/api": "http://localhost:8787" },
   },
-  test: { environment: "node" },
+  // e2e/*.e2e.ts는 Playwright가 돈다
+  test: { environment: "node", include: ["test/**/*.test.{ts,tsx}"] },
 });
