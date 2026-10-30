@@ -33,7 +33,7 @@
 설계서 §4.1(a), §4.2 G1~G3, 부록 B.3, 상위 설계서 §4.2 이벤트 카탈로그·§5 불변식·부록 B 데모 사양을 읽는다.
 
 1. contracts/: 상위 설계서 contracts/events/v1/*.json을 복사(없으면 §4.2 표대로 작성). plan/v1/plan.schema.json 추가.
-2. gen/world/plan.ts: 프롬프트 prompts/plan/v1.md로 LLM 구조화 출력 호출(gen/providers/ 경유, --stub이면 providers/vcr/plan.json 재생). 필수 케이스 16건은 코드가 플랜에 주입하고 LLM은 나머지만 채운다(경계 4건은 LLM 출력 뒤 — 그 날짜 계약이 있으면 태깅, 없으면 주입). 출력은 G1(ajv) 검증.
+2. gen/world/plan.ts: 프롬프트 prompts/plan/v1.md로 LLM 구조화 출력 호출(gen/providers/ 경유, --stub이면 providers/vcr/plan.json 재생). 필수 케이스 15건은 코드가 플랜에 주입하고 LLM은 나머지만 채운다(경계 4건은 LLM 출력 뒤 — 그 날짜 계약이 있으면 태깅, 없으면 주입). 출력은 G1(ajv) 검증.
 3. gen/world/expand.ts: 플랜 → 이벤트 스트림(JSONL, seq 단조 증가, eventId UUIDv7). 금액·한도·분급 스케줄은 gen/world/rules/(가상 요율표, 상위 설계서 부록 B 규칙)에서 결정론으로 계산. LLM 호출 없음. 같은 플랜 → 바이트 동일 스트림(해시 테스트).
 4. projection-java: 상위 저장소 portal-projection을 subtree 또는 복사(§14.1-8은 "복사 + 해시 고정"으로 시작). CLI `replay <stream.jsonl>`가 인메모리 뷰를 만들고 §5 불변식 3개를 검사, 실패 시 exit 1과 위반 목록.
 5. gen/verify/index.ts: G1 → G2(projection-java 호출) → G3(필수 케이스 존재) 순서. 통과 시 data/stream/<sha256>.jsonl 저장 + data/stream/<hash>.meta.json.
@@ -41,7 +41,7 @@
 
 골든: 부록 A 데이터 전제(설계사 A-1001, 2026-08-01 체결, POL-2026-0001, 월납 150,000, 한도 1,800,000 …)가 스트림에 그대로 존재해야 한다(테스트가 A-1 정본 11건(seq 1~11)을 payload 필드 단위로 대조한다 — 설계서 v0.1.5 §4.1(a)).
 
-완료 기준: `pnpm run world:plan --stub && pnpm run world:expand && pnpm run verify` 통과, 리플레이 2회 뷰 바이트 동일, D1 적재 후 `SELECT COUNT(*) FROM earnings_line` > 5000, 필수 케이스 16건 테스트 통과.
+완료 기준: `pnpm run world:plan --stub && pnpm run world:expand && pnpm run verify` 통과, 리플레이 2회 뷰 바이트 동일, D1 적재 후 `SELECT COUNT(*) FROM earnings_line` > 5000, 필수 케이스 15건 테스트 통과.
 ```
 
 ---
