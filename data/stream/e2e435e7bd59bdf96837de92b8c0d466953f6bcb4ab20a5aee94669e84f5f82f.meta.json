@@ -102,7 +102,7 @@
       "demoNo": 1,
       "agentId": "A-1001",
       "scenario": "A1",
-      "cardLabel": "한도 100% 소진 계약 보유",
+      "cardLabel": "한도 100% 소진 후 해약·환수 계약 보유",
       "contractCount": 9,
       "basis": {
         "a1PolicyNo": "POL-2026-0001",
@@ -127,7 +127,7 @@
       "demoNo": 3,
       "agentId": "A-1003",
       "scenario": "A3",
-      "cardLabel": "재산정·환수 상계 있음",
+      "cardLabel": "재산정으로 한도 초과·환수 상계 계약 보유",
       "contractCount": 19,
       "basis": {
         "rebaseSeq": 3041,

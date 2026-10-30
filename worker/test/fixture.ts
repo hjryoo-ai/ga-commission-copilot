@@ -73,9 +73,9 @@ export async function seed(): Promise<void> {
   for (const t of TABLES) await env.DB.prepare(`DELETE FROM ${t}`).run();
   await insert("stream_meta", { stream_hash: HASH, generated_at: GENERATED_AT, event_count: 100, plan_prompt_version: "plan/v1", verified_at: GENERATED_AT, active: 1, slot: "a", line_count: 9 });
   for (const [n, agent, label] of [
-    [1, "A-1001", "한도 100% 소진 계약 보유"],
+    [1, "A-1001", "한도 100% 소진 후 해약·환수 계약 보유"],
     [2, "A-1002", "분급제 계약 보유"],
-    [3, "A-1003", "재산정·환수 상계 있음"],
+    [3, "A-1003", "재산정으로 한도 초과·환수 상계 계약 보유"],
   ] as const) {
     await insert("demo_agents", { stream_hash: HASH, demo_no: n, tenant_id: "T1", agent_id: agent, scenario: `A${n}`, card_label: label, contract_count: n + 1, basis: "{}" });
   }

@@ -78,9 +78,9 @@ describe("세션(PHASES Phase 2 항목 1)", () => {
     const body = (await res.json()) as Record<string, any>;
     expect(validate("DemoAgentsResponse", body)).toEqual([]);
     expect(body.items.map((x: any) => [x.demoNo, x.agentName, x.cardLabel, x.contractCount])).toEqual([
-      [1, "허구설계사01", "한도 100% 소진 계약 보유", 2],
+      [1, "허구설계사01", "한도 100% 소진 후 해약·환수 계약 보유", 2],
       [2, "허구설계사02", "분급제 계약 보유", 3],
-      [3, "허구설계사03", "재산정·환수 상계 있음", 4],
+      [3, "허구설계사03", "재산정으로 한도 초과·환수 상계 계약 보유", 4],
     ]);
   });
 });

@@ -149,7 +149,7 @@ function a1Golden(events: readonly Envelope[]): CaseResult {
 }
 
 /** 데모 설계사 카드 문구(설계서 §8 화면 1 — demo_agents.card_label 그대로). */
-export const DEMO_CARD_LABELS = { 1: "한도 100% 소진 계약 보유", 2: "분급제 계약 보유", 3: "재산정·환수 상계 있음" } as const;
+export const DEMO_CARD_LABELS = { 1: "한도 100% 소진 후 해약·환수 계약 보유", 2: "분급제 계약 보유", 3: "재산정으로 한도 초과·환수 상계 계약 보유" } as const;
 
 export interface DemoAgent {
   demoNo: 1 | 2 | 3;
@@ -163,7 +163,7 @@ export interface DemoAgent {
 
 /**
  * 데모 설계사 선정(설계서 v0.1.11 §4.1(a)) — 스트림만 보고 결정론으로 고른다.
- * 1: A-1 정본 원장의 설계사(그 설계사 원장 중 소진율 100%가 있어야 한다).
+ * 1: A-1 정본 원장의 설계사(그 설계사 원장 중 이력상 누적이 한도에 닿은 것이 있어야 한다 — 끝 상태가 아니다).
  * 2: HELD 전이를 seq 순으로 보며, 커브 스케줄과 RELEASED가 있는 첫 설계사(1과 다름).
  * 3: 재산정을 seq 순으로 보며, 환수 채권이 OPEN 뒤 OFFSET까지 간 첫 설계사(1·2와 다름).
  * 못 채운 번호는 빠진다 — 3명이 아니면 G3 DEMO_AGENTS FAIL.
