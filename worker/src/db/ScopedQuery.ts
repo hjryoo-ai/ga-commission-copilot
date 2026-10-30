@@ -40,6 +40,19 @@ const OWNED_VIA: Partial<Record<ReadModelTable, { key: string; owner: ReadModelT
   policy_limit_history: { key: "ledger_id", owner: "policy_limit" },
 };
 
+export const EXPLANATION_KINDS = ["LINE", "LIMIT", "MONTH_DIFF"] as const;
+export type ExplanationKind = (typeof EXPLANATION_KINDS)[number];
+
+/** explanation 표 행(설계서 §5.1). */
+export interface ExplanationRow {
+  text: string;
+  cited_fields: string;
+  numbers_used: string;
+  grounding_status: string;
+  prompt_version: string;
+  model: string;
+}
+
 const IDENT = /^[a-z][a-z0-9_]*$/;
 type Scalar = string | number;
 type Value = Scalar | null;
@@ -175,6 +188,20 @@ export class ScopedQuery {
   async first<T>(table: ReadModelTable, opts: SelectOptions): Promise<T | null> {
     const { sql, params } = this.build(table, { ...opts, limit: 1 });
     return this.db.prepare(sql).bind(...params).first<T>();
+  }
+
+  /**
+   * 사전 생성 설명 한 행(설계서 v0.1.14 §4.1(b)·§7). explanation은 슬롯 표가 아니라 stream_hash 열로 스트림을 가른다 —
+   * 활성 스트림·이 설계사·그 프롬프트 버전 행만(PK (tenant_id, kind, subject_id, stream_hash, prompt_version) 조회).
+   */
+  async explanation(kind: ExplanationKind, subjectId: string, promptVersion: string): Promise<ExplanationRow | null> {
+    if (!EXPLANATION_KINDS.includes(kind)) throw new Error("invalid explanation kind");
+    return this.db
+      .prepare(
+        "SELECT text, cited_fields, numbers_used, grounding_status, prompt_version, model FROM explanation WHERE tenant_id = ? AND agent_id = ? AND stream_hash = ? AND kind = ? AND subject_id = ? AND prompt_version = ?",
+      )
+      .bind(this.tenantId, this.agentId, this.stream.streamHash, kind, subjectId, promptVersion)
+      .first<ExplanationRow>();
   }
 
   /** 행 수(라인 목록 total). 금액이 아니라 행을 센다. */

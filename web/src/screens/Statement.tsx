@@ -1,10 +1,11 @@
 // 화면 2 월별 명세(설계서 §8-2, 상위 §8-5·§8 구현 규약): 월 선택 · 월 요약 카드 · 유형별 합계 · 라인 목록(같은 달 취소 짝 접기).
-import { useEffect } from "react";
-import { allLines, api, type Line, type Month, type MonthStatus } from "../api";
+import { useEffect, useState } from "react";
+import { allLines, api, type Explanation, type Line, type Month, type MonthStatus } from "../api";
 import { kstDate, monthWindow, won, ym as ymText } from "../format";
 import { ADJUSTMENT_LABEL, commTypeLabel, CUT_LABEL, grossLabel, lineLabel, MONTH_STATUS_LABEL, netCell } from "../labels";
 import { Link, navigate, paths } from "../router";
-import { Amount, Badge, NoExplanation, Status, useLoad } from "../ui";
+import { ExplanationBody } from "../explain";
+import { Amount, Badge, Status, useLoad } from "../ui";
 import { Shell } from "./Shell";
 
 export function MonthCard({ m }: { m: Month }) {
@@ -88,10 +89,7 @@ export function MonthCard({ m }: { m: Month }) {
           "전월 내역 없음"
         )}
       </p>
-      <details className="explain">
-        <summary>전월과 달라진 이유</summary>
-        <NoExplanation />
-      </details>
+      <MonthDiffBlock ym={m.closeYm} />
     </section>
   );
 }
@@ -208,5 +206,27 @@ export function Statement({ ym }: { ym?: string }) {
         </>
       )}
     </Shell>
+  );
+}
+
+/** "전월과 달라진 이유"(설계서 §8 화면 2 — kind=MONTH_DIFF 접힘 블록). 펼칠 때 한 번만 불러온다. */
+function MonthDiffBlock({ ym }: { ym: string }) {
+  const [state, setState] = useState<{ ym: string; e: Explanation | null } | "loading" | "error" | null>(null);
+  const shown = state && typeof state === "object" && state.ym === ym ? state : null;
+  const onToggle = (open: boolean) => {
+    if (!open || shown || state === "loading") return;
+    setState("loading");
+    api.diff(ym).then(
+      (d) => setState({ ym, e: d.explanation }),
+      () => setState("error"),
+    );
+  };
+  return (
+    <details className="explain" key={ym} onToggle={(ev) => onToggle((ev.currentTarget as HTMLDetailsElement).open)}>
+      <summary>전월과 달라진 이유</summary>
+      {state === "loading" && <p className="muted">불러오는 중…</p>}
+      {state === "error" && <p className="muted">잠시 후 다시 시도하세요</p>}
+      {shown && <ExplanationBody e={shown.e} />}
+    </details>
   );
 }

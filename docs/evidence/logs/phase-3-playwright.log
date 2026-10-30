@@ -1,0 +1,36 @@
+
+> @copilot/web@ e2e /Users/hjr/Documents/workspace/ai/ga-commision-copilot/web
+> vite build && playwright test
+
+vite v8.1.6 building client environment for production...
+[2Ktransforming...✓ 28 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.42 kB │ gzip:  0.32 kB
+dist/assets/index-DHHYIm7p.css    4.65 kB │ gzip:  1.58 kB
+dist/assets/index-Cia30IZ3.js   244.82 kB │ gzip: 76.19 kB
+
+✓ built in 70ms
+[WebServer] (node:20021) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ▲ [WARNING] AI bindings always access remote resources, and so may incur usage charges even in local dev. To suppress this warning, set `remote: true` for the binding definition in your configuration file.
+[WebServer] 
+[WebServer] 
+[WebServer] ▲ [WARNING] Vectorize Index bindings do not support local development, and so parts of your Worker may not work correctly. You can set `remote: true` for the binding definition in your configuration file to access a remote version of the resource.
+[WebServer] 
+[WebServer] 
+
+Running 8 tests using 1 worker
+
+(node:20035) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [mobile-chromium] › e2e/screens.e2e.ts:9:3 › 데모 설계사 1: 선택 → 명세 → 라인 상세 → 한도 → 한도 상세 (802ms)
+  ✓  2 [mobile-chromium] › e2e/screens.e2e.ts:9:3 › 데모 설계사 2: 선택 → 명세 → 라인 상세 → 한도 → 한도 상세 (604ms)
+  ✓  3 [mobile-chromium] › e2e/screens.e2e.ts:9:3 › 데모 설계사 3: 선택 → 명세 → 라인 상세 → 한도 → 한도 상세 (625ms)
+  ✓  4 [mobile-chromium] › e2e/screens.e2e.ts:60:1 › 데모 1: A-1 원장 타임라인이 누적 1,800,000원(한도 100%)에 닿는다 — 카드는 해약 뒤 현재 값 (364ms)
+  ✓  5 [mobile-chromium] › e2e/screens.e2e.ts:71:1 › 세션 없이 설계사 화면에 오면 설계사 선택으로(401) (96ms)
+  ✓  6 [mobile-chromium] › e2e/screens.e2e.ts:77:1 › 데모 1: 라인 2 설명 — 검증 통과 배지·고정 문구·근거 보기(인용 필드 하이라이트, 부록 A-01) (334ms)
+  ✓  7 [mobile-chromium] › e2e/screens.e2e.ts:93:1 › 데모 1: 원장 1 한도 이력 요약(부록 A-02·A-03)과 202702 전월 대비 설명 (542ms)
+  ✓  8 [mobile-chromium] › e2e/screens.e2e.ts:110:1 › 설명이 없는 라인은 '설명 없음' 배지(본문 없음) (237ms)
+
+  8 passed (5.0s)

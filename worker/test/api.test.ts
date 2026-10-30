@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { validate } from "./contract";
-import { GENERATED_AT, HASH, login, OTHER_HASH, seed } from "./fixture";
+import { GENERATED_AT, HASH, login, OTHER_HASH, seed, seedExplanations } from "./fixture";
 
 // PHASES Phase 2 항목 1·3·6, 설계서 v0.1.12 §7: 세션·인가 매트릭스·거부 바이트·캐시·응답 스키마(상위 계약 + 덧씌우기).
 const app = exports.default;
@@ -14,6 +14,7 @@ const SCHEMA_OF: [RegExp, string][] = [
   [/^\/api\/v1\/me\/earnings\?/, "EarningsResponse"],
   [/^\/api\/v1\/me\/earnings\/lines\//, "LineDetailResponse"],
   [/^\/api\/v1\/me\/earnings\/\d{6}\/lines/, "LinesResponse"],
+  [/^\/api\/v1\/me\/earnings\/\d{6}\/diff$/, "MonthDiffResponse"],
   [/^\/api\/v1\/me\/earnings\/\d{6}$/, "MonthResponse"],
   [/^\/api\/v1\/me\/limits(\?|$)/, "LimitsResponse"],
   [/^\/api\/v1\/me\/limits\//, "LimitDetailResponse"],
@@ -45,6 +46,7 @@ const ME_PATHS = [
   "/api/v1/me/earnings/lines/1",
   "/api/v1/me/limits",
   "/api/v1/me/limits/1",
+  "/api/v1/me/earnings/202609/diff",
 ];
 
 let one: string;
@@ -111,6 +113,7 @@ describe("인가 매트릭스(PHASES Phase 2 항목 6)", () => {
     await rejected(await get("/api/v1/me/limits/1", two), 404);
     await rejected(await get("/api/v1/me/earnings/202609", two), 404);
     await rejected(await get("/api/v1/me/earnings/202609/lines", two), 404);
+    await rejected(await get("/api/v1/me/earnings/202609/diff", two), 404);
   });
 
   it("타인 증권의 policyKey는 빈 목록(키를 SQL에 넣지 않는다)", async () => {
@@ -208,6 +211,7 @@ describe("응답(상위 §7 구조 + 덧씌우기)", () => {
       agentName: "허구설계사01",
       tenant: { name: "데모GA", payoutDayRule: "NEXT_MONTH_D10", limitWarnBp: 8000, limitCritBp: 9500 },
       months: { from: "202608", to: "202609" },
+      promptVersions: { explain_line: "v2", explain_limit: "v2", explain_month: "v2" },
     });
   });
 
@@ -258,7 +262,7 @@ describe("응답(상위 §7 구조 + 덧씌우기)", () => {
     expect(f.items.map((l: any) => l.calcId)).toEqual(["c3", "c3r"]);
   });
 
-  it("라인 상세: 근거·계약 요약·분급·채권·원장 ID, explanation은 null", async () => {
+  it("라인 상세: 근거·계약 요약·분급·채권·원장 ID, 설명이 없으면 explanation null", async () => {
     const d = await ok("/api/v1/me/earnings/lines/c2", one);
     expect(d).toMatchObject({
       basis: { rate: "7", payoutRate: "0.9", ruleVersionIds: ["COMM_RATE:FY_COMM/inst=null:rateId=1001,v=1"] },
@@ -285,6 +289,46 @@ describe("응답(상위 §7 구조 + 덧씌우기)", () => {
       [11, "POST", 1_800_000],
     ]);
     expect(d.explanation).toBeNull();
+  });
+});
+
+describe("사전 생성 설명(설계서 v0.1.14 §4.1(b)·§7, PHASES Phase 3 항목 5)", () => {
+  beforeEach(seedExplanations);
+
+  it("라인 상세: PASS면 본문·인용 필드·사용 숫자·프롬프트 버전", async () => {
+    expect((await ok("/api/v1/me/earnings/lines/1", one)).explanation).toEqual({
+      groundingStatus: "PASS",
+      text: "2026년 8월 FY 수수료 1,000,000원이 지급되었습니다.",
+      citedFields: ["line.amount"],
+      numbersUsed: ["1,000,000원"],
+      promptVersion: "explain_line/v2",
+      model: "openai/gpt-oss-120b",
+    });
+  });
+
+  it("FAIL이면 본문을 내보내지 않는다(화면 '설명 없음')", async () => {
+    const e = (await ok("/api/v1/me/earnings/lines/c2", one)).explanation;
+    expect(e).toEqual({ groundingStatus: "FAIL", promptVersion: "explain_line/v2" });
+  });
+
+  it("활성 프롬프트 버전·활성 스트림이 아닌 행은 null", async () => {
+    expect((await ok("/api/v1/me/earnings/lines/c3", one)).explanation).toBeNull();
+    expect((await ok("/api/v1/me/earnings/lines/c6", one)).explanation).toBeNull();
+  });
+
+  it("한도 상세 설명(kind=LIMIT)", async () => {
+    expect((await ok("/api/v1/me/limits/1", one)).explanation).toMatchObject({ groundingStatus: "PASS", citedFields: ["ledger.limitAmount", "history[1].accumAfter"], promptVersion: "explain_limit/v2" });
+  });
+
+  it("월비교: 자기 설명만(같은 달 다른 설계사 행과 섞이지 않는다), 설명 없는 달은 null", async () => {
+    const d = await ok("/api/v1/me/earnings/202609/diff", one);
+    expect(d).toMatchObject({ closeYm: "202609", previousYm: "202608", promptVersion: "explain_month/v2", explanation: { text: "전월보다 총액이 줄었습니다." } });
+    expect((await ok("/api/v1/me/earnings/202608/diff", one)).explanation).toBeNull();
+  });
+
+  it("없는 달·형식 오류는 404", async () => {
+    await rejected(await get("/api/v1/me/earnings/202612/diff", one), 404);
+    await rejected(await get("/api/v1/me/earnings/2026-09/diff", one), 404);
   });
 });
 

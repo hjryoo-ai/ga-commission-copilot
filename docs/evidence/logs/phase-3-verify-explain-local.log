@@ -1,0 +1,8 @@
+
+> @copilot/gen@ verify:explain /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node explain/verify-explanations.ts -- --local
+
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 16 — PASS 16 · FAIL 0, PASS 행 위반 0
+  LIMIT: PASS 3 · FAIL 0
+  LINE: PASS 10 · FAIL 0
+  MONTH_DIFF: PASS 3 · FAIL 0

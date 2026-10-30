@@ -27,7 +27,7 @@ const SLOTS = ["a", "b"] as const;
 const READ_MODEL = SLOTS.flatMap((s) => BASE_READ_MODEL.map((t) => `${t}_${s}`));
 const INDEXES = [
   ...SLOTS.flatMap((s) => ["ix_line_agent_ym", "ix_line_policy", "ix_defer_agent_due"].map((i) => `${i}_${s}`)),
-  "ix_expl_agent",
+  // ix_expl_agent는 0004에서 삭제(설계서 v0.1.15 — explanation PK가 (tenant_id, agent_id, kind)로 시작)
   "ix_ans_created",
 ];
 

@@ -1,0 +1,6 @@
+
+> @copilot/gen@ load:d1 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node load/d1.ts -- --local --explain --dir out/explain
+
+explanation fca1971cdbce: 레코드 16, 이미 있음 0, 새로 16 → D1 16행
+   실측 rows written(wrangler): 0

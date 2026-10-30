@@ -317,9 +317,17 @@ th {
   font-weight: 600;
 }
 
-/* 소진 바: 폭은 utilization 문자열 그대로(--w) — 숫자로 바꾸지 않는다 */
+/* 소진 바: 폭은 utilization 문자열 그대로(--w) — 숫자로 바꾸지 않는다. 백분율 글자는 바 바깥 오른쪽(채움과 겹치지 않게) */
+.usage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .bar {
   position: relative;
+  flex: 1;
+  display: block;
   height: 20px;
   background: #e8ebef;
   border-radius: 10px;
@@ -334,12 +342,11 @@ th {
   background: var(--accent);
 }
 
-.bar .pct {
-  position: absolute;
-  right: 8px;
-  top: 0;
-  font-size: 0.8rem;
-  line-height: 20px;
+.usage .pct {
+  min-width: 3.6em;
+  text-align: right;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .formula {
@@ -357,6 +364,53 @@ th {
 .timeline .when {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+/* 설명 블록(설계서 §8 화면 2·3): 데이터 아래 보조 영역 */
+.explain {
+  margin-top: 20px;
+}
+
+.explain-body {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.explain-text {
+  margin: 8px 0;
+}
+
+.disclaimer,
+.small {
+  font-size: 0.8rem;
+}
+
+.disclaimer {
+  color: var(--muted);
+}
+
+.link-button {
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.evidence h4 {
+  font-size: 0.9rem;
+  margin: 12px 0 4px;
+}
+
+/* 근거 보기: 설명이 인용한 데이터 요소 */
+.cited {
+  background: #fff3b0;
+  box-shadow: 0 0 0 2px #e6c200 inset;
+  border-radius: 4px;
 }
 
 .note ul,

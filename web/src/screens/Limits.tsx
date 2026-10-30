@@ -1,20 +1,23 @@
-// 화면 3 한도 현황(설계서 §8-3, 상위 §8-2·§6.3): 필터(주의/전체) · 계약 카드(소진 바·잔여·단계·플래그) · 상세(산식·타임라인·삭감).
+// 화면 3 한도 현황(설계서 §8-3, 상위 §8-2·§6.3): 필터(주의/전체) · 계약 카드(소진 바·잔여·단계·플래그) · 상세(산식·타임라인·삭감·한도 이력 요약 설명).
 import { type CSSProperties, useState } from "react";
 import { api, type Ledger } from "../api";
 import { won } from "../format";
 import { CONTRACT_LABEL, CUT_LABEL, DEFER_NOTE, FLAG_LABEL, LEDGER_LABEL, STAGE_LABEL } from "../labels";
+import { citedClass, ExplanationBody } from "../explain";
 import { Link, paths } from "../router";
-import { Amount, Badge, NoExplanation, Status, useLoad } from "../ui";
+import { Amount, Badge, Status, useLoad } from "../ui";
 import { Shell } from "./Shell";
 
 const tone = (stage: Ledger["stage"]) => (stage === "OK" ? "plain" : stage === "WARN" ? "warn" : "crit");
 
-/** 소진 바: utilization 문자열을 숫자로 바꾸지 않고 CSS 속성으로(상위 §8 구현 규약). 한도 0이면 바 없음. */
-export function UsageBar({ utilization }: { utilization?: string }) {
+/** 소진 바: utilization 문자열을 숫자로 바꾸지 않고 CSS 속성으로(상위 §8 구현 규약). 한도 0이면 바 없음. 백분율 글자는 바 바깥(채움과 겹치지 않게 — Phase 2 남은 이슈 3). */
+export function UsageBar({ utilization, className }: { utilization?: string; className?: string }) {
   if (!utilization) return <p className="muted">한도 0 — 소진율 없음</p>;
   return (
-    <div className="bar" role="img" aria-label={`소진율 ${utilization}`}>
-      <span className="fill" style={{ "--w": utilization } as CSSProperties} />
+    <div className={className ? `usage ${className}` : "usage"} role="img" aria-label={`소진율 ${utilization}`}>
+      <span className="bar">
+        <span className="fill" style={{ "--w": utilization } as CSSProperties} />
+      </span>
       <span className="pct">{utilization}</span>
     </div>
   );
@@ -77,6 +80,8 @@ export function Limits() {
 export function LimitDetail({ ledgerId }: { ledgerId: string }) {
   const s = useLoad(() => api.limit(ledgerId), [ledgerId]);
   const d = s.state === "ok" ? s.data : undefined;
+  const [cited, setCited] = useState<string[] | null>(null);
+  const hl = (...f: string[]) => citedClass(cited, ...f);
   return (
     <Shell asOf={d?.asOf} title="한도 상세">
       <Status s={s} />
@@ -87,23 +92,23 @@ export function LimitDetail({ ledgerId }: { ledgerId: string }) {
               {d.ledger.productKey ?? "상품 정보 없음"} · {d.ledger.policyMasked} <Badge tone={tone(d.ledger.stage)}>{STAGE_LABEL[d.ledger.stage]}</Badge>
             </h2>
             {/* 산식은 표시 문자열 — 곱하지 않는다 */}
-            <p className="formula">
+            <p className={hl("ledger.monthlyPremium", "ledger.limitMultiple", "ledger.limitAmount") ? "formula cited" : "formula"}>
               월납 {won(d.ledger.monthlyPremium)}({CONTRACT_LABEL}) × {d.ledger.limitMultiple}배 → 한도 {won(d.ledger.limitAmount)}({LEDGER_LABEL})
             </p>
-            <UsageBar utilization={d.ledger.utilization} />
+            <UsageBar utilization={d.ledger.utilization} className={hl("derived.utilization", "derived.stage")} />
             <dl>
               <dt>누적</dt>
-              <dd>
+              <dd className={hl("ledger.accumPaid")}>
                 <Amount value={d.ledger.accumPaid} label={LEDGER_LABEL} />
               </dd>
               <dt>잔여</dt>
-              <dd>
+              <dd className={hl("derived.remaining")}>
                 <Amount value={d.ledger.remaining} label={LEDGER_LABEL} />
               </dd>
               {d.ledger.cutTotal > 0 && (
                 <>
                   <dt>{CUT_LABEL}</dt>
-                  <dd>
+                  <dd className={hl("ledger.cutTotal")}>
                     <Amount value={d.ledger.cutTotal} label={LEDGER_LABEL} />
                   </dd>
                 </>
@@ -111,13 +116,13 @@ export function LimitDetail({ ledgerId }: { ledgerId: string }) {
               {d.ledger.deferredTotal > 0 && (
                 <>
                   <dt>{CUT_LABEL}</dt>
-                  <dd>
+                  <dd className={hl("ledger.deferredTotal")}>
                     <Amount value={d.ledger.deferredTotal} label={LEDGER_LABEL} /> <span className="muted">{DEFER_NOTE}</span>
                   </dd>
                 </>
               )}
               <dt>초년도</dt>
-              <dd>
+              <dd className={hl("ledger.fyStart", "ledger.fyEnd")}>
                 {d.ledger.fyStart} ~ {d.ledger.fyEnd}
               </dd>
             </dl>
@@ -132,8 +137,8 @@ export function LimitDetail({ ledgerId }: { ledgerId: string }) {
           <section>
             <h3>원장 타임라인</h3>
             <ol className="timeline" data-testid="limit-history">
-              {d.history.map((h) => (
-                <li key={h.sourceSeq}>
+              {d.history.map((h, i) => (
+                <li key={h.sourceSeq} className={hl(`history.${i}`)}>
                   <span className="when">{h.occurredAt.slice(0, 10)}</span>{" "}
                   {h.kind === "POST" ? (
                     <>
@@ -155,10 +160,10 @@ export function LimitDetail({ ledgerId }: { ledgerId: string }) {
               ))}
             </ol>
           </section>
-          <details className="explain">
-            <summary>한도 이력 요약</summary>
-            <NoExplanation />
-          </details>
+          <section className="explain">
+            <h3>한도 이력 요약</h3>
+            <ExplanationBody e={d.explanation} onCite={setCited} />
+          </section>
           <p>
             <Link to={paths.limits()}>한도 현황으로</Link>
           </p>

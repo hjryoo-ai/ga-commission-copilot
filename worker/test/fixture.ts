@@ -65,6 +65,7 @@ const TABLES = [
   "deferral_item_a",
   "clawback_item_a",
   "policy_flag_a",
+  "explanation",
   "demo_agents",
   "stream_meta",
 ];
@@ -135,6 +136,42 @@ export async function seed(): Promise<void> {
   await insert("earnings_month_a", month("A-1009", "202608", 700_000));
   await insert("policy_limit_a", ledger("A-1009", "l-A1009-01", "POL-2026-9999", 1_000_000, 700_000));
   await insert("policy_limit_history_a", { tenant_id: "T1", ledger_id: "l-A1009-01", source_seq: 40, posting_seq: 1, kind: "POST", calc_id: "z1", amount: 700_000, accum_after: 700_000, limit_after: 1_000_000, occurred_at: "2026-08-01T00:00:00Z" });
+}
+
+/** 설명 행(설계서 v0.1.15 §5.1). 기본은 활성 스트림·활성 프롬프트 버전·PASS. */
+export function explanationRow(agent: string, kind: "LINE" | "LIMIT" | "MONTH_DIFF", subject: string, text: string, extra: Row = {}): Row {
+  const prompt = kind === "LINE" ? "explain_line" : kind === "LIMIT" ? "explain_limit" : "explain_month";
+  return {
+    tenant_id: "T1",
+    agent_id: agent,
+    kind,
+    subject_id: subject,
+    stream_hash: HASH,
+    prompt_version: `${prompt}/v2`,
+    model: "openai/gpt-oss-120b",
+    text,
+    cited_fields: JSON.stringify(["line.amount"]),
+    numbers_used: JSON.stringify(["1,000,000원"]),
+    grounding_status: "PASS",
+    created_at: GENERATED_AT,
+    ...extra,
+  };
+}
+
+export async function seedExplanations(): Promise<void> {
+  for (const r of [
+    explanationRow("A-1001", "LINE", "1", "2026년 8월 FY 수수료 1,000,000원이 지급되었습니다."),
+    explanationRow("A-1001", "LINE", "c2", "검증 실패한 설명", { grounding_status: "FAIL" }),
+    explanationRow("A-1001", "LINE", "c3", "옛 프롬프트 설명", { prompt_version: "explain_line/v1" }),
+    explanationRow("A-1001", "LINE", "c6", "다른 스트림 설명", { stream_hash: OTHER_HASH }),
+    explanationRow("A-1001", "LIMIT", "1", "한도 1,800,000원에 누적 1,800,000원이 닿았습니다.", { cited_fields: JSON.stringify(["ledger.limitAmount", "history[1].accumAfter"]) }),
+    explanationRow("A-1001", "MONTH_DIFF", "202609", "전월보다 총액이 줄었습니다."),
+    // 같은 달 다른 설계사(PK에 agent_id — v0.1.15)
+    explanationRow("A-1009", "MONTH_DIFF", "202609", "남의 월비교"),
+    explanationRow("A-1009", "LINE", "1", "남의 설명(같은 subject)"),
+  ]) {
+    await insert("explanation", r);
+  }
 }
 
 /** 데모 번호로 세션을 열고 쿠키 머리 값을 돌려준다. */

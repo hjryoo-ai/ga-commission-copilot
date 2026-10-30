@@ -1,22 +1,59 @@
 {
-  "$comment": "설계서 v0.1.12 §7 — 상위 portal-api.openapi.yaml 1.2.0(126d848) 위의 덧씌우기. 여기 없는 것은 상위 그대로다. worker/test/contract.ts가 합성한다.",
+  "$comment": "설계서 v0.1.12 §7(v0.1.14 설명) — 상위 portal-api.openapi.yaml 1.2.0(126d848) 위의 덧씌우기. 여기 없는 것은 상위 그대로다. worker/test/contract.ts가 합성한다.",
   "replaceSchemas": {
     "AsOf": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["streamHash", "generatedAt", "demoNo"],
+      "required": [
+        "streamHash",
+        "generatedAt",
+        "demoNo"
+      ],
       "properties": {
-        "streamHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "generatedAt": { "$ref": "#/components/schemas/Instant" },
-        "demoNo": { "type": "integer", "enum": [1, 2, 3] }
+        "streamHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "generatedAt": {
+          "$ref": "#/components/schemas/Instant"
+        },
+        "demoNo": {
+          "type": "integer",
+          "enum": [
+            1,
+            2,
+            3
+          ]
+        }
       }
     },
-    "DataStatus": { "type": "string", "enum": ["OK", "DEGRADED"], "description": "저하 모드(예산 소진 — Phase 4). Phase 2는 OK뿐" }
+    "DataStatus": {
+      "type": "string",
+      "enum": [
+        "OK",
+        "DEGRADED"
+      ],
+      "description": "저하 모드(예산 소진 — Phase 4). Phase 2는 OK뿐"
+    }
   },
-  "responses": ["MeResponse", "EarningsResponse", "MonthResponse", "LinesResponse", "LineDetailResponse", "LimitsResponse", "LimitDetailResponse"],
+  "responses": [
+    "MeResponse",
+    "EarningsResponse",
+    "MonthResponse",
+    "LinesResponse",
+    "LineDetailResponse",
+    "LimitsResponse",
+    "LimitDetailResponse"
+  ],
   "addToEveryResponse": {
-    "properties": { "disclaimer": { "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가" } },
-    "required": ["disclaimer"]
+    "properties": {
+      "disclaimer": {
+        "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+      }
+    },
+    "required": [
+      "disclaimer"
+    ]
   },
   "addTo": {
     "MeResponse": {
@@ -24,49 +61,266 @@
         "months": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["from", "to"],
+          "required": [
+            "from",
+            "to"
+          ],
           "description": "그 설계사 월 행의 처음·마지막(월 행이 없으면 생략)",
-          "properties": { "from": { "$ref": "#/components/schemas/Ym" }, "to": { "$ref": "#/components/schemas/Ym" } }
+          "properties": {
+            "from": {
+              "$ref": "#/components/schemas/Ym"
+            },
+            "to": {
+              "$ref": "#/components/schemas/Ym"
+            }
+          }
+        },
+        "promptVersions": {
+          "type": "object",
+          "description": "활성 프롬프트 버전(설계서 §6.3 PROMPT_VERSIONS, v0.1.14)",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^v[1-9][0-9]*$"
+          }
         }
       }
     },
-    "LineDetailResponse": { "properties": { "explanation": { "type": "null", "description": "Phase 3까지 null" } }, "required": ["explanation"] },
-    "LimitDetailResponse": { "properties": { "explanation": { "type": "null", "description": "Phase 3까지 null" } }, "required": ["explanation"] }
+    "LineDetailResponse": {
+      "properties": {
+        "explanation": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/components/schemas/Explanation"
+            }
+          ],
+          "description": "사전 생성 설명(v0.1.14) — 없으면 null"
+        }
+      },
+      "required": [
+        "explanation"
+      ]
+    },
+    "LimitDetailResponse": {
+      "properties": {
+        "explanation": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/components/schemas/Explanation"
+            }
+          ],
+          "description": "사전 생성 설명(v0.1.14) — 없으면 null"
+        }
+      },
+      "required": [
+        "explanation"
+      ]
+    }
   },
   "addSchemas": {
     "DemoAgentCard": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["demoNo", "cardLabel", "contractCount"],
+      "required": [
+        "demoNo",
+        "cardLabel",
+        "contractCount"
+      ],
       "properties": {
-        "demoNo": { "type": "integer", "enum": [1, 2, 3] },
-        "cardLabel": { "type": "string", "minLength": 1 },
-        "contractCount": { "type": "integer", "minimum": 0 },
-        "agentName": { "type": "string", "minLength": 1 },
-        "grade": { "type": "string" },
-        "orgPath": { "type": "string" }
+        "demoNo": {
+          "type": "integer",
+          "enum": [
+            1,
+            2,
+            3
+          ]
+        },
+        "cardLabel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contractCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "agentName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "grade": {
+          "type": "string"
+        },
+        "orgPath": {
+          "type": "string"
+        }
       }
     },
     "DemoAgentsResponse": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["streamHash", "generatedAt", "items", "disclaimer"],
+      "required": [
+        "streamHash",
+        "generatedAt",
+        "items",
+        "disclaimer"
+      ],
       "properties": {
-        "streamHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "generatedAt": { "$ref": "#/components/schemas/Instant" },
-        "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/components/schemas/DemoAgentCard" } },
-        "disclaimer": { "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가" }
+        "streamHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "generatedAt": {
+          "$ref": "#/components/schemas/Instant"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/components/schemas/DemoAgentCard"
+          }
+        },
+        "disclaimer": {
+          "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+        }
       }
     },
     "SessionResponse": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["asOf", "agentId", "disclaimer"],
+      "required": [
+        "asOf",
+        "agentId",
+        "disclaimer"
+      ],
       "properties": {
-        "asOf": { "$ref": "#/components/schemas/AsOf" },
-        "agentId": { "type": "string", "minLength": 1 },
-        "agentName": { "type": "string", "minLength": 1 },
-        "disclaimer": { "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가" }
+        "asOf": {
+          "$ref": "#/components/schemas/AsOf"
+        },
+        "agentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agentName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "disclaimer": {
+          "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+        }
+      }
+    },
+    "Explanation": {
+      "description": "설계서 v0.1.14 §7: PASS면 본문·인용 필드·사용 숫자, FAIL이면 본문 없이 상태만(화면 '설명 없음')",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "groundingStatus",
+            "text",
+            "citedFields",
+            "numbersUsed",
+            "promptVersion",
+            "model"
+          ],
+          "properties": {
+            "groundingStatus": {
+              "const": "PASS"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1200
+            },
+            "citedFields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "numbersUsed": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "promptVersion": {
+              "type": "string",
+              "pattern": "^explain_(line|limit|month)/v[1-9][0-9]*$"
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "groundingStatus",
+            "promptVersion"
+          ],
+          "properties": {
+            "groundingStatus": {
+              "const": "FAIL"
+            },
+            "promptVersion": {
+              "type": "string",
+              "pattern": "^explain_(line|limit|month)/v[1-9][0-9]*$"
+            }
+          }
+        }
+      ]
+    },
+    "MonthDiffResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asOf",
+        "dataStatus",
+        "closeYm",
+        "previousYm",
+        "promptVersion",
+        "explanation",
+        "disclaimer"
+      ],
+      "properties": {
+        "asOf": {
+          "$ref": "#/components/schemas/AsOf"
+        },
+        "dataStatus": {
+          "$ref": "#/components/schemas/DataStatus"
+        },
+        "closeYm": {
+          "$ref": "#/components/schemas/Ym"
+        },
+        "previousYm": {
+          "$ref": "#/components/schemas/Ym"
+        },
+        "promptVersion": {
+          "type": "string",
+          "pattern": "^explain_(line|limit|month)/v[1-9][0-9]*$"
+        },
+        "explanation": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/components/schemas/Explanation"
+            }
+          ]
+        },
+        "disclaimer": {
+          "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+        }
       }
     }
   }

@@ -1,0 +1,59 @@
+Scope: 5 of 6 workspace projects
+evals test$ vitest run --passWithNoTests
+packages/grounding test$ vitest run
+web test$ vitest run
+packages/grounding test:  RUN  v4.1.12 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/packages/grounding
+web test:  RUN  v4.1.12 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/web
+packages/grounding test:  Test Files  1 passed (1)
+packages/grounding test:       Tests  63 passed (63)
+packages/grounding test:    Start at  06:23:01
+packages/grounding test:    Duration  151ms (transform 30ms, setup 0ms, import 40ms, tests 8ms, environment 0ms)
+packages/grounding test: Done
+web test:  Test Files  4 passed (4)
+web test:       Tests  35 passed (35)
+web test:    Start at  06:23:01
+web test:    Duration  189ms (transform 90ms, setup 0ms, import 225ms, tests 26ms, environment 0ms)
+evals test:  RUN  v4.1.12 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/evals
+evals test: No test files found, exiting with code 0
+evals test: include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+evals test: exclude:  **/node_modules/**, **/.git/**
+web test: Done
+evals test: Done
+worker test$ vitest run
+gen test$ vitest run
+gen test:  RUN  v4.1.12 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+gen test: (node:20546) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+gen test: (Use `node --trace-warnings ...` to show where the warning was created)
+gen test: (node:20545) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+gen test: (Use `node --trace-warnings ...` to show where the warning was created)
+worker test: (node:20520) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+worker test: (Use `node --trace-deprecation ...` to show where the warning was created)
+worker test:  RUN  v4.1.12 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/worker
+worker test: Using secrets defined in .dev.vars
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mAI bindings always access remote resources, and so may incur usage charges even in local dev. To suppress this warning, set `remote: true` for the binding definition in your configuration file.[0m
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mVectorize Index bindings do not support local development, and so parts of your Worker may not work correctly. You can set `remote: true` for the binding definition in your configuration file to access a remote version of the resource.[0m
+worker test: Using secrets defined in .dev.vars
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mAI bindings always access remote resources, and so may incur usage charges even in local dev. To suppress this warning, set `remote: true` for the binding definition in your configuration file.[0m
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mVectorize Index bindings do not support local development, and so parts of your Worker may not work correctly. You can set `remote: true` for the binding definition in your configuration file to access a remote version of the resource.[0m
+worker test: Using secrets defined in .dev.vars
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mAI bindings always access remote resources, and so may incur usage charges even in local dev. To suppress this warning, set `remote: true` for the binding definition in your configuration file.[0m
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mVectorize Index bindings do not support local development, and so parts of your Worker may not work correctly. You can set `remote: true` for the binding definition in your configuration file to access a remote version of the resource.[0m
+worker test: Using secrets defined in .dev.vars
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mAI bindings always access remote resources, and so may incur usage charges even in local dev. To suppress this warning, set `remote: true` for the binding definition in your configuration file.[0m
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mVectorize Index bindings do not support local development, and so parts of your Worker may not work correctly. You can set `remote: true` for the binding definition in your configuration file to access a remote version of the resource.[0m
+worker test: Using secrets defined in .dev.vars
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mAI bindings always access remote resources, and so may incur usage charges even in local dev. To suppress this warning, set `remote: true` for the binding definition in your configuration file.[0m
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mVectorize Index bindings do not support local development, and so parts of your Worker may not work correctly. You can set `remote: true` for the binding definition in your configuration file to access a remote version of the resource.[0m
+worker test: Using secrets defined in .dev.vars
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mAI bindings always access remote resources, and so may incur usage charges even in local dev. To suppress this warning, set `remote: true` for the binding definition in your configuration file.[0m
+worker test: [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mVectorize Index bindings do not support local development, and so parts of your Worker may not work correctly. You can set `remote: true` for the binding definition in your configuration file to access a remote version of the resource.[0m
+worker test:  Test Files  6 passed (6)
+worker test:       Tests  196 passed (196)
+worker test:    Start at  06:23:02
+worker test:    Duration  1.89s (transform 831ms, setup 1.37s, import 523ms, tests 920ms, environment 0ms)
+worker test: Done
+gen test:  Test Files  8 passed (8)
+gen test:       Tests  159 passed (159)
+gen test:    Start at  06:23:01
+gen test:    Duration  3.52s (transform 405ms, setup 0ms, import 991ms, tests 4.01s, environment 0ms)
+gen test: Done

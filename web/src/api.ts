@@ -31,12 +31,25 @@ export interface DemoAgents {
   items: DemoAgentCard[];
 }
 
+/** 사전 생성 설명(설계서 v0.1.14 §7): PASS면 본문, FAIL이면 상태만. */
+export type Explanation =
+  | { groundingStatus: "PASS"; text: string; citedFields: string[]; numbersUsed: string[]; promptVersion: string; model: string }
+  | { groundingStatus: "FAIL"; promptVersion: string };
+
+export interface MonthDiff extends Common {
+  closeYm: string;
+  previousYm: string;
+  promptVersion: string;
+  explanation: Explanation | null;
+}
+
 export interface Me extends Common {
   agentId: string;
   agentName?: string;
   grade?: string;
   orgPath?: string;
   months?: { from: string; to: string };
+  promptVersions?: Record<string, string>;
 }
 
 export interface MonthSummary {
@@ -103,7 +116,7 @@ export interface LineDetail extends Common {
   deferrals: { scheduleId: string; dueYm: string; amount: Won; status: DeferralStatus }[];
   receivable?: { receivableId: string; amount: Won; remaining: Won; status: string };
   ledgerId?: string;
-  explanation: null;
+  explanation: Explanation | null;
 }
 
 export type Stage = "OK" | "WARN" | "CRIT" | "FULL";
@@ -135,7 +148,7 @@ export interface Limits extends Common {
 export interface LimitDetail extends Common {
   ledger: Ledger;
   history: { sourceSeq: number; kind: "POST" | "REBASE"; calcId?: string; amount?: Won; accumAfter: Won; limitAfter: Won; reason?: string; occurredAt: string }[];
-  explanation: null;
+  explanation: Explanation | null;
 }
 
 /** 세션이 없거나 스트림이 바뀌어 무효(401) — 화면은 설계사 선택으로. */
@@ -156,6 +169,7 @@ export const api = {
   me: () => call<Me>("/api/v1/me"),
   earnings: (from: string, to: string) => call<Earnings>(`/api/v1/me/earnings?from=${from}&to=${to}`),
   month: (ym: string) => call<Month>(`/api/v1/me/earnings/${ym}`),
+  diff: (ym: string) => call<MonthDiff>(`/api/v1/me/earnings/${ym}/diff`),
   lines: (ym: string, page: number) => call<Lines>(`/api/v1/me/earnings/${ym}/lines?page=${page}&size=200`),
   line: (calcId: string) => call<LineDetail>(`/api/v1/me/earnings/lines/${encodeURIComponent(calcId)}`),
   limits: () => call<Limits>("/api/v1/me/limits"),

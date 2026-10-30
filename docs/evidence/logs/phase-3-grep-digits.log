@@ -1,0 +1,126 @@
+$ grep -rn "[0-9]" worker/src --include="*.ts"  (PHASES Phase 3 완료 기준 — 금액 상수 하드코딩 확인용 전체 출력)
+worker/src/env.d.ts:1:// 시크릿(CLAUDE.md 규약 10 — .dev.vars·wrangler secret). wrangler types는 .dev.vars가 없는 곳(CI)에서 이 이름들을 만들지 않으므로 여기서 선언한다.
+worker/src/env.d.ts:4:    /** 설계서 v0.1.12 §7 — 세션 쿠키 HMAC */
+worker/src/env.d.ts:6:    /** 설계서 v0.1.12 §7 — policyKey HMAC */
+worker/src/index.ts:9:app.route("/api/v1/health", health);
+worker/src/index.ts:10:app.route("/api/v1/demo", demo);
+worker/src/index.ts:11:app.route("/api/v1/me", me);
+worker/src/index.ts:13:// 없는 경로·메서드 불일치는 같은 404(상위 §7 거부·형식). 정적 자산은 run_worker_first 밖이라 여기 오지 않는다.
+worker/src/index.ts:17:  return problem(c, 500, "INTERNAL_ERROR");
+worker/src/db/ScopedQuery.ts:1:// D1 접근의 유일한 통로(CLAUDE.md 규약 3, 설계서 v0.1.12 §5.1·§7, PHASES Phase 2 항목 2).
+worker/src/db/ScopedQuery.ts:3://   agent_id 열이 없는 표(policy_limit_history)는 소유 원장 부분 질의로 같은 두 조건을 건다(설계서 v0.1.12 §7).
+worker/src/db/ScopedQuery.ts:4:// - 읽기 모델 8표는 A/B 슬롯 두 벌이다. 슬롯 표 이름은 이 파일의 slotTable()만 만든다 — 다른 코드에는 슬롯 접미 리터럴이 없다(아키텍처 테스트).
+worker/src/db/ScopedQuery.ts:5:// - 활성 슬롯은 stream_meta(전역 표, 테넌트 열 없음)의 active=1 한 행. 요청마다 읽는다 — 슬롯을 캐시하면 전환 뒤에도 옛 슬롯을 읽는다.
+worker/src/db/ScopedQuery.ts:7:// 식별자(표·열·정렬)는 허용 목록·패턴으로 막고, 값은 전부 바인딩한다. 금액 계산은 하지 않는다(규약 2 — DerivedNumbers).
+worker/src/db/ScopedQuery.ts:10:export const DEMO_TENANT = "T1";
+worker/src/db/ScopedQuery.ts:19:/** stream_meta 활성 행(설계서 v0.1.11 — line_count는 적재기 ⑤ 재검사 값). */
+worker/src/db/ScopedQuery.ts:25:/** 읽기 모델 8표(설계서 §5.1). */
+worker/src/db/ScopedQuery.ts:46:/** explanation 표 행(설계서 §5.1). */
+worker/src/db/ScopedQuery.ts:56:const IDENT = /^[a-z][a-z0-9_]*$/;
+worker/src/db/ScopedQuery.ts:85:/** IN 목록 상한 — D1 바인딩 변수 수 제한(100) 안에서 범위 조건 몫을 남긴다. */
+worker/src/db/ScopedQuery.ts:86:const IN_MAX = 90;
+worker/src/db/ScopedQuery.ts:103:      const m = part.trim().match(/^([a-z][a-z0-9_]*)(?:\s+(ASC|DESC))?$/i);
+worker/src/db/ScopedQuery.ts:105:      return m[2] ? `${m[1]} ${m[2].toUpperCase()}` : m[1]!;
+worker/src/db/ScopedQuery.ts:124:  if (COMPARE.includes(op) && rest.length === 1) {
+worker/src/db/ScopedQuery.ts:125:    params.push(rest[0] as Value);
+worker/src/db/ScopedQuery.ts:128:  if (op === "IN" && rest.length === 1 && Array.isArray(rest[0])) {
+worker/src/db/ScopedQuery.ts:129:    const list = rest[0] as readonly Scalar[];
+worker/src/db/ScopedQuery.ts:130:    if (list.length === 0 || list.length > IN_MAX) throw new Error(`IN 목록 크기 ${list.length}`);
+worker/src/db/ScopedQuery.ts:134:  if (op === "BETWEEN" && rest.length === 2) {
+worker/src/db/ScopedQuery.ts:135:    params.push(rest[0] as Scalar, rest[1] as Scalar);
+worker/src/db/ScopedQuery.ts:138:  if ((op === "IS NULL" || op === "IS NOT NULL") && rest.length === 0) return `${name} ${op}`;
+worker/src/db/ScopedQuery.ts:146:  private readonly db: D1Database;
+worker/src/db/ScopedQuery.ts:148:  constructor(db: D1Database, scope: { tenantId: string; agentId: string; stream: ActiveStream }) {
+worker/src/db/ScopedQuery.ts:174:    if (opts.columns.length === 0) throw new Error("columns 비어 있음");
+worker/src/db/ScopedQuery.ts:179:    sql += bound(opts.limit, "limit", 1) + bound(opts.offset, "offset", 0);
+worker/src/db/ScopedQuery.ts:189:    const { sql, params } = this.build(table, { ...opts, limit: 1 });
+worker/src/db/ScopedQuery.ts:194:   * 사전 생성 설명 한 행(설계서 v0.1.14 §4.1(b)·§7). explanation은 슬롯 표가 아니라 stream_hash 열로 스트림을 가른다 —
+worker/src/db/ScopedQuery.ts:210:    return (await this.db.prepare(`SELECT COUNT(*) AS n ${from}`).bind(...params).first<{ n: number }>())?.n ?? 0;
+worker/src/db/ScopedQuery.ts:217:export async function activeStream(db: D1Database): Promise<StreamMeta | null> {
+worker/src/db/ScopedQuery.ts:219:    .prepare("SELECT stream_hash, slot, generated_at, line_count FROM stream_meta WHERE active = 1")
+worker/src/db/ScopedQuery.ts:224:/** D1 연결 확인(SELECT 1). */
+worker/src/db/ScopedQuery.ts:225:export async function ping(db: D1Database): Promise<number | null> {
+worker/src/db/ScopedQuery.ts:226:  return (await db.prepare("SELECT 1 AS one").first<{ one: number }>())?.one ?? null;
+worker/src/db/ScopedQuery.ts:230:  demo_no: 1 | 2 | 3;
+worker/src/db/ScopedQuery.ts:238:/** 활성 스트림의 데모 설계사 3명(설계서 v0.1.11 §5.1 demo_agents — 공개 카드·세션 발급의 출처). */
+worker/src/db/ScopedQuery.ts:239:export async function demoAgents(db: D1Database, tenantId: string, stream: ActiveStream): Promise<DemoAgentRow[]> {
+worker/src/db/ScopedQuery.ts:248:export async function demoAgent(db: D1Database, tenantId: string, stream: ActiveStream, demoNo: number): Promise<DemoAgentRow | null> {
+worker/src/api/explain.ts:1:// 사전 생성 설명을 응답 모양으로(설계서 v0.1.14 §7): 없으면 null, PASS면 본문·인용·숫자, FAIL이면 본문 없이 상태만(화면 "설명 없음").
+worker/src/api/explain.ts:2:// 활성 프롬프트 버전은 PROMPT_VERSIONS(설계서 §6.3 — "explain_line=v1,…"). 설명은 런타임에 LLM을 부르지 않는다(예산 0).
+worker/src/api/explain.ts:6:const VERSION = /^v[1-9][0-9]*$/;
+worker/src/api/explain.ts:8:/** "explain_line=v1,answer=v5" → {explain_line: "v1", …}. 형식이 다른 조각은 버린다. */
+worker/src/api/explain.ts:18:/** 그 종류의 활성 버전 "explain_line/v1"(설정이 없으면 v1). */
+worker/src/api/explain.ts:21:  return `${name}/${promptVersions(env)[name] ?? "v1"}`;
+worker/src/api/http.ts:1:// 응답 공통(설계서 v0.1.12 §7 — 상위 §7 거부·캐시 규약 + 덧씌우기): problem+json, 공통 필드, ETag·304.
+worker/src/api/http.ts:5:/** 설계서 §2.3·§7: 모든 응답의 고정 문구(web/src/disclaimer.ts와 같은 값). */
+worker/src/api/http.ts:13:  demoNo: 1 | 2 | 3;
+worker/src/api/http.ts:20:// 사유와 무관하게 같은 바이트(상위 §7 거부·형식)
+worker/src/api/http.ts:28:export function problem(c: Context, status: 400 | 401 | 404 | 500 | 503, code: ProblemCode): Response {
+worker/src/api/http.ts:32:export const unauthenticated = (c: Context) => problem(c, 401, "UNAUTHENTICATED");
+worker/src/api/http.ts:33:export const notFound = (c: Context) => problem(c, 404, "NOT_FOUND");
+worker/src/api/http.ts:34:export const invalidRequest = (c: Context) => problem(c, 400, "INVALID_REQUEST");
+worker/src/api/http.ts:36:/** 공통 필드(asOf·dataStatus·disclaimer). Phase 2의 dataStatus는 OK뿐 — DEGRADED는 예산(Phase 4). */
+worker/src/api/http.ts:41:/** 200 + `private, no-cache` + 약한 ETag `W/"<streamHash>.<demoNo>"` + `Vary: Cookie`. 소유 확인을 마친 뒤에만 부른다 — 그때 If-None-Match를 본다. */
+worker/src/api/http.ts:47:  if (inm && inm.split(",").some((t) => t.trim() === etag)) return c.body(null, 304, headers);
+worker/src/api/http.ts:48:  return c.json({ ...common(s), ...body, disclaimer: DISCLAIMER }, 200, headers);
+worker/src/api/http.ts:51:export const YM = /^[0-9]{4}(0[1-9]|1[0-2])$/;
+worker/src/api/http.ts:53:/** 선택 필드는 값이 없으면 뺀다(상위 §7 — null을 보내지 않는다). */
+worker/src/api/policy.ts:1:// 증권번호는 어느 응답에도 없다(상위 §7 v1.6, 설계서 v0.1.12 §7): policyMasked(끝 4자 외 '*')와
+worker/src/api/policy.ts:2:// policyKey = HMAC-SHA256(POLICY_KEY_SECRET, tenant_id + U+001F + policy_no) 앞 16자 16진. 키 → 원문은 그 설계사의 증권번호 집합으로만 푼다.
+worker/src/api/policy.ts:5:  const keep = policyNo.length > 4 ? policyNo.slice(-4) : "";
+worker/src/api/policy.ts:14:    k = crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+worker/src/api/policy.ts:22:  const mac = await crypto.subtle.sign("HMAC", await hmacKey(secret), new TextEncoder().encode(`${tenantId}\u001f${policyNo}`));
+worker/src/api/policy.ts:23:  return [...new Uint8Array(mac).slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
+worker/src/api/session.ts:1:// 데모 세션(설계서 v0.1.12 §7, PHASES Phase 2 항목 1): 로그인이 없으므로 agentId는 서명 쿠키에서만 읽는다.
+worker/src/api/session.ts:2:// POST /api/v1/demo/session {demoAgent: 1|2|3} → 활성 스트림 demo_agents의 그 번호 설계사로 HMAC 쿠키 발급.
+worker/src/api/session.ts:3:// GET /api/v1/demo/agents → 공개 카드 3장. requireSession → /me/* 미들웨어(서명 + 요청마다 demo_agents 대조).
+worker/src/api/session.ts:11:const MAX_AGE = 7 * 24 * 60 * 60;
+worker/src/api/session.ts:19:const isDemoNo = (n: unknown): n is 1 | 2 | 3 => n === 1 || n === 2 || n === 3;
+worker/src/api/session.ts:25:  if (!stream) return problem(c, 503, "INTERNAL_ERROR");
+worker/src/api/session.ts:29:      // 카드의 이름·등급·소속은 그 설계사 범위의 질의로만 읽는다(규약 3)
+worker/src/api/session.ts:35:  return c.json({ streamHash: stream.streamHash, generatedAt: stream.generatedAt, items, disclaimer: DISCLAIMER }, 200, { "Cache-Control": "no-cache" });
+worker/src/api/session.ts:40:  if (!secret) return problem(c, 500, "INTERNAL_ERROR");
+worker/src/api/session.ts:43:  if (!isDemoNo(n) || Object.keys(body as object).length !== 1) return invalidRequest(c);
+worker/src/api/session.ts:45:  if (!stream) return problem(c, 503, "INTERNAL_ERROR");
+worker/src/api/session.ts:47:  if (!row) return problem(c, 503, "INTERNAL_ERROR");
+worker/src/api/session.ts:53:    200,
+worker/src/api/session.ts:58:/** /me/*: 서명이 맞고, 활성 스트림의 그 데모 번호가 아직 같은 설계사일 때만 범위를 세운다. 아니면 같은 401. */
+worker/src/api/session.ts:61:  if (!secret) return problem(c, 500, "INTERNAL_ERROR");
+worker/src/api/session.ts:72:  if (!stream) return problem(c, 503, "INTERNAL_ERROR");
+worker/src/api/health.ts:4:// D1 연결 확인 + 활성 스트림(설계서 v0.1.11 §5.1). stream_meta 한 행만 읽는다 — 라인 수는 적재기가 ⑤ 재검사에서 쓴 line_count.
+worker/src/api/health.ts:8:  const d1 = await ping(c.env.DB);
+worker/src/api/health.ts:10:  return c.json({ ok: true, d1, streamHash: stream?.streamHash ?? null, earningsLines: stream?.lineCount ?? null });
+worker/src/domain/DerivedNumbers.ts:1:// 파생 수는 packages/grounding 한 클래스(설계서 v0.1.14 §6.1 — gen 설명 컨텍스트와 같은 값). worker는 여기서 다시 내보낸다.
+worker/src/api/me.ts:1:// 읽기 API(설계서 v0.1.12 §7, 상위 §7 구조 — 계약 contracts/api/v1/portal-api.openapi.yaml + copilot-overlay.json, PHASES Phase 2 항목 3).
+worker/src/api/me.ts:2:// 모든 조회는 세션 범위의 ScopedQuery로만 한다(규약 3). 금액은 읽은 값 그대로 — 합계·잔여·소진율·단계는 DerivedNumbers(규약 2).
+worker/src/api/me.ts:3:// explanation은 사전 생성 설명(설계서 v0.1.14 §4.1(b)·§7 — 활성 스트림·활성 프롬프트 버전 행, 없으면 null).
+worker/src/api/me.ts:12:/** 데모 테넌트 표시 값(설계서 v0.1.12 §7 — 상위 §5 tenant 예시값, 테넌트 표가 없어 상수). */
+worker/src/api/me.ts:13:export const DEMO_TENANT_CONFIG = { name: "데모GA", payoutDayRule: "NEXT_MONTH_D10", limitWarnBp: 8000, limitCritBp: 9500 } as const;
+worker/src/api/me.ts:15:const RANGE_MAX = 36;
+worker/src/api/me.ts:16:const PAGE_MAX = 1_000_000;
+worker/src/api/me.ts:17:const SIZE_DEFAULT = 50;
+worker/src/api/me.ts:18:const SIZE_MAX = 200;
+worker/src/api/me.ts:20:const CHUNK = 80;
+worker/src/api/me.ts:21:const COMM_TYPE = /^[A-Z][A-Z0-9_]{0,31}$/;
+worker/src/api/me.ts:22:const POLICY_KEY = /^[0-9a-f]{16}$/;
+worker/src/api/me.ts:23:const KEY_MAX = 128;
+worker/src/api/me.ts:116:  for (let i = 0; i < xs.length; i += CHUNK) out.push(xs.slice(i, i + CHUNK));
+worker/src/api/me.ts:127:const monthIndex = (ym: string) => Number(ym.slice(0, 4)) * 12 + Number(ym.slice(4, 6)) - 1;
+worker/src/api/me.ts:128:const ymOf = (index: number) => `${String(Math.floor(index / 12)).padStart(4, "0")}${String((index % 12) + 1).padStart(2, "0")}`;
+worker/src/api/me.ts:130:/** 지급예정일(테넌트 규칙 NEXT_MONTH_D{n} — 상위 §14.1 #2: n이 다음 달에 없거나 형식이 다르면 생략). */
+worker/src/api/me.ts:132:  const m = DEMO_TENANT_CONFIG.payoutDayRule.match(/^NEXT_MONTH_D([1-9][0-9]?)$/);
+worker/src/api/me.ts:134:  const next = ymOf(monthIndex(closeYm) + 1);
+worker/src/api/me.ts:135:  const day = Number(m[1]);
+worker/src/api/me.ts:136:  const y = Number(next.slice(0, 4));
+worker/src/api/me.ts:137:  const mo = Number(next.slice(4, 6));
+worker/src/api/me.ts:138:  if (day > new Date(Date.UTC(y, mo, 0)).getUTCDate()) return undefined;
+worker/src/api/me.ts:139:  return `${next.slice(0, 4)}-${next.slice(4, 6)}-${String(day).padStart(2, "0")}`;
+worker/src/api/me.ts:231:  if (!/^(0|[1-9][0-9]{0,6})$/.test(v)) return null;
+worker/src/api/me.ts:275:  if (!from || !to || !YM.test(from) || !YM.test(to) || from > to || monthIndex(to) - monthIndex(from) + 1 > RANGE_MAX) return invalidRequest(c);
+worker/src/api/me.ts:328:  const prevYm = ymOf(monthIndex(ym) - 1);
+worker/src/api/me.ts:356:/** 전월 대비 설명(설계서 §7·v0.1.14 — kind=MONTH_DIFF). 그 달 행이 없으면 404, 설명이 없으면 explanation null. */
+worker/src/api/me.ts:363:  return ok(c, { closeYm: ym, previousYm: ymOf(monthIndex(ym) - 1), promptVersion: activePromptVersion(c.env, "MONTH_DIFF"), explanation });
+worker/src/api/me.ts:370:  const page = intParam(c.req.query("page"), 0, 0, PAGE_MAX);
+worker/src/api/me.ts:371:  const size = intParam(c.req.query("size"), SIZE_DEFAULT, 1, SIZE_MAX);
+worker/src/api/me.ts:384:    const match = [...keys].find(([, k]) => k === key)?.[0];
+worker/src/api/me.ts:385:    if (!match) return ok(c, { closeYm: ym, page, size, total: 0, items: [] });

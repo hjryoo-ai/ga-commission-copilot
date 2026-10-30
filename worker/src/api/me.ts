@@ -1,9 +1,10 @@
 // 읽기 API(설계서 v0.1.12 §7, 상위 §7 구조 — 계약 contracts/api/v1/portal-api.openapi.yaml + copilot-overlay.json, PHASES Phase 2 항목 3).
 // 모든 조회는 세션 범위의 ScopedQuery로만 한다(규약 3). 금액은 읽은 값 그대로 — 합계·잔여·소진율·단계는 DerivedNumbers(규약 2).
-// explanation은 Phase 3까지 null.
+// explanation은 사전 생성 설명(설계서 v0.1.14 §4.1(b)·§7 — 활성 스트림·활성 프롬프트 버전 행, 없으면 null).
 import { Hono } from "hono";
 import { DEMO_TENANT, type ScopedQuery } from "../db/ScopedQuery";
 import { DerivedNumbers, type LimitStage } from "../domain/DerivedNumbers";
+import { activePromptVersion, explanationOf, promptVersions } from "./explain";
 import { type AppEnv, compact, invalidRequest, notFound, ok, YM } from "./http";
 import { policyKeys, policyMasked } from "./policy";
 import { requireSession } from "./session";
@@ -262,6 +263,7 @@ me.get("/", async (c) => {
       status: p?.status,
       tenant: DEMO_TENANT_CONFIG,
       months: first && last ? { from: first.close_ym, to: last.close_ym } : undefined,
+      promptVersions: promptVersions(c.env),
     }),
   );
 });
@@ -284,7 +286,7 @@ me.get("/earnings/lines/:calcId", async (c) => {
   if (calcId.length > KEY_MAX) return notFound(c);
   const r = await q.first<LineRow & { basis: string; policy_summary: string }>("earnings_line", { columns: [...LINE_COLUMNS, "basis", "policy_summary"], where: { calc_id: calcId } });
   if (!r) return notFound(c);
-  const [pairOf, keys, deferrals, receivable, ledger] = await Promise.all([
+  const [pairOf, keys, deferrals, receivable, ledger, explanation] = await Promise.all([
     pairs(q, [r]),
     policyKeys(c.env.POLICY_KEY_SECRET ?? "", DEMO_TENANT, [r.policy_no]),
     q.all<{ schedule_id: string; due_ym: string; amount: number; status: string }>("deferral_item", {
@@ -294,6 +296,7 @@ me.get("/earnings/lines/:calcId", async (c) => {
     }),
     q.first<{ receivable_id: string; amount: number; remaining: number; status: string }>("clawback_item", { columns: ["receivable_id", "amount", "remaining", "status"], where: { origin_calc_id: calcId } }),
     q.first<{ ledger_id: string }>("policy_limit", { columns: ["ledger_id"], where: { policy_no: r.policy_no } }),
+    explanationOf(q, c.env, "LINE", calcId),
   ]);
   const basis = parseJson(r.basis);
   const summary = parseJson(r.policy_summary);
@@ -314,7 +317,7 @@ me.get("/earnings/lines/:calcId", async (c) => {
       receivable: receivable ? { receivableId: receivable.receivable_id, amount: receivable.amount, remaining: receivable.remaining, status: receivable.status } : undefined,
       ledgerId: ledger?.ledger_id,
     }),
-    explanation: null,
+    explanation,
   });
 });
 
@@ -348,6 +351,16 @@ me.get("/earnings/:ym", async (c) => {
       previous: prev ? compact({ closeYm: prev.close_ym, status: prev.status, gross: prev.gross, net: prev.net, netBasis: prev.net_basis }) : undefined,
     }),
   );
+});
+
+/** 전월 대비 설명(설계서 §7·v0.1.14 — kind=MONTH_DIFF). 그 달 행이 없으면 404, 설명이 없으면 explanation null. */
+me.get("/earnings/:ym/diff", async (c) => {
+  const { q } = c.get("scope");
+  const ym = c.req.param("ym");
+  if (!YM.test(ym)) return notFound(c);
+  const [row, explanation] = await Promise.all([q.first("earnings_month", { columns: ["close_ym"], where: { close_ym: ym } }), explanationOf(q, c.env, "MONTH_DIFF", ym)]);
+  if (!row) return notFound(c);
+  return ok(c, { closeYm: ym, previousYm: ymOf(monthIndex(ym) - 1), promptVersion: activePromptVersion(c.env, "MONTH_DIFF"), explanation });
 });
 
 me.get("/earnings/:ym/lines", async (c) => {
@@ -396,7 +409,7 @@ me.get("/limits/:ledgerId", async (c) => {
   if (ledgerId.length > KEY_MAX) return notFound(c);
   const r = await q.first<LedgerRow>("policy_limit", { columns: LEDGER_COLUMNS, where: { ledger_id: ledgerId } });
   if (!r) return notFound(c);
-  const [extras, keys, history] = await Promise.all([
+  const [extras, keys, history, explanation] = await Promise.all([
     ledgerExtras(q),
     policyKeys(c.env.POLICY_KEY_SECRET ?? "", DEMO_TENANT, [r.policy_no]),
     q.all<{
@@ -414,6 +427,7 @@ me.get("/limits/:ledgerId", async (c) => {
       where: { ledger_id: ledgerId },
       orderBy: "source_seq",
     }),
+    explanationOf(q, c.env, "LIMIT", ledgerId),
   ]);
   return ok(c, {
     ledger: toLedger(r, keys, extras.flagsOf(r.policy_no), extras.productOf(r.policy_no)),
@@ -430,6 +444,6 @@ me.get("/limits/:ledgerId", async (c) => {
         occurredAt: h.occurred_at,
       }),
     ),
-    explanation: null,
+    explanation,
   });
 });

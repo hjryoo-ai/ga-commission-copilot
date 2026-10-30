@@ -1,9 +1,11 @@
-// 라인 상세(설계서 §8-2): 근거(basis) 원본 표 · 한도 판정 · 계약 요약 · 분급·채권 · 원장 링크 · "이 금액이 나온 이유"(Phase 3 — 설명 없음).
+// 라인 상세(설계서 §8-2): 근거(basis) 원본 표 · 한도 판정 · 계약 요약 · 분급·채권 · 원장 링크 · "이 금액이 나온 이유"(사전 생성 설명 — 근거 보기는 인용 필드 하이라이트).
+import { useState } from "react";
 import { api } from "../api";
+import { citedClass, ExplanationBody } from "../explain";
 import { ym as ymText } from "../format";
 import { commTypeLabel, CONTRACT_LABEL, CUT_LABEL, DEFERRAL_LABEL, lineLabel, RECEIVABLE_LABEL } from "../labels";
 import { Link, paths } from "../router";
-import { Amount, Badge, NoExplanation, Status, useLoad } from "../ui";
+import { Amount, Badge, Status, useLoad } from "../ui";
 import { Shell } from "./Shell";
 
 export function LineDetail({ calcId }: { calcId: string }) {
@@ -14,6 +16,8 @@ export function LineDetail({ calcId }: { calcId: string }) {
     return { d, status: m.status };
   }, [calcId]);
   const d = s.state === "ok" ? s.data.d : undefined;
+  const [cited, setCited] = useState<string[] | null>(null);
+  const hl = (...f: string[]) => citedClass(cited, ...f);
 
   return (
     <Shell asOf={d?.asOf} title="라인 상세">
@@ -24,7 +28,7 @@ export function LineDetail({ calcId }: { calcId: string }) {
             <h2>
               {commTypeLabel(d.line.commType)} <Badge>{ymText(d.line.closeYm)}</Badge>
             </h2>
-            <p className="headline">
+            <p className={hl("line.amount") ? "headline cited" : "headline"}>
               <Amount value={d.line.amount} label={lineLabel(d.line.commType, s.data.status)} big />
             </p>
             <p className="meta">
@@ -32,7 +36,7 @@ export function LineDetail({ calcId }: { calcId: string }) {
               {d.line.productKey ? ` · ${d.line.productKey}` : ""}
             </p>
             {d.line.limitCutAmt > 0 && (
-              <p>
+              <p className={hl("line.limitCutAmt", "derived.requested")}>
                 {CUT_LABEL} <Amount value={d.line.limitCutAmt} label="원장 기준" />
               </p>
             )}
@@ -52,31 +56,31 @@ export function LineDetail({ calcId }: { calcId: string }) {
             <table className="basis">
               <tbody>
                 {d.basis.rate && (
-                  <tr>
+                  <tr className={hl("basis.rate")}>
                     <th scope="row">적용 요율</th>
-                    <td>{d.basis.rate}%</td>
+                    <td>{d.basis.rate}</td>
                   </tr>
                 )}
                 {d.basis.payoutRate && (
-                  <tr>
+                  <tr className={hl("basis.payoutRate")}>
                     <th scope="row">지급률</th>
                     <td>{d.basis.payoutRate}</td>
                   </tr>
                 )}
                 {d.basis.installmentNo !== undefined && (
-                  <tr>
+                  <tr className={hl("basis.installmentNo")}>
                     <th scope="row">회차</th>
                     <td>{d.basis.installmentNo}회</td>
                   </tr>
                 )}
                 {d.policySummary.contractDate && (
-                  <tr>
+                  <tr className={hl("policySummary.contractDate")}>
                     <th scope="row">계약일</th>
                     <td>{d.policySummary.contractDate}</td>
                   </tr>
                 )}
                 {d.policySummary.monthlyPremium !== undefined && (
-                  <tr>
+                  <tr className={hl("policySummary.monthlyPremium")}>
                     <th scope="row">월납 보험료</th>
                     <td>
                       <Amount value={d.policySummary.monthlyPremium} label={CONTRACT_LABEL} />
@@ -97,8 +101,8 @@ export function LineDetail({ calcId }: { calcId: string }) {
             <section>
               <h3>분급 {d.deferrals.length}건</h3>
               <ul className="plain">
-                {d.deferrals.map((x) => (
-                  <li key={x.scheduleId}>
+                {d.deferrals.map((x, i) => (
+                  <li key={x.scheduleId} className={hl(`deferrals.${i}`)}>
                     {ymText(x.dueYm)} <Amount value={x.amount} label={DEFERRAL_LABEL[x.status]} />
                   </li>
                 ))}
@@ -107,7 +111,7 @@ export function LineDetail({ calcId }: { calcId: string }) {
           )}
 
           {d.receivable && (
-            <section>
+            <section className={hl("receivable")}>
               <h3>환수 채권</h3>
               <p>
                 채권 <Amount value={d.receivable.amount} label={RECEIVABLE_LABEL[d.receivable.status] ?? d.receivable.status} /> · 잔액{" "}
@@ -116,10 +120,10 @@ export function LineDetail({ calcId }: { calcId: string }) {
             </section>
           )}
 
-          <details className="explain">
-            <summary>이 금액이 나온 이유</summary>
-            <NoExplanation />
-          </details>
+          <section className="explain">
+            <h3>이 금액이 나온 이유</h3>
+            <ExplanationBody e={d.explanation} onCite={setCited} />
+          </section>
         </>
       )}
     </Shell>
