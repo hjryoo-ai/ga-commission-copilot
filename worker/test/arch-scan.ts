@@ -71,3 +71,17 @@ export function pointsIntoGen(spec: string): boolean {
   return /^@copilot\/gen(\/|$)/.test(spec) || /^(\.\.?\/)+(\.\.\/)*gen(\/|$)/.test(spec) || /\/gen\/(world|providers|verify|load)\b/.test(spec);
 }
 
+/** D1 바인딩 직접 호출(prepare·batch·exec·dump). */
+export function d1Calls(src: string): string[] {
+  return src.match(/\.(?:prepare|batch|exec|dump)\s*\(/g)?.map((m) => m.replace(/\s+/g, "")) ?? [];
+}
+
+const READ_MODEL_NAMES = "agent_profile|earnings_line|earnings_month|policy_limit_history|policy_limit|deferral_item|clawback_item|policy_flag";
+
+/** 슬롯 접미가 붙은 표 이름(earnings_line_a 등)과 접미만 떼어 쓴 문자열 리터럴("_a"·"_b"). 슬롯 표 이름은 ScopedQuery의 빌더만 만든다. */
+export function slotLiterals(src: string): string[] {
+  const names = [...src.matchAll(new RegExp(`\\b(?:${READ_MODEL_NAMES})_[ab]\\b`, "g"))].map((m) => m[0]);
+  const suffixes = extractStringLiterals(src).filter((s) => s === "_a" || s === "_b");
+  return [...names, ...suffixes];
+}
+

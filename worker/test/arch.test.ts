@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractStringLiterals, importSpecifiers, pointsIntoGen, sqlWithoutTenant, tenantTableSqlWithoutTenant, touchesTenantTable, writeKeywords } from "./arch-scan";
+import { d1Calls, extractStringLiterals, importSpecifiers, pointsIntoGen, slotLiterals, sqlWithoutTenant, tenantTableSqlWithoutTenant, touchesTenantTable, writeKeywords } from "./arch-scan";
 
 // CLAUDE.md 규약 3(tenant_id 없는 쿼리 금지)·4(툴은 읽기 전용). 원문은 Vite가 번들 시점에 읽는다(Workers 런타임에는 fs가 없다).
 const sources = import.meta.glob<string>("../src/**/*.ts", { query: "?raw", import: "default", eager: true });
@@ -11,9 +11,11 @@ const files = Object.entries(sources).map(([key, text]) => ({ path: key.replace(
  * 화이트리스트 파일이어도 테넌트 표(슬롯 표 포함)를 건드리는 SQL은 tenant_id 조건을 가져야 한다(아래 두 번째 검사).
  */
 export const TENANT_SQL_WHITELIST: Record<string, string> = {
-  "src/api/health.ts": "D1 연결 확인 SELECT 1 — 테넌트 데이터 없음",
-  "src/db/active-stream.ts": "stream_meta(전역 표, 테넌트 열 없음)에서 활성 슬롯을 읽는다",
+  "src/db/ScopedQuery.ts": "빌더 SQL은 조립된다(tenant_id·agent_id는 build()가 붙인다 — scoped-query.test.ts). 그 밖에 SELECT 1·stream_meta(전역 표)·health용 테넌트 행 수 집계",
 };
+
+/** D1 바인딩을 직접 쓰는(prepare·batch·exec·dump) 유일한 파일(Phase 2 완료 기준 "ScopedQuery 외 D1 접근 0건"). */
+const D1_ACCESS_FILE = "src/db/ScopedQuery.ts";
 
 describe("아키텍처: worker/src/tools/** 는 읽기 전용", () => {
   const tools = files.filter((f) => f.path.startsWith("src/tools/"));
@@ -42,6 +44,20 @@ describe("아키텍처: worker/src/** 의 SQL 문자열은 tenant_id 조건을 �
   });
 });
 
+describe("아키텍처: D1 접근은 db/ScopedQuery.ts에만, 슬롯 표 이름은 빌더만 만든다(설계서 v0.1.10 §5.1)", () => {
+  it.each(files.filter((f) => f.path !== D1_ACCESS_FILE))("$path: prepare·batch·exec·dump 호출 없음", ({ text }) => {
+    expect(d1Calls(text)).toEqual([]);
+  });
+
+  it(`${D1_ACCESS_FILE}가 있다`, () => {
+    expect(files.some((f) => f.path === D1_ACCESS_FILE)).toBe(true);
+  });
+
+  it.each(files)("$path: 슬롯 접미 리터럴(_a·_b) 없음", ({ text }) => {
+    expect(slotLiterals(text)).toEqual([]);
+  });
+});
+
 describe("아키텍처: worker/src/** 는 gen을 import하지 않는다(CLAUDE.md 규약 2 — 엔진 대역은 gen 안에만)", () => {
   it.each(files)("$path", ({ text }) => {
     expect(importSpecifiers(text).filter(pointsIntoGen)).toEqual([]);
@@ -49,6 +65,16 @@ describe("아키텍처: worker/src/** 는 gen을 import하지 않는다(CLAUDE.m
 });
 
 describe("스캐너 자체 검사", () => {
+  it("D1 직접 호출과 슬롯 접미 리터럴을 잡는다", () => {
+    expect(d1Calls("await c.env.DB.prepare(`SELECT 1`).first();\nawait db.batch([a]);\nconst x = arr.prepare;")).toEqual([".prepare(", ".batch("]);
+    expect(slotLiterals('const t = "earnings_line_a"; const u = `policy_limit_history_b`; const s = "_b"; const ok = `${table}_${slot}`;')).toEqual([
+      "earnings_line_a",
+      "policy_limit_history_b",
+      "_b",
+    ]);
+    expect(slotLiterals('type Slot = "a" | "b"; const t = "earnings_line"; const archive = "earnings_line_archive";')).toEqual([]);
+  });
+
   it("gen을 가리키는 import를 잡고 그 밖은 통과시킨다", () => {
     const src = [
       'import { TENANT } from "../../../gen/world/rules/tables.ts";',
