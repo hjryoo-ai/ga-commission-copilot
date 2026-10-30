@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.14)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.15)
 
 > 변경 이력
+> - v0.1.15 (2026-10-31, Phase 3): §5.1 `explanation` PK에 `agent_id`를 넣는다 — `(tenant_id, agent_id, kind, subject_id, stream_hash, prompt_version)`. MONTH_DIFF의 subject는 `close_ym`이라 데모 설계사 3명의 같은 달이 v0.1 PK에서 충돌한다. 새 PK가 `(tenant_id, agent_id, kind)`로 시작하므로 `ix_expl_agent`는 지운다(적재 쓰기 행 × 2 — 약 1,200). 마이그레이션 0004(표가 비어 있을 때 다시 만든다).
 > - v0.1.14 (2026-10-31, Phase 3 전): §4.1(b) 설명 사전 생성 대상을 활성 스트림의 `demo_agents` 3명으로 한정(로그인이 없어 나머지 27명의 설명은 어느 화면에서도 열리지 않는다 · Groq TPD 200K 역산 하루 약 130건) — LINE 482·LIMIT 21·MONTH_DIFF 88 ≈ 600건, 순서 LINE → LIMIT → MONTH_DIFF, 날짜별로 나눠 `budget_counter`(scope `batch:explain:groq` 130·`batch:explain:workers-ai` 200)에 집계, 캐시 키 `streamHash + promptVersion + subject`, 산출 `data/explain/<streamHash>/`(커밋)·적재 `load:d1 -- --explain`, 시험용 VCR 16건과 통과율 80% 관문 · §3.3·§6.1 `packages/grounding`(검증기·`DerivedNumbers`·금지어 목록을 gen·worker가 공유, 파생 허용값에 전월 대비 차이) · §5.3 explanation 약 600 · §7 explanation 응답 모양 · §10.4 설명 배치 행 · §14.1-6·-10 수치.
 > - v0.1.13 (2026-10-30, Phase 2 수용): §4.1(a) 생성 ID에서 증권번호 제거 — 원장·라인·스케줄·채권·조정 ID는 (설계사, 설계사 내 계약 순번, 종류별 일련)에서 결정론으로(예 `l-A1003-07`·`c-A1003-07-2`), A-1 예약 ID는 그대로 · 데모 카드 1·3 문구("한도 100% 소진 후 해약·환수 계약 보유", "재산정으로 한도 초과·환수 상계 계약 보유" — 선정 규칙은 그대로: 이력상 누적 = 한도 도달) · §12 Phase 8에 Playwright CI 계획.
 > - v0.1.12 (2026-10-30, Phase 2): §7 읽기 API 구현 규약 — 응답 구조는 상위 계약 `portal-api.openapi.yaml` 1.2.0(`126d848`) 사본 + 덧씌우기(`asOf`·`dataStatus`·`disclaimer`·`explanation`·`/me`의 `months`), 세션 쿠키(HMAC, `SESSION_SECRET`)와 요청마다 `demo_agents` 대조, `policyKey` 비밀 `POLICY_KEY_SECRET`, ETag `W/"<streamHash>.<demoNo>"` + `Vary: Cookie`, 데모 테넌트 표시 값(상위 §5 예시값), `/me`의 `budget`·`promptVersions`는 그 기능의 Phase에서, `policy_limit_history`(설계사 열 없음)는 소유 원장 부분 질의로 범위를 건다, 소진율 문자열은 0 쪽 버림 소수 1자리, 월 합산 검증 실패는 `monthDataStatus: DRIFT`.
@@ -275,9 +276,9 @@ CREATE TABLE explanation (          -- Q1~Q3 사전 생성 설명
   text TEXT NOT NULL, cited_fields TEXT NOT NULL,               -- JSON array
   numbers_used TEXT NOT NULL, grounding_status TEXT NOT NULL,   -- PASS / FAIL / NONE
   created_at TEXT NOT NULL,
-  PRIMARY KEY (tenant_id, kind, subject_id, stream_hash, prompt_version)
+  PRIMARY KEY (tenant_id, agent_id, kind, subject_id, stream_hash, prompt_version)   -- v0.1.15: agent_id 포함(MONTH_DIFF subject = close_ym)
 );
-CREATE INDEX ix_expl_agent ON explanation (tenant_id, agent_id, kind);
+-- v0.1.15: ix_expl_agent 삭제 — PK가 (tenant_id, agent_id, kind)로 시작한다
 
 CREATE TABLE rulebook_chunk (       -- 사규집 원문 (Vectorize에는 벡터+메타만)
   chunk_id TEXT PRIMARY KEY, article TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
@@ -340,7 +341,7 @@ CREATE TABLE eval_case_result (
 |---|---|---|
 | `earnings_line` | 약 6,000 | 계약 400 × 평균 15라인 |
 | `deferral_item` | 약 4,000 | 분급 적용 계약 약 100건 × 48개월 중 일부 |
-| `explanation` | 약 600 | 데모 설계사 3명만(v0.1.14): 라인 482 + 한도 21 + 월비교 88. 적재 쓰기 약 1,800(행 × (1 + PK + `ix_expl_agent`)) |
+| `explanation` | 약 600 | 데모 설계사 3명만(v0.1.14): 라인 482 + 한도 21 + 월비교 88. 적재 쓰기 약 1,200(행 × (1 + PK), v0.1.15) |
 | `answer_log` | 하루 ≤ 300 | 예산 상한 |
 | 전체 저장 | < 50MB | 무료 5GB의 1% |
 | 적재 쓰기(rows written) | 첫 적재 약 2.5만, 재적재 최대 약 5만 | 행 수 × (1 + PK 자동 인덱스 + 보조 인덱스). Phase 1 스트림 7,010행 → 약 24,800(무료 10만/일의 25%). 재적재는 이전 슬롯 삭제분이 더해진다(§14.1-10) |
@@ -559,7 +560,7 @@ CREATE TABLE eval_case_result (
 | D1 | 읽기 약 1M행, 쓰기 약 500행 | 20% / 0.5% |
 | Vectorize | 150질의 × 1,024 = 154K 차원 | 월 4.6M, 16% |
 | Workers 요청 | API 약 5,000 + 정적 무제한 | 5% |
-| 설명 배치(v0.1.14, 약 3일 — §4.1(b)) | Groq 130/일(약 195K 토큰) + Workers AI `gpt-oss-20b` 200/일(약 7.6K 뉴런), D1 적재 약 1,800행 | Groq TPD 98% · 뉴런 76% — 배치 날은 런타임 Groq·Workers AI 예산과 겹치지 않게 한다(Phase 3에는 런타임 호출이 없다) |
+| 설명 배치(v0.1.14, 약 3일 — §4.1(b)) | Groq 130/일(약 195K 토큰) + Workers AI `gpt-oss-20b` 200/일(약 7.6K 뉴런), D1 적재 약 1,200 rows written | Groq TPD 98% · 뉴런 76% — 배치 날은 런타임 Groq·Workers AI 예산과 겹치지 않게 한다(Phase 3에는 런타임 호출이 없다) |
 
 **결론**: 전역 예산 150회는 Groq 55회 + Workers AI 80회 + OpenRouter 15회로 **공급자별 상한의 합**으로 정의한다. Groq TPD가 먼저 소진되면 자동으로 Workers AI 순서가 된다.
 
@@ -697,7 +698,7 @@ CREATE TABLE eval_case_result (
 7. **Turnstile 도입 시 UX 마찰** — 평가자가 한 번만 통과하면 되도록 토큰 TTL 24시간.
 8. ~~**상위 저장소와의 subtree vs 복사**~~ — v0.1.6에서 "복사 + CHECKSUMS 고정"으로 확정(§14.0).
 9. **공개 도메인** — `*.workers.dev`로 충분한지, 보유 도메인 연결 시 DNS 무료 범위 확인.
-10. **재적재 쓰기 예산(v0.1.8)** — 재적재는 이전 슬롯 삭제(약 2.5만) + 새 슬롯 적재(약 2.5만) ≈ 5만 rows written이고, 같은 날 `explanation` 적재(v0.1.14: 약 600행 → 약 1,800 rows written)가 겹쳐도 무료 10만/일의 55% 미만이다. Phase 7 주간 배치의 기본: 전환 날에는 비활성 슬롯이 이미 비어 있어야 하고, 방금 비활성이 된 슬롯 삭제는 **다음 날 00:00 UTC 이후** 별도 단계(`load:d1 --purge-inactive`)로 미룬다. 실측 rows written(대시보드·`meta`)으로 확정한다.
+10. **재적재 쓰기 예산(v0.1.8)** — 재적재는 이전 슬롯 삭제(약 2.5만) + 새 슬롯 적재(약 2.5만) ≈ 5만 rows written이고, 같은 날 `explanation` 적재(v0.1.14: 약 600행 → 약 1,200 rows written, v0.1.15)가 겹쳐도 무료 10만/일의 55% 미만이다. Phase 7 주간 배치의 기본: 전환 날에는 비활성 슬롯이 이미 비어 있어야 하고, 방금 비활성이 된 슬롯 삭제는 **다음 날 00:00 UTC 이후** 별도 단계(`load:d1 --purge-inactive`)로 미룬다. 실측 rows written(대시보드·`meta`)으로 확정한다.
 
 ---
 
