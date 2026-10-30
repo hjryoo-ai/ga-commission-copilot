@@ -156,6 +156,7 @@
 1. README.md: 부록 C 6항목 각각에 증거 링크(테스트 파일, docs/evidence 캡처, 공개 URL). "이 데모가 하지 않는 것" 3줄, 면책, 무료 한도 표(§10 요약)와 확인일.
 2. 화면 1 데모 설계사 카드 3장(대표 케이스 설명), 예시 질문 칩 6개(golden에서 추출).
 3. Playwright 전 화면 7개 × 데모 설계사 3명, 저하 모드 시나리오(예산 0으로 env 설정).
+   Playwright CI(설계서 v0.1.13 §12 Phase 8): ci.yml에 별도 job — pnpm install → wrangler d1 migrations apply copilot --local → data/stream/<hash>.jsonl을 load:d1 -- --local로 적재(projection-java 빌드·리플레이 포함, 원격·시크릿 없음) → 시험용 SESSION_SECRET·POLICY_KEY_SECRET을 .dev.vars로 생성 → playwright install --with-deps chromium → pnpm --filter @copilot/web run e2e(webServer가 wrangler dev --local). 실패 시 trace·캡처를 artifact로.
 4. 번들 상한 CI(web dist gzip ≤ 250KB), Lighthouse 모바일 ≥ 80 캡처.
 5. docs/evidence/phase-8.md에 최종 URL, 캡처, 총 LLM 호출 수·비용 0원 증빙(Cloudflare·Groq 대시보드).
 

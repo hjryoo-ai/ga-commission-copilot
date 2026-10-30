@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.13)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.14)
 
 > 변경 이력
+> - v0.1.14 (2026-10-31, Phase 3 전): §4.1(b) 설명 사전 생성 대상을 활성 스트림의 `demo_agents` 3명으로 한정(로그인이 없어 나머지 27명의 설명은 어느 화면에서도 열리지 않는다 · Groq TPD 200K 역산 하루 약 130건) — LINE 482·LIMIT 21·MONTH_DIFF 88 ≈ 600건, 순서 LINE → LIMIT → MONTH_DIFF, 날짜별로 나눠 `budget_counter`(scope `batch:explain:groq` 130·`batch:explain:workers-ai` 200)에 집계, 캐시 키 `streamHash + promptVersion + subject`, 산출 `data/explain/<streamHash>/`(커밋)·적재 `load:d1 -- --explain`, 시험용 VCR 16건과 통과율 80% 관문 · §3.3·§6.1 `packages/grounding`(검증기·`DerivedNumbers`·금지어 목록을 gen·worker가 공유, 파생 허용값에 전월 대비 차이) · §5.3 explanation 약 600 · §7 explanation 응답 모양 · §10.4 설명 배치 행 · §14.1-6·-10 수치.
 > - v0.1.13 (2026-10-30, Phase 2 수용): §4.1(a) 생성 ID에서 증권번호 제거 — 원장·라인·스케줄·채권·조정 ID는 (설계사, 설계사 내 계약 순번, 종류별 일련)에서 결정론으로(예 `l-A1003-07`·`c-A1003-07-2`), A-1 예약 ID는 그대로 · 데모 카드 1·3 문구("한도 100% 소진 후 해약·환수 계약 보유", "재산정으로 한도 초과·환수 상계 계약 보유" — 선정 규칙은 그대로: 이력상 누적 = 한도 도달) · §12 Phase 8에 Playwright CI 계획.
 > - v0.1.12 (2026-10-30, Phase 2): §7 읽기 API 구현 규약 — 응답 구조는 상위 계약 `portal-api.openapi.yaml` 1.2.0(`126d848`) 사본 + 덧씌우기(`asOf`·`dataStatus`·`disclaimer`·`explanation`·`/me`의 `months`), 세션 쿠키(HMAC, `SESSION_SECRET`)와 요청마다 `demo_agents` 대조, `policyKey` 비밀 `POLICY_KEY_SECRET`, ETag `W/"<streamHash>.<demoNo>"` + `Vary: Cookie`, 데모 테넌트 표시 값(상위 §5 예시값), `/me`의 `budget`·`promptVersions`는 그 기능의 Phase에서, `policy_limit_history`(설계사 열 없음)는 소유 원장 부분 질의로 범위를 건다, 소진율 문자열은 0 쪽 버림 소수 1자리, 월 합산 검증 실패는 `monthDataStatus: DRIFT`.
 > - v0.1.11 (2026-10-30, Phase 2): §4.1(a) 데모 설계사 선정 결정론 규칙과 §4.2 G3 13항목(규칙이 3명을 못 채우면 FAIL) · §5.1 추가 테이블 9개 — `demo_agents` 표(PK `stream_hash, demo_no`)·`stream_meta.line_count`(적재기 ⑤ 재검사 값 — health는 stream_meta 1행만 읽어 규약 3 예외가 없어진다) · §5.4 되돌리기는 INSERT + UPDATE 두 문장(INSERT는 활성 상태를 바꾸지 않는다) · §7 `asOf {streamHash, generatedAt, demoNo}`, 공개 `GET /api/v1/demo/agents`(화면 1 카드) · §8 화면 1 카드 3 문구 "재산정·환수 상계 있음" · §11 CI/CD에 `ci.yml`(`pnpm lint`·`pnpm -r test`·`./gradlew test`).
@@ -119,7 +120,7 @@ Q1~Q3는 데이터가 바뀔 때만(생성 배치 시) LLM을 쓰고, 런타임�
   LLM 플랜 생성 ──▶ 결정론 전개 ──▶ projection-java ──▶ D1 적재
   (Gemini/Groq 무료)  (금액은 코드가)   (불변식·리플레이 G2)   (stream_hash 고정)
   설명 사전 생성 ──▶ 검증 G4~G6 ──▶ explanation 적재(D1, 해시 캐시)
-  (Q1~Q3, 약 6,500건) (숫자 그라운딩·금지어)
+  (Q1~Q3, 데모 3명 약 600건) (숫자 그라운딩·금지어)
   사규집 생성 ──▶ bge-m3 임베딩 ──▶ Vectorize 업서트
   (40조항, 가상값) (Workers AI, 1024차원) (visibility 메타 필터)
 
@@ -151,6 +152,7 @@ ga-commission-copilot/
 │   ├── rulebook/         #   가상 사규집 생성·청킹·임베딩
 │   ├── verify/           #   스키마·불변식·필수 케이스·그라운딩 게이트
 │   └── providers/        #   Gemini/Groq 클라이언트, 백오프, 요청 예산
+├── packages/grounding/   # GroundingVerifier·DerivedNumbers·금지어 목록 — gen·worker 공유 workspace 패키지(v0.1.14)
 ├── projection-java/      # 상위 저장소 portal-projection 모듈 (복사 + CHECKSUMS 고정, 상위 126d848), CI에서 불변식·결정론 검사
 ├── worker/               # Cloudflare Worker (Hono): API, 툴, 그라운딩 검증기, 예산, 폴백
 │   ├── src/api/          #   /api/v1/demo/**
@@ -160,7 +162,7 @@ ga-commission-copilot/
 ├── web/                  # React 19 + Vite, Workers Static Assets로 서빙
 ├── prompts/              # 버전 태그된 프롬프트 (prompts/explain_line/v3.md 등) + CHANGELOG
 ├── evals/                # 골든 질문 60개, 채점기, 리포트 적재기
-├── data/                 # 생성 결과: stream/<hash>.jsonl, explain/<hash>.jsonl, rulebook/<hash>/
+├── data/                 # 생성 결과: stream/<hash>.jsonl, explain/<hash>/<kind>.jsonl, rulebook/<hash>/
 └── .github/workflows/    # weekly-generate.yml, eval-on-prompt-change.yml, deploy.yml
 ```
 
@@ -185,7 +187,7 @@ ga-commission-copilot/
 
    ¹ 분급 커브는 상위 엔진 샘플을 따른다 — 초년도 40%, 이후 12·24·36개월에 20%씩(연 40/20/20/20%). 상위 설계서 A-2 본문의 "타임라인에 48개월 예정" 표현과 다르다(v0.1.10).
 
-**(b) 설명 사전 생성** (Q1~Q3) — 라인마다 `{calcId, basis, policySummary, limitCut?, linkedDeferrals[], linkedClawback?}`를 컨텍스트로 넣고 한국어 설명 3~5문장을 구조화 출력으로 받는다: `{text, citedFields[], numbersUsed[]}`. `numbersUsed`의 모든 값이 컨텍스트에 있어야 통과(§4.2). 약 6,000라인 × 1회 = 6,000 요청이므로 Gemini 무료 배치 또는 Groq(1,000 RPD)로 **여러 날에 나눠** 돌리고, 스트림 해시가 같으면 재생성하지 않는다(캐시 키 = `streamHash + promptVersion + calcId`).
+**(b) 설명 사전 생성** (Q1~Q3) — **대상은 활성 스트림의 `demo_agents` 3명뿐이다(v0.1.14)**: 로그인이 없어 세션은 늘 3명 중 하나이고, 나머지 27명의 설명은 어느 화면에서도 열리지 않는다. 그 3명의 라인 전부(LINE), 원장 전부(LIMIT), 첫 달을 뺀 모든 달(MONTH_DIFF — 전월 행이 없는 8개 달은 "전월 명세 없음"과 비교) — 스트림 `fca1971c…` 기준 482 + 21 + 88 ≈ **600건**. subject마다 컨텍스트(라인 `{line, basis, policySummary, ledger?, limitPosting?, deferrals[], receivable?, derived}`, 한도 `{ledger, history[], deferrals[], derived}`, 월비교 `{month, previous, byType, derived}` — 증권번호는 마스킹 값만, 파생값은 `DerivedNumbers`)를 넣고 한국어 설명 3~5문장을 구조화 출력으로 받는다: `{text, citedFields[], numbersUsed[]}`. G4(텍스트의 숫자 토큰과 `numbersUsed` ⊆ 컨텍스트 숫자 집합)·G5·G6(§4.2) 실패는 위반 목록을 붙여 재생성 1회, 재실패는 `grounding_status=FAIL`로 저장하고 화면에는 "설명 없음"만 보인다. 생성 순서는 LINE → LIMIT → MONTH_DIFF. 하루 상한은 Groq 130(TPD 200K ÷ 호출당 약 1.5K 토큰)·Workers AI `@cf/openai/gpt-oss-20b` 200(§10.1 단가로 약 7.6K 뉴런)이고 날짜별로 나눠(약 3일) 돌린다 — 호출 전에 `budget_counter`(scope `batch:explain:groq`·`batch:explain:workers-ai`, 규약 5의 단일 UPDATE)를 차감하고, 영향 행 0이면 그 공급자는 그날 끝이다. 캐시 키 = `streamHash + promptVersion + subject`(subject = kind + subjectId) — 결과는 `data/explain/<streamHash>/<kind>.jsonl`에 커밋하고 같은 키가 있으면 호출하지 않는다. 적재는 스트림과 같은 경로(`load:d1 -- --explain`, D1에 없는 키만 INSERT). 시험용 VCR은 데모 3명에서 LINE 10·LIMIT 3·MONTH_DIFF 3 = 16건만 녹화하고(`--stub`은 이것만 재생), 나머지는 위 데이터 배치다. 배치 전에 녹화 16건의 G4~G6 통과율을 보고, 80% 미만이면 프롬프트 새 버전(`explain_*/v2`)을 만들어 16건을 다시 녹화한다 — 낮은 통과율로 600건을 태우지 않는다.
 
 **(c) 가상 사규집** — "데모GA 수수료 규정" 약 40개 조항을 LLM이 생성(요율표·한도 산식·분급 커브·환수율·상계 순서·지급일 규칙·이의제기 절차). 각 조항 머리에 "가상 규정 · 예시값" 표기. 조항 단위로 청킹(300~600토큰), `bge-m3`로 임베딩, Vectorize에 메타데이터 `{article, visibility: agent|internal, version}`로 업서트. 요율표 조항은 `visibility=internal`로 두어 런타임 검색에서 제외한다(§2.3).
 
@@ -338,7 +340,7 @@ CREATE TABLE eval_case_result (
 |---|---|---|
 | `earnings_line` | 약 6,000 | 계약 400 × 평균 15라인 |
 | `deferral_item` | 약 4,000 | 분급 적용 계약 약 100건 × 48개월 중 일부 |
-| `explanation` | 약 6,500 | 라인 6,000 + 한도 400 + 월비교 30×24 |
+| `explanation` | 약 600 | 데모 설계사 3명만(v0.1.14): 라인 482 + 한도 21 + 월비교 88. 적재 쓰기 약 1,800(행 × (1 + PK + `ix_expl_agent`)) |
 | `answer_log` | 하루 ≤ 300 | 예산 상한 |
 | 전체 저장 | < 50MB | 무료 5GB의 1% |
 | 적재 쓰기(rows written) | 첫 적재 약 2.5만, 재적재 최대 약 5만 | 행 수 × (1 + PK 자동 인덱스 + 보조 인덱스). Phase 1 스트림 7,010행 → 약 24,800(무료 10만/일의 25%). 재적재는 이전 슬롯 삭제분이 더해진다(§14.1-10) |
@@ -360,12 +362,12 @@ CREATE TABLE eval_case_result (
 
 포털이 "금액을 계산하지 않는다"면, 코파일럿은 "숫자를 발명하지 않는다". 검증기는 LLM 없이 결정론적으로 동작한다.
 
-1. **컨텍스트 숫자 집합 S 구축**: 툴 결과·검색 청크·`basis`에서 모든 수치를 추출해 정규화한다. 금액은 정수 원(`945,000`·`94만 5천 원`·`0.945백만` → `945000`), 비율은 소수 1자리 퍼센트(`52.5%` = 945,000 ÷ 1,800,000), 회차는 정수, 날짜는 ISO. **파생 허용값**도 S에 넣는다: 라인 합계(월 gross), 라인 요청액 `requested = amount + limit_cut_amt`(라인 단위), `remaining = limit − accum`, 소진율. 파생값은 코드가 계산하며 `DerivedNumbers` 한 클래스에만 존재한다(상위 설계서 §6.4와 같은 격리 원칙).
+1. **컨텍스트 숫자 집합 S 구축**: 툴 결과·검색 청크·`basis`에서 모든 수치를 추출해 정규화한다(금액은 부호를 뗀 절댓값으로 비교 — "72만 원 환수" ↔ `-720000`). 금액은 정수 원(`945,000`·`94만 5천 원`·`0.945백만` → `945000`), 비율은 소수 1자리 퍼센트(`52.5%` = 945,000 ÷ 1,800,000), 회차는 정수, 날짜는 ISO. **파생 허용값**도 S에 넣는다: 라인 합계(월 gross), 라인 요청액 `requested = amount + limit_cut_amt`(라인 단위), `remaining = limit − accum`, 소진율, 전월 대비 차이(월비교, 부록 A-06 — v0.1.14). 파생값은 코드가 계산하며 `DerivedNumbers` 한 클래스에만 존재한다(상위 설계서 §6.4와 같은 격리 원칙).
 2. **답변 숫자 토큰 T 추출**: 한국어 수량 표현을 같은 규칙으로 정규화. "약", "대략"이 붙은 수치도 T에 포함한다(근사 표현으로 빠져나가지 못하게).
 3. **판정**: `T ⊆ S`이면 PASS. 한 토큰이라도 S에 없으면 FAIL + 그 토큰을 `failure_detail`에 기록. 날짜는 월 단위 일치 허용("2027년 2월" ↔ `202702`).
 4. **예외 목록**: 조항 번호("제12조"), 순번("첫째"), 숫자가 아닌 식별자(증권번호 뒷자리)는 별도 패턴으로 제외하되, 증권번호 뒷자리는 툴 결과의 마스킹 값과 일치해야 한다.
 
-검증기는 `gen/verify`와 `worker/src/llm`이 **같은 패키지**를 공유한다(오프라인·런타임 판정 동일).
+검증기는 `gen/verify`와 `worker/src/llm`이 **같은 패키지**를 공유한다(오프라인·런타임 판정 동일). v0.1.14: 그 패키지는 `packages/grounding`(workspace)이고 `DerivedNumbers`와 G6 금지어 목록(`forbidden.json`)도 여기 둔다 — 설명 컨텍스트(gen)와 API(worker)가 같은 파생값을 쓰고, Phase 4 런타임이 같은 금지어를 읽는다. 의존은 gen·worker → packages 한 방향(packages → gen·worker·web 금지, ESLint).
 
 ### 6.2 일일 예산과 폴백 체인
 
@@ -414,7 +416,7 @@ CREATE TABLE eval_case_result (
 | `GET /api/v1/demo/agents` | (공개, v0.1.11) 활성 스트림의 데모 설계사 3명 카드: `demoNo`·이름·등급·소속·계약 수·`cardLabel` | — |
 | `GET /api/v1/me` | 프로필, `asOf {streamHash, generatedAt, demoNo}`, `budget {remainingToday, userRemaining}`, `promptVersions` | — |
 | `GET /api/v1/me/earnings?from&to` / `/{ym}` / `/{ym}/lines` | 상위 설계서 §7과 동일 구조 | — |
-| `GET /api/v1/me/earnings/lines/{calcId}` | 라인 상세 + `explanation {text, citedFields, numbersUsed, groundingStatus, promptVersion}` (없으면 `null`) | — |
+| `GET /api/v1/me/earnings/lines/{calcId}` | 라인 상세 + `explanation {text, citedFields, numbersUsed, groundingStatus, promptVersion}` (없으면 `null`, `FAIL`이면 `{groundingStatus, promptVersion}`만 — 텍스트를 내보내지 않는다, v0.1.14) | — |
 | `GET /api/v1/me/limits` / `/{ledgerId}` | 한도 카드·상세 + `explanation`(kind=LIMIT) | — |
 | `GET /api/v1/me/earnings/{ym}/diff` | 전월 대비 설명(kind=MONTH_DIFF) | — |
 | `POST /api/v1/me/ask {question}` | §4.3 결과: `{answerId, text, citations[], toolCalls[], refused, reason, provider, model, promptVersion, cacheHit, latencyMs}` | 1 (캐시 히트·거부 시 0) |
@@ -557,6 +559,7 @@ CREATE TABLE eval_case_result (
 | D1 | 읽기 약 1M행, 쓰기 약 500행 | 20% / 0.5% |
 | Vectorize | 150질의 × 1,024 = 154K 차원 | 월 4.6M, 16% |
 | Workers 요청 | API 약 5,000 + 정적 무제한 | 5% |
+| 설명 배치(v0.1.14, 약 3일 — §4.1(b)) | Groq 130/일(약 195K 토큰) + Workers AI `gpt-oss-20b` 200/일(약 7.6K 뉴런), D1 적재 약 1,800행 | Groq TPD 98% · 뉴런 76% — 배치 날은 런타임 Groq·Workers AI 예산과 겹치지 않게 한다(Phase 3에는 런타임 호출이 없다) |
 
 **결론**: 전역 예산 150회는 Groq 55회 + Workers AI 80회 + OpenRouter 15회로 **공급자별 상한의 합**으로 정의한다. Groq TPD가 먼저 소진되면 자동으로 Workers AI 순서가 된다.
 
@@ -690,11 +693,11 @@ CREATE TABLE eval_case_result (
 3. **Workers AI 호출당 뉴런 실측** — 대시보드 값으로 §10.1 표의 계산값을 교체.
 4. **AI Gateway 캐시 키에 `agentId` 포함 시 적중률** — 데모 설계사 3명이라 적중률이 높을 것으로 보지만, 낮으면 정규화 규칙 강화.
 5. **사규집 조항 수·청크 크기** — 40개 조항·400토큰은 가정. Groq TPM 8K 안에서 topK를 결정.
-6. **스트림 교체 주기** — 주 1회가 기본이나, 설명 6,000건 재생성이 무료 한도를 넘으면 월 1회로 늦추고 변경분만 재생성(diff 기반).
+6. **스트림 교체 주기** — 주 1회가 기본이나, 설명 약 600건(데모 3명, v0.1.14) 재생성이 무료 한도를 넘으면 월 1회로 늦추고 변경분만 재생성(diff 기반).
 7. **Turnstile 도입 시 UX 마찰** — 평가자가 한 번만 통과하면 되도록 토큰 TTL 24시간.
 8. ~~**상위 저장소와의 subtree vs 복사**~~ — v0.1.6에서 "복사 + CHECKSUMS 고정"으로 확정(§14.0).
 9. **공개 도메인** — `*.workers.dev`로 충분한지, 보유 도메인 연결 시 DNS 무료 범위 확인.
-10. **재적재 쓰기 예산(v0.1.8)** — 재적재는 이전 슬롯 삭제(약 2.5만) + 새 슬롯 적재(약 2.5만) ≈ 5만 rows written이고, 같은 날 `explanation` 적재(약 6,500행 + 인덱스)가 겹치면 무료 10만/일의 70% 가까이 된다. Phase 7 주간 배치의 기본: 전환 날에는 비활성 슬롯이 이미 비어 있어야 하고, 방금 비활성이 된 슬롯 삭제는 **다음 날 00:00 UTC 이후** 별도 단계(`load:d1 --purge-inactive`)로 미룬다. 실측 rows written(대시보드·`meta`)으로 확정한다.
+10. **재적재 쓰기 예산(v0.1.8)** — 재적재는 이전 슬롯 삭제(약 2.5만) + 새 슬롯 적재(약 2.5만) ≈ 5만 rows written이고, 같은 날 `explanation` 적재(v0.1.14: 약 600행 → 약 1,800 rows written)가 겹쳐도 무료 10만/일의 55% 미만이다. Phase 7 주간 배치의 기본: 전환 날에는 비활성 슬롯이 이미 비어 있어야 하고, 방금 비활성이 된 슬롯 삭제는 **다음 날 00:00 UTC 이후** 별도 단계(`load:d1 --purge-inactive`)로 미룬다. 실측 rows written(대시보드·`meta`)으로 확정한다.
 
 ---
 
