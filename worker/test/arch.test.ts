@@ -19,8 +19,11 @@ const files = Object.entries(sources).map(([key, text]) => ({ path: key.replace(
 // web도 금액을 계산하지 않는다(설계서 §8 — 상위 화면 규약). 같은 스캐너로 본다.
 const webSources = import.meta.glob<string>(["../../web/src/**/*.ts", "../../web/src/**/*.tsx"], { query: "?raw", import: "default", eager: true });
 const webFiles = Object.entries(webSources).map(([key, text]) => ({ path: key.replace(/^\.\.\/\.\.\//, ""), text }));
-/** 합계·잔여·소진율·단계를 계산하는 유일한 파일(CLAUDE.md 규약 2). */
-const DERIVED_FILE = "src/domain/DerivedNumbers.ts";
+// packages도 규약 2 범위다(검증기·파생 수 — 설계서 v0.1.14 §6.1).
+const pkgSources = import.meta.glob<string>("../../packages/*/src/**/*.ts", { query: "?raw", import: "default", eager: true });
+const pkgFiles = Object.entries(pkgSources).map(([key, text]) => ({ path: key.replace(/^\.\.\/\.\.\//, ""), text }));
+/** 합계·요청액·잔여·소진율·단계·전월 차이를 계산하는 유일한 파일(CLAUDE.md 규약 2, 설계서 v0.1.14 — packages/grounding로 옮김). */
+const DERIVED_FILE = "packages/grounding/src/DerivedNumbers.ts";
 
 /**
  * tenant_id 조건 없이 SQL을 가져도 되는 파일. 추가할 때는 이유를 같이 적는다.
@@ -82,12 +85,12 @@ describe("아키텍처: worker/src/** 는 gen을 import하지 않는다(CLAUDE.m
 });
 
 describe("아키텍처: 금액 사칙연산은 DerivedNumbers.ts에만(CLAUDE.md 규약 2, PHASES Phase 2 항목 4)", () => {
-  it(`${DERIVED_FILE}가 있고 web 원문도 스캔한다`, () => {
-    expect(files.some((f) => f.path === DERIVED_FILE)).toBe(true);
+  it(`${DERIVED_FILE}가 있고 web·packages 원문도 스캔한다`, () => {
+    expect(pkgFiles.some((f) => f.path === DERIVED_FILE)).toBe(true);
     expect(webFiles.length).toBeGreaterThan(0);
   });
 
-  it.each([...files.filter((f) => f.path !== DERIVED_FILE), ...webFiles])("$path", ({ text }) => {
+  it.each([...files, ...webFiles, ...pkgFiles.filter((f) => f.path !== DERIVED_FILE)])("$path", ({ text }) => {
     expect(moneyArithmetic(text)).toEqual([]);
   });
 });
