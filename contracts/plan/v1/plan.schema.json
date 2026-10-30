@@ -56,7 +56,7 @@
           }
         },
         "forcedCase": {
-          "description": "강제 케이스 표식(gen/world/forced.ts — 설계서 v0.1.6 §4.1(a), 16종). LLM 출력에는 없다. 경계 4종은 그 날짜 LLM 계약에 코드가 붙이거나(태깅) 코드가 주입한 계약에 붙는다.",
+          "description": "강제 케이스 표식(gen/world/forced.ts — 설계서 v0.1.7 §4.1(a), 15종). LLM 출력에는 없다. 경계 4종은 그 날짜 LLM 계약에 코드가 붙이거나(태깅) 코드가 주입한 계약에 붙는다.",
           "enum": [
             "A1",
             "A2_CURVE",
@@ -69,7 +69,6 @@
             "RECEIVABLE_OFFSET",
             "REVERSAL_PAIR",
             "ADJUSTMENT",
-            "BOUNDARY_PRE_LIMIT",
             "BOUNDARY_LIMIT_BEFORE",
             "BOUNDARY_LIMIT_AFTER",
             "BOUNDARY_DEFERRAL_BEFORE",

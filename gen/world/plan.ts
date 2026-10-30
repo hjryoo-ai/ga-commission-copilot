@@ -194,7 +194,7 @@ async function main(): Promise<void> {
   writeFileSync(join(OUT_DIR, "plan.json"), `${JSON.stringify(plan, null, 2)}\n`);
   const boundaries = BOUNDARIES.map((b) => {
     const c = plan.contracts.find((x) => x.forcedCase === b.forcedCase)!;
-    return { forcedCase: b.forcedCase, date: b.date, policyNo: c.policyNo, how: c.policyNo === b.inject.policyNo ? "injected" : "tagged" };
+    return { forcedCase: b.forcedCase, date: b.date, policyNo: c.policyNo, how: c.policyNo === b.inject.policyNo && !FORCED.includes(b.inject) ? "injected" : "tagged" };
   });
   const meta = {
     prompt: `${PROMPT.name}/${PROMPT.version}`,

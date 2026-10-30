@@ -23,28 +23,29 @@ describe("world:plan --stub", () => {
     expect(new Set(FORCED.map((f) => f.forcedCase)).size).toBe(12);
   });
 
-  it("경계 4건: 그 날짜 LLM 계약이 있으면 태깅(중복 주입 없음), 없으면 주입 — 강제 케이스 16건", () => {
-    expect(FORCED_CASE_COUNT).toBe(16);
-    expect(plan.contracts.filter((c) => c.forcedCase)).toHaveLength(16);
+  it("경계 4건: 2026-06-30은 필수 케이스 계약 POL-2026-0012, 나머지는 그 날짜 LLM 계약 태깅(중복 주입 없음) 또는 주입 — 강제 케이스 15건", () => {
+    expect(FORCED_CASE_COUNT).toBe(15);
+    expect(plan.contracts.filter((c) => c.forcedCase)).toHaveLength(15);
+    expect(plan.contracts.find((c) => c.forcedCase === "BOUNDARY_LIMIT_BEFORE")!.policyNo).toBe("POL-2026-0012");
     for (const b of BOUNDARIES) {
       const tagged = plan.contracts.filter((c) => c.forcedCase === b.forcedCase);
       expect(tagged).toHaveLength(1);
       expect(tagged[0]!.contractDate).toBe(b.date);
-      const others = plan.contracts.filter((c) => c.contractDate === b.date && c.policyNo !== b.inject.policyNo && !FORCED.some((f) => f.policyNo === c.policyNo));
-      // 주입은 그 날짜 다른 계약이 없을 때만
-      if (tagged[0]!.policyNo === b.inject.policyNo) expect(others.filter((c) => c.forcedCase !== b.forcedCase)).toEqual([]);
-      else expect(plan.contracts.some((c) => c.policyNo === b.inject.policyNo)).toBe(false);
+      const injected = tagged[0]!.policyNo === b.inject.policyNo && !FORCED.includes(b.inject);
+      // 주입은 그 날짜에 붙일 계약이 없을 때만, 태깅했으면 주입 계약은 없다
+      if (injected) expect(plan.contracts.filter((c) => c.contractDate === b.date && !c.forcedCase)).toEqual([]);
+      else if (!FORCED.includes(b.inject)) expect(plan.contracts.some((c) => c.policyNo === b.inject.policyNo)).toBe(false);
     }
     expect(BOUNDARIES.map((b) => b.date)).toEqual(["2026-06-30", "2026-07-01", "2026-12-31", "2027-01-01"]);
   });
 
   it("경계 적용은 멱등·결정론: 태깅된 플랜에 다시 적용해도 그대로, 태그를 지우고 다시 적용하면 같은 결과", () => {
     expect(applyBoundaries(plan.contracts)).toEqual(plan.contracts);
-    const isBoundary = (c: { forcedCase?: string }) => BOUNDARIES.some((b) => b.forcedCase === c.forcedCase);
+    // LLM 출력 뒤 단계만 되돌린다: 주입 계약을 빼고 LLM 계약의 경계 표식을 지운다(FORCED는 그대로)
+    const isForced = (c: { policyNo: string }) => FORCED.some((f) => f.policyNo === c.policyNo);
     const stripped = plan.contracts
-      .filter((c) => !BOUNDARIES.some((b) => b.inject.policyNo === c.policyNo))
-      .map((c) => (isBoundary(c) ? { ...c, forcedCase: undefined } : c))
-      .map(({ forcedCase, ...rest }) => (forcedCase ? { ...rest, forcedCase } : rest));
+      .filter((c) => isForced(c) || !BOUNDARIES.some((b) => b.inject.policyNo === c.policyNo))
+      .map(({ forcedCase, ...rest }) => (forcedCase && (isForced(rest) || !BOUNDARIES.some((b) => b.forcedCase === forcedCase)) ? { ...rest, forcedCase } : rest));
     const again = applyBoundaries(stripped);
     const key = (cs: readonly { policyNo: string; forcedCase?: string }[]) => cs.map((c) => `${c.policyNo}:${c.forcedCase ?? ""}`).sort();
     expect(key(again)).toEqual(key(plan.contracts));

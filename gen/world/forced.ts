@@ -1,4 +1,5 @@
-// 강제 케이스 16건(설계서 v0.1.6 §4.1(a), 상위 부록 B) = 필수 케이스 12건(FORCED — LLM 앞에 주입) + 경계 4건(BOUNDARIES — LLM 출력 뒤 태깅 또는 주입).
+// 강제 케이스 15건(설계서 v0.1.7 §4.1(a), 상위 부록 B) = 필수 케이스 11건 + 경계 4건.
+// FORCED 12계약은 LLM 앞에 주입한다(그중 POL-2026-0012가 2026-06-30 경계). 나머지 경계 3건은 LLM 출력 뒤 태깅 또는 주입(BOUNDARIES).
 // 금액은 없다 — 아래 주석의 금액은 rules/ 전개 결과(검증은 test/expand.test.ts)이며 이 파일은 계약 입력값만 정한다.
 import { addDays } from "./calendar.ts";
 import type { PlanContract } from "./plan-types.ts";
@@ -25,19 +26,19 @@ export const FORCED: readonly PlanContract[] = [
   { policyNo: "POL-2026-0010", agentId: "A-1008", productKey: "WHOLE-LIFE-20Y", contractDate: "2026-10-06", monthlyPremium: 100_000, lifecycle: [{ ym: "202610", event: "WITHDRAW" }], forcedCase: "REVERSAL_PAIR" },
   // 마감 후 정정: 202612 FY 라인 → 202701 AdjustmentPosted
   { policyNo: "POL-2026-0011", agentId: "A-1009", productKey: "ANNUITY-10Y", contractDate: "2026-12-07", monthlyPremium: 400_000, lifecycle: [], forcedCase: "ADJUSTMENT" },
-  // 한도 경계 직전(2026-06-30 체결 — 원장 없음)
-  { policyNo: "POL-2026-0012", agentId: "A-1010", productKey: "WHOLE-LIFE-20Y", contractDate: "2026-06-30", monthlyPremium: 150_000, lifecycle: [], forcedCase: "BOUNDARY_PRE_LIMIT" },
+  // 경계: 한도 시행 전날(2026-06-30 체결 — 원장 없음). BOUNDARIES의 BOUNDARY_LIMIT_BEFORE가 이 계약이다
+  { policyNo: "POL-2026-0012", agentId: "A-1010", productKey: "WHOLE-LIFE-20Y", contractDate: "2026-06-30", monthlyPremium: 150_000, lifecycle: [], forcedCase: "BOUNDARY_LIMIT_BEFORE" },
 ];
 
 /**
  * 경계 4건(상위 부록 B "경계 넷"): 한도 시행일·분급 시행일의 전날과 당일 체결. 규칙은 체결일로만 갈린다(expand.ts).
  * 플랜에 그 날짜의 LLM 계약이 이미 있으면 중복 주입하지 않고 그 계약에 forcedCase를 붙인다(태깅). 없을 때만 inject를 넣는다.
- * BOUNDARY_PRE_LIMIT(FORCED, 2026-06-30)와 BOUNDARY_LIMIT_BEFORE는 같은 날짜의 다른 계약이다 — 운영자 지시 "12 → 16"대로 둘 다 둔다.
+ * 2026-06-30 경계는 FORCED에 이미 있는 POL-2026-0012에 붙어 있어 여기서는 건너뛴다(설계서 v0.1.7 — 06-30 경계 케이스는 하나).
  */
 export interface BoundaryCase {
   forcedCase: string;
   date: string;
-  /** 그 날짜 LLM 계약이 없을 때 넣는 계약(policyNo는 필수 케이스와 같은 4자리 체계 — 생성 계약 5자리와 충돌 불가). */
+  /** 그 날짜에 붙일 계약이 없을 때 넣는 계약(policyNo는 필수 케이스와 같은 4자리 체계 — 생성 계약 5자리와 충돌 불가). */
   inject: PlanContract;
 }
 
@@ -47,15 +48,17 @@ const boundary = (forcedCase: string, no: number, agentId: string, date: string)
   inject: { policyNo: `POL-${date.slice(0, 4)}-00${no}`, agentId, productKey: "WHOLE-LIFE-20Y", contractDate: date, monthlyPremium: 150_000, lifecycle: [], forcedCase },
 });
 
+const limitBefore = FORCED.find((c) => c.forcedCase === "BOUNDARY_LIMIT_BEFORE")!;
+
 export const BOUNDARIES: readonly BoundaryCase[] = [
-  boundary("BOUNDARY_LIMIT_BEFORE", 13, "A-1011", addDays(LIMIT_FROM, -1)), // 2026-06-30 원장 없음
+  { forcedCase: "BOUNDARY_LIMIT_BEFORE", date: addDays(LIMIT_FROM, -1), inject: limitBefore }, // 2026-06-30 원장 없음(POL-2026-0012)
   boundary("BOUNDARY_LIMIT_AFTER", 14, "A-1012", LIMIT_FROM), // 2026-07-01 원장 있음
   boundary("BOUNDARY_DEFERRAL_BEFORE", 15, "A-1013", addDays(CURVE_FROM, -1)), // 2026-12-31 커브 분급 없음
   boundary("BOUNDARY_DEFERRAL_AFTER", 16, "A-1014", CURVE_FROM), // 2027-01-01 커브 분급 있음
 ];
 
-/** 강제 케이스 수(설계서 v0.1.6: 16). */
-export const FORCED_CASE_COUNT = FORCED.length + BOUNDARIES.length;
+/** 강제 케이스 수(설계서 v0.1.7: 15) — 표식 종류 수. */
+export const FORCED_CASE_COUNT = new Set([...FORCED, ...BOUNDARIES].map((x) => x.forcedCase)).size;
 
 /** 경계 4건 적용. 태깅 대상은 그 날짜 LLM 계약 중 lifecycle이 빈 것 우선, 그다음 policyNo 순 첫 건(결정론). 이미 붙은 경계는 건너뛴다(멱등). */
 export function applyBoundaries(contracts: readonly PlanContract[]): PlanContract[] {
