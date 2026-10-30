@@ -40,6 +40,22 @@ export function sqlWithoutTenant(src: string): string[] {
   return extractStringLiterals(src).filter((s) => isSqlLiteral(s) && !/\btenant_id\b/.test(s));
 }
 
+/**
+ * 테넌트 열이 있는 표(읽기 모델 8표 + §5.1의 explanation·sim_stub·answer_log). 슬롯 표 이름(설계서 v0.1.8)도 잡는다:
+ * `earnings_line_a`·`earnings_line_b`·`earnings_line_${slot}` 같은 접미 형태. 뒤에 다른 이름 글자가 이어지면(예: policy_limit_history) 그 표로 본다.
+ */
+const TENANT_TABLE =
+  /\b(?:agent_profile|earnings_line|earnings_month|policy_limit_history|policy_limit|deferral_item|clawback_item|policy_flag|explanation|sim_stub|answer_log)(?:_[ab]|_\$\{[^}]*\})?(?![A-Za-z0-9_])/;
+
+export function touchesTenantTable(literal: string): boolean {
+  return TENANT_TABLE.test(literal);
+}
+
+/** 테넌트 표를 건드리는데 tenant_id 조건이 없는 SQL 문자열 — 화이트리스트 파일에도 적용한다. */
+export function tenantTableSqlWithoutTenant(src: string): string[] {
+  return extractStringLiterals(src).filter((s) => isSqlLiteral(s) && touchesTenantTable(s) && !/\btenant_id\b/.test(s));
+}
+
 /** 툴 디렉터리 금지어(읽기 전용 규약). 주석 포함 원문 전체에서 찾는다. */
 export function writeKeywords(src: string): string[] {
   return src.match(/\b(INSERT|UPDATE|DELETE)\b/gi) ?? [];

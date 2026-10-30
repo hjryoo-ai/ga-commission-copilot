@@ -34,10 +34,16 @@ export interface G2Result {
 
 export type CliRunner = (streamPath: string) => CliRun;
 
-/** installDist(최신이면 바로 끝남) 뒤 CLI 실행. */
-export const runReplayCli: CliRunner = (streamPath) => {
+/** projection-java installDist(최신이면 바로 끝남). 실패하면 stderr, 성공하면 null. */
+export function buildReplayCli(): string | null {
   const build = spawnSync("./gradlew", ["-q", "--no-daemon", "installDist"], { cwd: PROJECTION_DIR, encoding: "utf8" });
-  if (build.status !== 0) return { status: 2, stdout: "", stderr: `projection-java installDist 실패(exit ${build.status}): ${build.stderr}` };
+  return build.status === 0 ? null : `projection-java installDist 실패(exit ${build.status}): ${build.stderr}`;
+}
+
+/** installDist 뒤 CLI 실행. */
+export const runReplayCli: CliRunner = (streamPath) => {
+  const buildError = buildReplayCli();
+  if (buildError) return { status: 2, stdout: "", stderr: buildError };
   const r = spawnSync(REPLAY_BIN, ["replay", streamPath], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   return { status: r.status, stdout: r.stdout ?? "", stderr: r.stderr ?? (r.error ? String(r.error) : "") };
 };
