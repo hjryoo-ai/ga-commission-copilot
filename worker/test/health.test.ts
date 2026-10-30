@@ -13,7 +13,7 @@ describe("GET /api/v1/health", () => {
     expect(await get()).toEqual({ ok: true, d1: 1, streamHash: null, earningsLines: null });
   });
 
-  it("활성 스트림의 해시와 그 슬롯의 earnings_line 건수(비활성 슬롯은 세지 않는다)", async () => {
+  it("활성 스트림의 해시와 stream_meta.line_count(적재기 ⑤ 재검사 값 — 슬롯 표를 읽지 않는다, 설계서 v0.1.11)", async () => {
     const line = (table: string, calcId: string) =>
       env.DB.prepare(
         `INSERT INTO ${table} (tenant_id, calc_id, agent_id, policy_no, comm_type, amount, close_ym, basis, policy_summary, source_seq) VALUES ('T1', ?, 'A-1001', 'P1', 'FY_COMM', 1000, '202608', '{}', '{}', 1)`,
@@ -24,8 +24,9 @@ describe("GET /api/v1/health", () => {
     await line("earnings_line_b", "c2");
     await line("earnings_line_a", "x1");
     await env.DB.prepare(
-      "INSERT INTO stream_meta (stream_hash, generated_at, event_count, plan_prompt_version, verified_at, active, slot) VALUES ('h-b', 't', 2, 'plan/v1', 't', 1, 'b')",
+      "INSERT INTO stream_meta (stream_hash, generated_at, event_count, plan_prompt_version, verified_at, active, slot, line_count) VALUES ('h-b', 't', 2, 'plan/v1', 't', 1, 'b', 5200)",
     ).run();
-    expect(await get()).toEqual({ ok: true, d1: 1, streamHash: "h-b", earningsLines: 2 });
+    // 슬롯 b에는 2행뿐이지만 health는 stream_meta 값을 그대로 낸다
+    expect(await get()).toEqual({ ok: true, d1: 1, streamHash: "h-b", earningsLines: 5200 });
   });
 });

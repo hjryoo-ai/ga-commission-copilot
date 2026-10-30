@@ -1,9 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { d1Calls, extractStringLiterals, importSpecifiers, pointsIntoGen, slotLiterals, sqlWithoutTenant, tenantTableSqlWithoutTenant, touchesTenantTable, writeKeywords } from "./arch-scan";
+import {
+  d1Calls,
+  extractStringLiterals,
+  importSpecifiers,
+  moneyArithmetic,
+  pointsIntoGen,
+  slotLiterals,
+  sqlWithoutTenant,
+  tenantTableSqlWithoutTenant,
+  touchesTenantTable,
+  writeKeywords,
+} from "./arch-scan";
 
 // CLAUDE.md 규약 3(tenant_id 없는 쿼리 금지)·4(툴은 읽기 전용). 원문은 Vite가 번들 시점에 읽는다(Workers 런타임에는 fs가 없다).
 const sources = import.meta.glob<string>("../src/**/*.ts", { query: "?raw", import: "default", eager: true });
 const files = Object.entries(sources).map(([key, text]) => ({ path: key.replace(/^\.\.\//, ""), text }));
+// web도 금액을 계산하지 않는다(설계서 §8 — 상위 화면 규약). 같은 스캐너로 본다.
+const webSources = import.meta.glob<string>(["../../web/src/**/*.ts", "../../web/src/**/*.tsx"], { query: "?raw", import: "default", eager: true });
+const webFiles = Object.entries(webSources).map(([key, text]) => ({ path: key.replace(/^\.\.\/\.\.\//, ""), text }));
+/** 합계·잔여·소진율·단계를 계산하는 유일한 파일(CLAUDE.md 규약 2). */
+const DERIVED_FILE = "src/domain/DerivedNumbers.ts";
 
 /**
  * tenant_id 조건 없이 SQL을 가져도 되는 파일. 추가할 때는 이유를 같이 적는다.
@@ -11,7 +27,7 @@ const files = Object.entries(sources).map(([key, text]) => ({ path: key.replace(
  * 화이트리스트 파일이어도 테넌트 표(슬롯 표 포함)를 건드리는 SQL은 tenant_id 조건을 가져야 한다(아래 두 번째 검사).
  */
 export const TENANT_SQL_WHITELIST: Record<string, string> = {
-  "src/db/ScopedQuery.ts": "빌더 SQL은 조립된다(tenant_id·agent_id는 build()가 붙인다 — scoped-query.test.ts). 그 밖에 SELECT 1·stream_meta(전역 표)·health용 테넌트 행 수 집계",
+  "src/db/ScopedQuery.ts": "빌더 SQL은 조립된다(tenant_id·agent_id는 from()이 붙인다 — scoped-query.test.ts). 그 밖에 SELECT 1·stream_meta(전역 표)",
 };
 
 /** D1 바인딩을 직접 쓰는(prepare·batch·exec·dump) 유일한 파일(Phase 2 완료 기준 "ScopedQuery 외 D1 접근 0건"). */
@@ -64,7 +80,29 @@ describe("아키텍처: worker/src/** 는 gen을 import하지 않는다(CLAUDE.m
   });
 });
 
+describe("아키텍처: 금액 사칙연산은 DerivedNumbers.ts에만(CLAUDE.md 규약 2, PHASES Phase 2 항목 4)", () => {
+  it(`${DERIVED_FILE}가 있고 web 원문도 스캔한다`, () => {
+    expect(files.some((f) => f.path === DERIVED_FILE)).toBe(true);
+    expect(webFiles.length).toBeGreaterThan(0);
+  });
+
+  it.each([...files.filter((f) => f.path !== DERIVED_FILE), ...webFiles])("$path", ({ text }) => {
+    expect(moneyArithmetic(text)).toEqual([]);
+  });
+});
+
 describe("스캐너 자체 검사", () => {
+  it("금액 필드의 사칙연산·복합 대입·단항 부호를 잡고, 쪽수·달 순번·비교·문자열·주석은 통과시킨다", () => {
+    expect(moneyArithmetic("const t = a.amount + b.amount;")).toHaveLength(2);
+    expect(moneyArithmetic("sum += line.amount;")).toEqual(["+= line.amount"]);
+    expect(moneyArithmetic("const r = row.limit_amount - row.accum_paid;")).toHaveLength(2);
+    expect(moneyArithmetic("const x = -p.amount; const y = gross * 2; const z = net / 3;")).toHaveLength(3);
+    expect(moneyArithmetic("const pct = (accumPaid * 100) / limitAmount;")).toHaveLength(2);
+    expect(moneyArithmetic("const off = page * size; const n = monthIndex(to) - monthIndex(from) + 1; i++;")).toEqual([]);
+    expect(moneyArithmetic('if (a.amount >= b.amount && x.gross === y.gross) f({ amount: -200, gross: r.gross }); const s = "amount - net";')).toEqual([]);
+    expect(moneyArithmetic("// amount + net\nconst k = `${r.amount + 1}`; const f = (amount) => amount;")).toEqual([]);
+  });
+
   it("D1 직접 호출과 슬롯 접미 리터럴을 잡는다", () => {
     expect(d1Calls("await c.env.DB.prepare(`SELECT 1`).first();\nawait db.batch([a]);\nconst x = arr.prepare;")).toEqual([".prepare(", ".batch("]);
     expect(slotLiterals('const t = "earnings_line_a"; const u = `policy_limit_history_b`; const s = "_b"; const ok = `${table}_${slot}`;')).toEqual([

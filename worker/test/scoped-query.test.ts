@@ -60,6 +60,39 @@ describe("ScopedQuery", () => {
     expect(() => q.build("stream_meta" as "earnings_line", { columns: ["slot"] })).toThrow(/read-model/);
   });
 
+  it("IN·BETWEEN·IS NULL·DISTINCT·OFFSET·COUNT도 범위 조건 뒤에 붙고 값은 바인딩된다", async () => {
+    const q = new ScopedQuery(env.DB, { tenantId: "T1", agentId: "A-1001", stream: A });
+    const b = q.build("earnings_line", { columns: ["calc_id"], distinct: true, where: { calc_id: ["IN", ["a1", "a3"]], close_ym: ["BETWEEN", "202601", "202612"], reversal_of_calc_id: ["IS NULL"] }, orderBy: "calc_id", limit: 10, offset: 5 });
+    expect(b.sql).toBe(
+      "SELECT DISTINCT calc_id FROM earnings_line_a WHERE tenant_id = ? AND agent_id = ? AND calc_id IN (?, ?) AND close_ym BETWEEN ? AND ? AND reversal_of_calc_id IS NULL ORDER BY calc_id LIMIT 10 OFFSET 5",
+    );
+    expect(b.params).toEqual(["T1", "A-1001", "a1", "a3", "202601", "202612"]);
+    // a3은 다른 설계사의 라인 — IN에 넣어도 나오지 않는다
+    expect((await q.all<{ calc_id: string }>("earnings_line", { columns: ["calc_id"], where: { calc_id: ["IN", ["a1", "a3", "a4"]] } })).map((r) => r.calc_id)).toEqual(["a1"]);
+    expect(await q.count("earnings_line")).toBe(2);
+    expect(await q.count("earnings_line", { where: { amount: [">", 150] } })).toBe(1);
+    expect(() => q.build("earnings_line", { columns: ["calc_id"], where: { calc_id: ["IN", []] } })).toThrow(/IN/);
+    expect(() => q.build("earnings_line", { columns: ["calc_id"], offset: 1 })).toThrow(/offset/);
+    expect(() => q.build("earnings_line", { columns: ["calc_id"], where: { calc_id: ["LIKE" as "=", "%"] } })).toThrow(/operator/);
+  });
+
+  it("agent_id 열이 없는 policy_limit_history는 소유 원장 부분 질의로 두 조건을 건다", async () => {
+    await env.DB.prepare("DELETE FROM policy_limit_a").run();
+    await env.DB.prepare("DELETE FROM policy_limit_history_a").run();
+    for (const [ledger, agent] of [["L1", "A-1001"], ["L2", "A-1002"]]) {
+      await env.DB.prepare(
+        "INSERT INTO policy_limit_a (tenant_id, ledger_id, agent_id, policy_no, contract_date, fy_start, fy_end, monthly_premium, limit_multiple, limit_amount, rule_version_id) VALUES ('T1', ?, ?, ?, '2026-08-01', '2026-08-01', '2027-07-31', 1, '12', 12, '1')",
+      ).bind(ledger, agent, `P-${ledger}`).run();
+      await env.DB.prepare("INSERT INTO policy_limit_history_a (tenant_id, ledger_id, source_seq, kind) VALUES ('T1', ?, 1, 'POST')").bind(ledger).run();
+    }
+    const q = new ScopedQuery(env.DB, { tenantId: "T1", agentId: "A-1001", stream: A });
+    const b = q.build("policy_limit_history", { columns: ["ledger_id"] });
+    expect(b.sql).toBe("SELECT ledger_id FROM policy_limit_history_a WHERE tenant_id = ? AND ledger_id IN (SELECT ledger_id FROM policy_limit_a WHERE tenant_id = ? AND agent_id = ?)");
+    expect(b.params).toEqual(["T1", "T1", "A-1001"]);
+    expect(await q.all("policy_limit_history", { columns: ["ledger_id"] })).toEqual([{ ledger_id: "L1" }]);
+    expect(await q.first("policy_limit_history", { columns: ["ledger_id"], where: { ledger_id: "L2" } })).toBeNull();
+  });
+
   it("범위가 비었거나 슬롯이 이상하면 만들 수 없다", () => {
     expect(() => new ScopedQuery(env.DB, { tenantId: "T1", agentId: "", stream: A })).toThrow();
     expect(() => new ScopedQuery(env.DB, { tenantId: "T1", agentId: "A-1001", stream: { streamHash: "x", slot: "c" as "a" } })).toThrow(/slot/);
@@ -72,6 +105,6 @@ describe("activeStream", () => {
     await env.DB.prepare(
       "INSERT INTO stream_meta (stream_hash, generated_at, event_count, plan_prompt_version, verified_at, active, slot) VALUES ('h-b', 't', 1, 'plan/v1', 't', 1, 'b')",
     ).run();
-    expect(await activeStream(env.DB)).toEqual({ streamHash: "h-b", slot: "b" });
+    expect(await activeStream(env.DB)).toEqual({ streamHash: "h-b", slot: "b", generatedAt: "t", lineCount: null });
   });
 });

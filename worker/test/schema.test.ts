@@ -14,6 +14,7 @@ const BASE_READ_MODEL = [
 ];
 const COPILOT = [
   "stream_meta",
+  "demo_agents", // 0003(설계서 v0.1.11)
   "explanation",
   "rulebook_chunk",
   "sim_stub",
@@ -44,8 +45,8 @@ async function columns(table: string): Promise<{ name: string; pk: number; notnu
   return results;
 }
 
-describe("D1 스키마 0001 + 0002", () => {
-  it("읽기 모델 8개 × 슬롯 2 + 추가 테이블 8개 = 24개 테이블, 원래 이름의 읽기 모델 표는 없다", async () => {
+describe("D1 스키마 0001 + 0002 + 0003", () => {
+  it("읽기 모델 8개 × 슬롯 2 + 추가 테이블 9개 = 25개 테이블, 원래 이름의 읽기 모델 표는 없다", async () => {
     expect(await names("table")).toEqual([...READ_MODEL, ...COPILOT].sort());
   });
 

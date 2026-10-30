@@ -85,3 +85,50 @@ export function slotLiterals(src: string): string[] {
   return [...names, ...suffixes];
 }
 
+
+/** 주석을 지우고 문자열 리터럴 내용을 비운 원문(연산자 스캔용). 템플릿의 ${…} 안 식도 함께 비워진다. */
+export function stripCommentsAndStrings(src: string): string {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    const next = src[i + 1];
+    if (ch === "/" && next === "/") {
+      const end = src.indexOf("\n", i);
+      i = end === -1 ? src.length : end;
+    } else if (ch === "/" && next === "*") {
+      const end = src.indexOf("*/", i + 2);
+      i = end === -1 ? src.length : end + 2;
+    } else if (ch === "'" || ch === '"' || ch === "`") {
+      let j = i + 1;
+      while (j < src.length && src[j] !== ch) {
+        if (src[j] === "\\") j++;
+        if (ch !== "`" && src[j] === "\n") break;
+        j++;
+      }
+      out += `${ch}${ch}`;
+      i = j + 1;
+    } else {
+      out += ch;
+      i++;
+    }
+  }
+  return out;
+}
+
+/** 금액 필드 이름(응답 camelCase·D1 snake_case). 페이지·회차·달 순번은 금액이 아니다. */
+const MONEY =
+  "amount|gross|net|clawbackOffset|clawback_offset|adjustment|withholdingTax|withholding_tax|paidAmount|paid_amount|payable|receivableOffset|receivable_offset|carriedReceivable|carried_receivable|limitAmount|limit_amount|accumPaid|accum_paid|accumAfter|accum_after|limitAfter|limit_after|remaining|cutTotal|cut_total|deferredTotal|deferred_total|limitCutAmt|limit_cut_amt|monthlyPremium|monthly_premium|requested|byType";
+
+/**
+ * 금액 필드에 붙은 사칙연산(+ - * / %, 복합 대입, 증감, 단항 부호)을 찾는다(CLAUDE.md 규약 2, PHASES Phase 2 항목 4).
+ * 합계·잔여·소진율은 DerivedNumbers.ts에서만 — 그 파일은 스캔하지 않는다.
+ */
+export function moneyArithmetic(src: string): string[] {
+  const code = stripCommentsAndStrings(src);
+  const operand = `[\\w$.?!\\]\\)]*\\b(?:${MONEY})\\b(?:\\s*[!\\]\\)])*`;
+  const op = "(?:\\+\\+|--|[+\\-*/%]=?)";
+  const after = new RegExp(`${operand}\\s*${op}(?![=>/*])`, "g");
+  const before = new RegExp(`(?<![=!<>])${op}\\s*[\\w$.?!]*\\b(?:${MONEY})\\b`, "g");
+  return [...code.matchAll(after), ...code.matchAll(before)].map((m) => m[0].trim());
+}
