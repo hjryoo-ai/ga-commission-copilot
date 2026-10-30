@@ -1,0 +1,73 @@
+{
+  "$comment": "설계서 v0.1.12 §7 — 상위 portal-api.openapi.yaml 1.2.0(126d848) 위의 덧씌우기. 여기 없는 것은 상위 그대로다. worker/test/contract.ts가 합성한다.",
+  "replaceSchemas": {
+    "AsOf": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["streamHash", "generatedAt", "demoNo"],
+      "properties": {
+        "streamHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "generatedAt": { "$ref": "#/components/schemas/Instant" },
+        "demoNo": { "type": "integer", "enum": [1, 2, 3] }
+      }
+    },
+    "DataStatus": { "type": "string", "enum": ["OK", "DEGRADED"], "description": "저하 모드(예산 소진 — Phase 4). Phase 2는 OK뿐" }
+  },
+  "responses": ["MeResponse", "EarningsResponse", "MonthResponse", "LinesResponse", "LineDetailResponse", "LimitsResponse", "LimitDetailResponse"],
+  "addToEveryResponse": {
+    "properties": { "disclaimer": { "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가" } },
+    "required": ["disclaimer"]
+  },
+  "addTo": {
+    "MeResponse": {
+      "properties": {
+        "months": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "to"],
+          "description": "그 설계사 월 행의 처음·마지막(월 행이 없으면 생략)",
+          "properties": { "from": { "$ref": "#/components/schemas/Ym" }, "to": { "$ref": "#/components/schemas/Ym" } }
+        }
+      }
+    },
+    "LineDetailResponse": { "properties": { "explanation": { "type": "null", "description": "Phase 3까지 null" } }, "required": ["explanation"] },
+    "LimitDetailResponse": { "properties": { "explanation": { "type": "null", "description": "Phase 3까지 null" } }, "required": ["explanation"] }
+  },
+  "addSchemas": {
+    "DemoAgentCard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demoNo", "cardLabel", "contractCount"],
+      "properties": {
+        "demoNo": { "type": "integer", "enum": [1, 2, 3] },
+        "cardLabel": { "type": "string", "minLength": 1 },
+        "contractCount": { "type": "integer", "minimum": 0 },
+        "agentName": { "type": "string", "minLength": 1 },
+        "grade": { "type": "string" },
+        "orgPath": { "type": "string" }
+      }
+    },
+    "DemoAgentsResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["streamHash", "generatedAt", "items", "disclaimer"],
+      "properties": {
+        "streamHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "generatedAt": { "$ref": "#/components/schemas/Instant" },
+        "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/components/schemas/DemoAgentCard" } },
+        "disclaimer": { "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가" }
+      }
+    },
+    "SessionResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asOf", "agentId", "disclaimer"],
+      "properties": {
+        "asOf": { "$ref": "#/components/schemas/AsOf" },
+        "agentId": { "type": "string", "minLength": 1 },
+        "agentName": { "type": "string", "minLength": 1 },
+        "disclaimer": { "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가" }
+      }
+    }
+  }
+}

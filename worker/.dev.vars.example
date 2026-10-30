@@ -1,0 +1,7 @@
+# worker 로컬 시크릿 견본(CLAUDE.md 규약 10). 이 파일을 .dev.vars로 복사하고 값을 채운다 — .dev.vars는 커밋하지 않는다.
+# 원격은 wrangler secret put <이름>.
+GROQ_API_KEY=
+# 설계서 v0.1.12 §7: 세션 쿠키 HMAC 비밀(32바이트 이상 무작위, 예: openssl rand -hex 32)
+SESSION_SECRET=
+# 설계서 v0.1.12 §7: policyKey HMAC 비밀(SESSION_SECRET과 다른 값)
+POLICY_KEY_SECRET=

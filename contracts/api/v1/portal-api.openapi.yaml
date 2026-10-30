@@ -1,0 +1,995 @@
+openapi: 3.1.0
+info:
+  title: ga-agent-portal 조회·시뮬레이션·알림·문의 API — 설계사 본인 (v1)
+  version: 1.2.0
+  description: |
+    포털이 웹(Phase 4)에 제공하는 조회 API(설계서 §7 v1.6, 포털 Phase 3 지시문 D-5·D-15). 포털 소유 계약 — 웹이 클라이언트를 생성한다.
+    1.1.0(포털 Phase 5, 설계서 §7 v1.8 — 추가·완화뿐, 1.0.0 응답은 1.1.0을 통과한다): 시뮬레이션 POST 둘(엔진 결과 사본의 속성을 그대로 옮기고
+    포털 사실 simId·requestedAt을 더한다 — 금액을 가공하지 않는다), /me/deferrals의 scenario·p·policyKey와 막대 비율(bar)·범위 84개월,
+    /me의 features, 월 응답의 previous(CR-1), 라인의 reversalOfYm·reversedByYm(CR-2), 원장의 ruleVersionId(CR-3)·상품·피보험자(CR-4).
+    Problem.code에 시뮬레이션 거부 여섯. 요청 본문의 금액·횟수는 숫자 문자열(화면이 문자열을 숫자로 바꾸지 않는다 — 서버가 정수로 읽는다).
+    1.1.1(포털 Phase 5 수용 심사 B1 — 설명문만): /me/deferrals의 months는 예정·보류가 모두 0인 달을 싣지 않는다(항목이 없는 달과 같은 모양). 그 달의 취소 항목은 items에 남는다.
+    1.2.0(포털 Phase 6, 설계서 §7 v1.9 — 추가뿐, 1.1.1 응답은 1.2.0을 통과한다): 알림함(GET 목록·PATCH 읽음)과 문의(POST 접수·GET 목록·GET 상세).
+    알림은 type별로 params 모양이 닫혀 있고(oneOf + discriminator) 금액이 없다 — 문장은 화면 템플릿이 만들고, 금액·상태는 link 화면이 지금 값으로 보인다.
+    link는 화면 경로 넷 중 하나(키 조각은 퍼센트 부호화). 문의 본문(message·answer)은 그 문의의 상세 응답에만 있다. 알림·문의 GET의 ETag는 응답 본문에서
+    만든다(BodyETag — 피드 위치와 무관하게 바뀐다), 쓰기 둘은 no-store. 문의 접수는 설계사당 24시간 N건(429 RATE_LIMITED + Retry-After).
+    인증은 테넌트 IdP의 OIDC 액세스 토큰(Bearer, RS256). 테넌트는 토큰 발급자(iss)로, 설계사·역할은 포털의 identity_link로만 정한다 — 경로·쿼리에 agentId는 없다.
+    거부는 같은 바이트: 인증 실패 전부 401 UNAUTHENTICATED(WWW-Authenticate: Bearer), 링크 없음·역할·남의(없는) 자원·없는 경로 전부 404 NOT_FOUND,
+    쿼리 파라미터 형식·범위 오류만 400 INVALID_REQUEST. 본문은 application/problem+json {code, message}.
+    금액은 정수 원(integer), 비율·배수는 문자열(표시 전용), 날짜·시각·월은 pattern(format을 쓰지 않는다). 증권번호 원문은 어느 응답에도 없다 —
+    policyMasked(끝 4자)와 policyKey(배포 비밀의 HMAC 앞 16자 — 비밀을 회전하면 바뀐다. 저장하지 말 것).
+    선택 필드는 값이 없으면 빠진다(null을 보내지 않는다). 모든 GET 200 응답은 약한 ETag, Cache-Control: private, no-cache — If-None-Match가 맞으면 304(본문 없음).
+    시뮬레이션 POST는 ETag가 없고 Cache-Control: no-store(요청마다 새 결과). 본문은 application/json 2 KiB 이하 — 다른 형식·초과·스키마 오류는 400 한 바이트.
+    문의 POST 본문은 application/json 4 KiB 이하(1.2.0) — 같은 400 한 바이트. 쓰기에 CSRF 토큰·Origin 검사는 없다(쿠키 0, Authorization 머리뿐, 같은 출처).
+servers:
+  - url: https://portal.invalid
+security:
+  - bearer: []
+paths:
+  /api/v1/me:
+    get:
+      operationId: getMe
+      summary: 본인 프로필·역할·테넌트 설정
+      responses:
+        '200':
+          description: 프로필(agent_profile 행이 없으면 이름·등급·조직·상태 생략)
+          headers: {ETag: {$ref: '#/components/headers/ETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/MeResponse'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/me/earnings:
+    get:
+      operationId: listEarnings
+      summary: 월별 수수료 요약(범위)
+      parameters:
+        - {$ref: '#/components/parameters/From'}
+        - {$ref: '#/components/parameters/To'}
+      responses:
+        '200':
+          description: 그 범위의 월(마감월 오름차순). 행이 없으면 빈 목록
+          headers: {ETag: {$ref: '#/components/headers/ETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/EarningsResponse'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/me/earnings/{ym}:
+    get:
+      operationId: getMonth
+      summary: 월 하나 — 유형별 합·명세·지급 확정값·지급 예정일
+      parameters:
+        - {$ref: '#/components/parameters/Ym'}
+      responses:
+        '200':
+          description: 월 하나
+          headers: {ETag: {$ref: '#/components/headers/ETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/MonthResponse'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/me/earnings/{ym}/lines:
+    get:
+      operationId: listLines
+      summary: 월의 라인(페이지) — 평평하게, 취소 짝은 reversalOf·reversedBy
+      parameters:
+        - {$ref: '#/components/parameters/Ym'}
+        - {name: page, in: query, required: false, description: 0부터(기본 0), schema: {type: integer, minimum: 0, maximum: 1000000}}
+        - {name: size, in: query, required: false, description: 1~200(기본 50), schema: {type: integer, minimum: 1, maximum: 200}}
+        - {name: commType, in: query, required: false, description: 수수료 유형 정확 일치, schema: {type: string, pattern: '^[A-Z][A-Z0-9_]{0,31}$'}}
+        - {name: policyKey, in: query, required: false, description: 응답의 policyKey(그 설계사의 계약만 풀린다 — 아니면 빈 목록), schema: {$ref: '#/components/schemas/PolicyKey'}}
+      responses:
+        '200':
+          description: 한 페이지(정렬 source_seq, calc_id)와 필터에 맞는 전체 수
+          headers: {ETag: {$ref: '#/components/headers/ETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/LinesResponse'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/me/earnings/lines/{calcId}:
+    get:
+      operationId: getLine
+      summary: 라인 상세 — 근거·계약 요약·분급·채권·한도 원장
+      parameters:
+        - {name: calcId, in: path, required: true, schema: {$ref: '#/components/schemas/Key'}}
+      responses:
+        '200':
+          description: 라인 상세
+          headers: {ETag: {$ref: '#/components/headers/ETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/LineDetailResponse'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/me/limits:
+    get:
+      operationId: listLimits
+      summary: 한도 원장 카드(1200%룰)
+      parameters:
+        - {name: status, in: query, required: false, description: 경고 단계(기본 ALL), schema: {type: string, enum: [ALL, WARN, CRIT, FULL]}}
+      responses:
+        '200':
+          description: 원장 카드(원장 ID 순)
+          headers: {ETag: {$ref: '#/components/headers/ETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/LimitsResponse'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/me/limits/{ledgerId}:
+    get:
+      operationId: getLimit
+      summary: 한도 원장 하나와 타임라인
+      parameters:
+        - {name: ledgerId, in: path, required: true, schema: {$ref: '#/components/schemas/Key'}}
+      responses:
+        '200':
+          description: 원장 카드 + 타임라인(source_seq 순)
+          headers: {ETag: {$ref: '#/components/headers/ETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/LimitDetailResponse'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/me/deferrals:
+    get:
+      operationId: listDeferrals
+      summary: 분급 전망(지급 예정월별 합과 항목)
+      parameters:
+        - {$ref: '#/components/parameters/DeferralFrom'}
+        - {$ref: '#/components/parameters/DeferralTo'}
+        - {name: scenario, in: query, required: false, description: '전망 시나리오(1.1.0, 기본 ALL_INFORCE). RETENTION은 테넌트가 켰을 때만(아니면 400)', schema: {type: string, enum: [ALL_INFORCE, RETENTION]}}
+        - {name: p, in: query, required: false, description: '유지율 가정 백분율 1~100(1.1.0) — scenario=RETENTION이면 필수, 아니면 주면 400', schema: {type: string, pattern: '^([1-9][0-9]?|100)$'}}
+        - {name: policyKey, in: query, required: false, description: '그 설계사의 계약 하나로 월 합계·항목·막대를 낸다(1.1.0 — 모르는 키는 빈 결과)', schema: {$ref: '#/components/schemas/PolicyKey'}}
+      responses:
+        '200':
+          description: 지급월별 예정(SCHEDULED+RELEASED)·보류(HELD) 합과 항목
+          headers: {ETag: {$ref: '#/components/headers/ETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/DeferralsResponse'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/me/simulations/new-contract:
+    post:
+      operationId: simulateNewContract
+      summary: 신계약 시뮬레이션(1.1.0) — 엔진 dry-run 결과를 그대로(설계사 참고용·비확정)
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/SimNewContractRequest'}}}
+      responses:
+        '200':
+          description: 엔진 NewContractResult의 속성 + 포털 사실(asOf·dataStatus·simId·requestedAt)
+          headers: {Cache-Control: {$ref: '#/components/headers/NoStore'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/SimNewContractResponse'}}}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/SimRejected'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '502': {$ref: '#/components/responses/EngineContract'}
+        '503': {$ref: '#/components/responses/EngineUnavailable'}
+  /api/v1/me/simulations/policy-event:
+    post:
+      operationId: simulatePolicyEvent
+      summary: 해약 등 계약 이벤트 영향 시뮬레이션(1.1.0) — 엔진 dry-run 결과를 그대로
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/SimPolicyEventRequest'}}}
+      responses:
+        '200':
+          description: 엔진 PolicyEventResult의 속성 + 포털 사실(asOf·dataStatus·simId·requestedAt)
+          headers: {Cache-Control: {$ref: '#/components/headers/NoStore'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/SimPolicyEventResponse'}}}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/SimRejected'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '502': {$ref: '#/components/responses/EngineContract'}
+        '503': {$ref: '#/components/responses/EngineUnavailable'}
+  /api/v1/me/notifications:
+    get:
+      operationId: listNotifications
+      summary: 알림함(1.2.0) — 최신순 한 페이지와 안읽음 수
+      parameters:
+        - {name: unreadOnly, in: query, required: false, description: true면 안읽음만(기본 false — unreadCount는 언제나 전체 안읽음 수), schema: {type: boolean}}
+        - {name: page, in: query, required: false, description: 0부터(기본 0), schema: {type: integer, minimum: 0, maximum: 1000000}}
+        - {name: size, in: query, required: false, description: 1~100(기본 20), schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        '200':
+          description: 한 페이지(정렬 createdAt 내림차순, id 내림차순)·전체 수·안읽음 수
+          headers: {ETag: {$ref: '#/components/headers/BodyETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/NotificationsResponse'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/me/notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      summary: 알림 읽음(1.2.0) — 멱등(두 번째도 200, readAt은 처음 값), 본문 없음
+      parameters:
+        - {name: id, in: path, required: true, description: 알림 id(형식이 틀리거나 남의 것이면 404), schema: {$ref: '#/components/schemas/Uuid'}}
+      responses:
+        '200':
+          description: 갱신된 알림
+          headers: {Cache-Control: {$ref: '#/components/headers/NoStore'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/Notification'}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/me/inquiries:
+    get:
+      operationId: listInquiries
+      summary: 내 문의(1.2.0) — 최신순, 본문 없음
+      parameters:
+        - {name: status, in: query, required: false, description: 상태(기본 ALL), schema: {type: string, enum: [ALL, OPEN, ANSWERED, CLOSED]}}
+        - {name: page, in: query, required: false, description: 0부터(기본 0), schema: {type: integer, minimum: 0, maximum: 1000000}}
+        - {name: size, in: query, required: false, description: 1~100(기본 20), schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        '200':
+          description: 한 페이지(정렬 createdAt 내림차순, id 내림차순)·전체 수
+          headers: {ETag: {$ref: '#/components/headers/BodyETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/InquiriesResponse'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      operationId: createInquiry
+      summary: 문의 접수(1.2.0) — 라인 하나(calcId) 또는 그 밖(OTHER)
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/InquiryRequest'}}}
+      responses:
+        '201':
+          description: 접수된 문의(본문은 싣지 않는다 — 상세 GET에만)
+          headers: {Cache-Control: {$ref: '#/components/headers/NoStore'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/InquiryCreated'}}}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429': {$ref: '#/components/responses/InquiryRateLimited'}
+  /api/v1/me/inquiries/{id}:
+    get:
+      operationId: getInquiry
+      summary: 문의 상세(1.2.0) — 본문·답변이 나오는 유일한 응답
+      parameters:
+        - {name: id, in: path, required: true, description: 문의 id(형식이 틀리거나 남의 것이면 404), schema: {$ref: '#/components/schemas/Uuid'}}
+      responses:
+        '200':
+          description: 문의 하나
+          headers: {ETag: {$ref: '#/components/headers/BodyETag'}, Cache-Control: {$ref: '#/components/headers/CacheControl'}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/Inquiry'}}}
+        '304': {$ref: '#/components/responses/NotModified'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 테넌트 IdP가 발급한 RS256 액세스 토큰. iss = 테넌트의 등록 발급자, aud에 그 테넌트의 대상. roles·agent_id 클레임은 쓰지 않는다.
+  headers:
+    ETag:
+      description: 약한 ETag W/"<seq>.<sync>.<cfg>"(라인 목록은 뒤에 .<page>.<size>.<filter>) — 피드 위치·동기화 상태·응답에 쓰인 테넌트 설정이 바뀌면 바뀐다
+      schema: {type: string, pattern: '^W/"[0-9]+\.[OD]\.[0-9a-f]{8}(\.[0-9]+\.[0-9]+\.[0-9a-f]{8})?"$'}
+    CacheControl:
+      schema: {type: string, const: 'private, no-cache'}
+    NoStore:
+      description: 시뮬레이션 결과는 저장하지 않는다(1.1.0). 알림 읽음·문의 접수 응답도(1.2.0)
+      schema: {type: string, const: no-store}
+    BodyETag:
+      description: 약한 ETag W/"<응답 본문 SHA-256 앞 16자>"(1.2.0 알림·문의 — 읽음·답변·종료는 피드 위치와 무관하게 바뀌므로 본문에서 만든다)
+      schema: {type: string, pattern: '^W/"[0-9a-f]{16}"$'}
+  parameters:
+    Ym:
+      name: ym
+      in: path
+      required: true
+      description: 마감월 YYYYMM(형식이 틀리면 404 — 존재 여부를 형식 오류로 흘리지 않는다)
+      schema: {$ref: '#/components/schemas/Ym'}
+    From:
+      name: from
+      in: query
+      required: true
+      description: 시작 월 YYYYMM(포함). to와 함께 필수, from ≤ to, 폭 36개월 이하
+      schema: {$ref: '#/components/schemas/Ym'}
+    To:
+      name: to
+      in: query
+      required: true
+      description: 끝 월 YYYYMM(포함)
+      schema: {$ref: '#/components/schemas/Ym'}
+    DeferralFrom:
+      name: from
+      in: query
+      required: true
+      description: 시작 지급월 YYYYMM(포함). to와 함께 필수, from ≤ to, 폭 84개월 이하(1.1.0 — 분급 타임라인 7년)
+      schema: {$ref: '#/components/schemas/Ym'}
+    DeferralTo:
+      name: to
+      in: query
+      required: true
+      description: 끝 지급월 YYYYMM(포함)
+      schema: {$ref: '#/components/schemas/Ym'}
+  responses:
+    NotModified:
+      description: If-None-Match가 현재 ETag와 맞다(본문 없음, 같은 ETag·Cache-Control)
+    Unauthenticated:
+      description: 토큰 없음·형식·알고리즘·발급자·서명·만료·대상·테넌트 교차 검사 — 사유와 무관하게 같은 바이트
+      headers:
+        WWW-Authenticate: {schema: {type: string, const: Bearer}}
+      content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}
+    NotFound:
+      description: 링크 없음·REVOKED·역할·남의(없는) 자원·없는 경로 — 사유와 무관하게 같은 바이트
+      content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}
+    InvalidRequest:
+      description: 쿼리 파라미터 형식·범위 오류, 시뮬레이션 요청 본문의 형식·크기·스키마 오류(사유 없음)
+      content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}
+    SimRejected:
+      description: |
+        엔진이 거부했다(1.1.0) — code INSURER_AMBIGUOUS(보험사를 정해야 한다 — insurerCd를 주고 다시), UNSUPPORTED_EVENT_TYPE(엔진이 시뮬레이션하지 않는
+        유형), ENGINE_REJECTED(그 밖의 엔진 422). 코드마다 포털 고정 바이트 — 엔진의 message는 옮기지 않는다.
+      content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}
+    RateLimited:
+      description: 그 설계사의 최근 60초 시뮬레이션 요청 수가 테넌트 한도 이상(1.1.0) — code RATE_LIMITED, 행·엔진 호출 없음
+      headers:
+        Retry-After: {description: '창 안 가장 오래된 요청이 빠질 때까지의 초(올림, 1 이상)', schema: {type: string, pattern: '^[1-9][0-9]{0,2}$'}}
+      content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}
+    InquiryRateLimited:
+      description: 그 설계사의 최근 24시간 문의 수가 테넌트 한도 이상(1.2.0) — code RATE_LIMITED, 행·감사 없음
+      headers:
+        Retry-After: {description: '창 안 가장 오래된 문의가 빠질 때까지의 초(올림, 1 이상)', schema: {type: string, pattern: '^[1-9][0-9]{0,4}$'}}
+      content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}
+    EngineContract:
+      description: 엔진 응답이 계약과 다르다 — 스키마 위반·예상 밖 상태·엔진 400·404(1.1.0). code ENGINE_CONTRACT, 재시도하지 않는다
+      content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}
+    EngineUnavailable:
+      description: 엔진에 닿지 못했다 — 연결 실패·시간 초과·엔진 5xx·서비스 토큰 거부(1.1.0). code ENGINE_UNAVAILABLE, 조회 API는 영향 없음
+      content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}
+  schemas:
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code: {type: string, enum: [UNAUTHENTICATED, NOT_FOUND, INVALID_REQUEST, INTERNAL_ERROR, INSURER_AMBIGUOUS, UNSUPPORTED_EVENT_TYPE, ENGINE_REJECTED,
+                                    RATE_LIMITED, ENGINE_CONTRACT, ENGINE_UNAVAILABLE]}
+        message: {type: string, minLength: 1}
+    Won: {type: integer, description: 정수 원(부호 있음 — 환수·취소는 음수)}
+    NonNegativeWon: {type: integer, minimum: 0}
+    Seq: {type: integer, minimum: 0}
+    Ym: {type: string, pattern: '^[0-9]{4}(0[1-9]|1[0-2])$'}
+    Date: {type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'}
+    Instant: {type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$'}
+    Key: {type: string, minLength: 1, maxLength: 128}
+    PolicyKey: {type: string, pattern: '^[0-9a-f]{16}$', description: 'HMAC-SHA256(배포 비밀, tenant_id + U+001F + policy_no) 앞 16자 — 비가역, 비밀 회전 시 바뀐다'}
+    PolicyMasked: {type: string, pattern: '^[*]+[^*]{0,4}$', description: 증권번호의 끝 4자 외 '*'(4자 이하면 전부 '*')}
+    DecimalString: {type: string, pattern: '^(0|[1-9][0-9]*)(\.[0-9]{1,6})?$', description: 불투명 소수 문자열(표시 전용 — 계산·비교하지 않는다)}
+    Percent: {type: string, pattern: '^-?[0-9]+\.[0-9]%$', description: 표시용 백분율(소수 1자리)}
+    DataStatus: {type: string, enum: [OK, SYNC_DELAYED], description: 동기화 상태 — 커서가 RUNNING이 아니거나 머리에 닿은 지 sync_delay_seconds를 넘으면 SYNC_DELAYED}
+    MonthDataStatus: {type: string, enum: [OK, DRIFT, REBUILDING], description: 그 달의 대사 결과(동기화 상태와 따로 — DD-12)}
+    MonthStatus: {type: string, enum: [PROVISIONAL, ESTIMATED, CONFIRMED, PAID]}
+    NetBasis: {type: string, enum: [ESTIMATE, CONFIRM, PAYOUT]}
+    Role: {type: string, enum: [AGENT, MANAGER, OPERATOR]}
+    DigitWon: {type: string, pattern: '^(0|[1-9][0-9]{0,11})$', description: '요청 본문의 정수 원(숫자 문자열, 1.1.0 — 서버가 정수로 읽는다)'}
+    DigitCount: {type: string, pattern: '^[1-9][0-9]{0,3}$', description: '요청 본문의 횟수 1~9999(숫자 문자열, 1.1.0)'}
+    Uuid: {type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', description: 포털이 만든 행의 키(1.2.0 — 알림·문의)}
+    SimId: {type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', description: 'simulation_log 행의 키(UUID) — 문의·감사용'}
+    EngineId: {type: string, minLength: 1, maxLength: 64, pattern: '^\S(.*\S)?$', description: 엔진이 발급한 식별자(엔진 계약 defs id와 같은 규칙)}
+    AsOf:
+      type: object
+      additionalProperties: false
+      required: [seq]
+      properties:
+        seq: {$ref: '#/components/schemas/Seq'}
+        at: {$ref: '#/components/schemas/Instant'}
+    MeResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, dataStatus, agentId, role, tenant]
+      properties:
+        asOf: {$ref: '#/components/schemas/AsOf'}
+        dataStatus: {$ref: '#/components/schemas/DataStatus'}
+        agentId: {type: string, minLength: 1, description: 본인 설계사 ID(identity_link)}
+        role: {$ref: '#/components/schemas/Role'}
+        agentName: {type: string, minLength: 1, description: 본인 이름(가리지 않는다 — DD-13)}
+        grade: {type: string}
+        orgPath: {type: string}
+        status: {type: string, enum: [ACTIVE, DISMISSED]}
+        features:
+          type: object
+          additionalProperties: false
+          required: [forecastScenario]
+          description: 테넌트가 켠 화면 기능(1.1.0)
+          properties:
+            forecastScenario: {type: boolean, description: 분급 타임라인의 유지율 시나리오(RETENTION)를 쓸 수 있다}
+        tenant:
+          type: object
+          additionalProperties: false
+          required: [name, payoutDayRule, limitWarnBp, limitCritBp]
+          properties:
+            name: {type: string}
+            payoutDayRule: {type: string}
+            limitWarnBp: {type: integer, minimum: 0, description: 경고 임계치(백분율 × 100)}
+            limitCritBp: {type: integer, minimum: 0}
+    MonthSummary:
+      type: object
+      additionalProperties: false
+      required: [closeYm, status, monthDataStatus, gross, clawbackOffset, adjustment]
+      properties:
+        closeYm: {$ref: '#/components/schemas/Ym'}
+        status: {$ref: '#/components/schemas/MonthStatus'}
+        monthDataStatus: {$ref: '#/components/schemas/MonthDataStatus'}
+        gross: {$ref: '#/components/schemas/Won'}
+        clawbackOffset: {$ref: '#/components/schemas/Won'}
+        adjustment: {$ref: '#/components/schemas/Won'}
+        withholdingTax: {$ref: '#/components/schemas/Won'}
+        net: {$ref: '#/components/schemas/Won'}
+        netBasis: {$ref: '#/components/schemas/NetBasis'}
+        paidAmount: {$ref: '#/components/schemas/Won'}
+        paidAt: {$ref: '#/components/schemas/Instant'}
+    EarningsResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, dataStatus, from, to, items]
+      properties:
+        asOf: {$ref: '#/components/schemas/AsOf'}
+        dataStatus: {$ref: '#/components/schemas/DataStatus'}
+        from: {$ref: '#/components/schemas/Ym'}
+        to: {$ref: '#/components/schemas/Ym'}
+        items: {type: array, items: {$ref: '#/components/schemas/MonthSummary'}}
+    MonthResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, dataStatus, closeYm, status, monthDataStatus, gross, clawbackOffset, adjustment, byType]
+      properties:
+        asOf: {$ref: '#/components/schemas/AsOf'}
+        dataStatus: {$ref: '#/components/schemas/DataStatus'}
+        closeYm: {$ref: '#/components/schemas/Ym'}
+        status: {$ref: '#/components/schemas/MonthStatus'}
+        monthDataStatus: {$ref: '#/components/schemas/MonthDataStatus'}
+        gross: {$ref: '#/components/schemas/Won'}
+        clawbackOffset: {$ref: '#/components/schemas/Won'}
+        adjustment: {$ref: '#/components/schemas/Won'}
+        withholdingTax: {$ref: '#/components/schemas/Won'}
+        net: {$ref: '#/components/schemas/Won'}
+        netBasis: {$ref: '#/components/schemas/NetBasis'}
+        byType:
+          type: object
+          description: 수수료 유형별 라인 합(정수 원)
+          propertyNames: {pattern: '^[A-Z][A-Z0-9_]*$'}
+          additionalProperties: {$ref: '#/components/schemas/Won'}
+        estimateAsOf: {$ref: '#/components/schemas/Instant'}
+        estimateBasisSeq: {$ref: '#/components/schemas/Seq'}
+        confirmedAt: {$ref: '#/components/schemas/Instant'}
+        receivableOffset: {$ref: '#/components/schemas/Won'}
+        carriedReceivable: {$ref: '#/components/schemas/Won'}
+        payable: {$ref: '#/components/schemas/Won'}
+        runSeq: {$ref: '#/components/schemas/Seq'}
+        paidAmount: {$ref: '#/components/schemas/Won'}
+        paidAt: {$ref: '#/components/schemas/Instant'}
+        payoutExpectedOn: {$ref: '#/components/schemas/Date', description: '테넌트 지급일 규칙(NEXT_MONTH_D{n}) — 형식이 다르거나 그 날이 없으면 생략'}
+        previous:
+          type: object
+          additionalProperties: false
+          required: [closeYm, status, gross]
+          description: 지난달 행의 값(1.1.0, CR-1 — 그 달의 상태 그대로, 차감하지 않는다). 지난달 행이 없으면 생략
+          properties:
+            closeYm: {$ref: '#/components/schemas/Ym'}
+            status: {$ref: '#/components/schemas/MonthStatus'}
+            gross: {$ref: '#/components/schemas/Won'}
+            net: {$ref: '#/components/schemas/Won'}
+            netBasis: {$ref: '#/components/schemas/NetBasis'}
+    Line:
+      type: object
+      additionalProperties: false
+      required: [calcId, closeYm, commType, amount, limitCutAmt, policyMasked, policyKey]
+      properties:
+        calcId: {$ref: '#/components/schemas/Key'}
+        closeYm: {$ref: '#/components/schemas/Ym'}
+        commType: {type: string, minLength: 1}
+        amount: {$ref: '#/components/schemas/Won'}
+        limitCutAmt: {$ref: '#/components/schemas/NonNegativeWon'}
+        limitCutPolicy: {type: string}
+        productKey: {type: string}
+        productName: {type: string}
+        insuredMasked: {type: string}
+        policyMasked: {$ref: '#/components/schemas/PolicyMasked'}
+        policyKey: {$ref: '#/components/schemas/PolicyKey'}
+        reversalOf: {$ref: '#/components/schemas/Key'}
+        reversedBy: {$ref: '#/components/schemas/Key'}
+        reversalOfYm: {$ref: '#/components/schemas/Ym', description: 'reversalOf 라인의 마감월(1.1.0, CR-2)'}
+        reversedByYm: {$ref: '#/components/schemas/Ym', description: 'reversedBy 라인의 마감월(1.1.0, CR-2)'}
+    LinesResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, dataStatus, closeYm, page, size, total, items]
+      properties:
+        asOf: {$ref: '#/components/schemas/AsOf'}
+        dataStatus: {$ref: '#/components/schemas/DataStatus'}
+        closeYm: {$ref: '#/components/schemas/Ym'}
+        page: {type: integer, minimum: 0}
+        size: {type: integer, minimum: 1, maximum: 200}
+        total: {type: integer, minimum: 0}
+        items: {type: array, items: {$ref: '#/components/schemas/Line'}}
+    LineDetailResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, dataStatus, line, basis, policySummary, deferrals]
+      properties:
+        asOf: {$ref: '#/components/schemas/AsOf'}
+        dataStatus: {$ref: '#/components/schemas/DataStatus'}
+        line: {$ref: '#/components/schemas/Line'}
+        basis:
+          type: object
+          additionalProperties: false
+          required: [ruleVersionIds]
+          properties:
+            rate: {$ref: '#/components/schemas/DecimalString'}
+            payoutRate: {$ref: '#/components/schemas/DecimalString'}
+            installmentNo: {type: integer, minimum: 1}
+            ruleVersionIds: {type: array, items: {type: string, minLength: 1}}
+        policySummary:
+          type: object
+          additionalProperties: false
+          properties:
+            contractDate: {$ref: '#/components/schemas/Date'}
+            monthlyPremium: {$ref: '#/components/schemas/NonNegativeWon'}
+        deferrals:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [scheduleId, dueYm, amount, status]
+            properties:
+              scheduleId: {$ref: '#/components/schemas/Key'}
+              dueYm: {$ref: '#/components/schemas/Ym'}
+              amount: {$ref: '#/components/schemas/Won'}
+              status: {type: string, enum: [SCHEDULED, RELEASED, HELD, CANCELLED]}
+        receivable:
+          type: object
+          additionalProperties: false
+          required: [receivableId, amount, remaining, status]
+          properties:
+            receivableId: {$ref: '#/components/schemas/Key'}
+            amount: {$ref: '#/components/schemas/NonNegativeWon'}
+            remaining: {$ref: '#/components/schemas/NonNegativeWon'}
+            status: {type: string, enum: [OPEN, OFFSET, CLOSED, WRITTEN_OFF]}
+        ledgerId: {$ref: '#/components/schemas/Key'}
+    Ledger:
+      type: object
+      additionalProperties: false
+      required: [ledgerId, policyMasked, policyKey, contractDate, fyStart, fyEnd, monthlyPremium, limitMultiple, limitAmount, accumPaid, remaining,
+                 stage, cutTotal, deferredTotal, flags]
+      properties:
+        ledgerId: {$ref: '#/components/schemas/Key'}
+        policyMasked: {$ref: '#/components/schemas/PolicyMasked'}
+        policyKey: {$ref: '#/components/schemas/PolicyKey'}
+        contractDate: {$ref: '#/components/schemas/Date'}
+        fyStart: {$ref: '#/components/schemas/Date'}
+        fyEnd: {$ref: '#/components/schemas/Date'}
+        monthlyPremium: {$ref: '#/components/schemas/NonNegativeWon'}
+        limitMultiple: {$ref: '#/components/schemas/DecimalString'}
+        limitAmount: {$ref: '#/components/schemas/NonNegativeWon'}
+        accumPaid: {$ref: '#/components/schemas/Won'}
+        remaining: {$ref: '#/components/schemas/Won', description: 한도 − 누적(정수 차감)}
+        utilization: {$ref: '#/components/schemas/Percent', description: 누적/한도 표시 문자열(한도 0이면 생략)}
+        stage: {type: string, enum: [OK, WARN, CRIT, FULL], description: 테넌트 임계치(bp)와의 정수 비교}
+        cutTotal: {$ref: '#/components/schemas/NonNegativeWon'}
+        deferredTotal: {$ref: '#/components/schemas/NonNegativeWon'}
+        flags: {type: array, items: {type: string, enum: [CANCELLED, LAPSED, OVERDUE, REDUCED]}}
+        ruleVersionId: {type: string, minLength: 1, description: '원장을 연 한도 룰 버전(1.1.0, CR-3)'}
+        productKey: {type: string, description: '그 계약의 첫 라인의 상품 키(1.1.0, CR-4)'}
+        productName: {type: string}
+        insuredMasked: {type: string}
+    LimitsResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, dataStatus, status, items]
+      properties:
+        asOf: {$ref: '#/components/schemas/AsOf'}
+        dataStatus: {$ref: '#/components/schemas/DataStatus'}
+        status: {type: string, enum: [ALL, WARN, CRIT, FULL]}
+        items: {type: array, items: {$ref: '#/components/schemas/Ledger'}}
+    LimitDetailResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, dataStatus, ledger, history]
+      properties:
+        asOf: {$ref: '#/components/schemas/AsOf'}
+        dataStatus: {$ref: '#/components/schemas/DataStatus'}
+        ledger: {$ref: '#/components/schemas/Ledger'}
+        history:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [sourceSeq, kind, accumAfter, limitAfter, occurredAt]
+            properties:
+              sourceSeq: {$ref: '#/components/schemas/Seq'}
+              kind: {type: string, enum: [POST, REBASE]}
+              postingSeq: {$ref: '#/components/schemas/Seq'}
+              calcId: {$ref: '#/components/schemas/Key'}
+              amount: {$ref: '#/components/schemas/Won'}
+              accumAfter: {$ref: '#/components/schemas/Won'}
+              limitAfter: {$ref: '#/components/schemas/NonNegativeWon'}
+              reason: {type: string}
+              occurredAt: {$ref: '#/components/schemas/Instant'}
+    DeferralsResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, dataStatus, from, to, months, items]
+      properties:
+        asOf: {$ref: '#/components/schemas/AsOf'}
+        dataStatus: {$ref: '#/components/schemas/DataStatus'}
+        from: {$ref: '#/components/schemas/Ym'}
+        to: {$ref: '#/components/schemas/Ym'}
+        scenario: {type: string, enum: [ALL_INFORCE, RETENTION], description: 응답에 쓰인 시나리오(1.1.0 — 언제나 있다)}
+        p: {type: integer, minimum: 1, maximum: 100, description: RETENTION의 유지율 가정(1.1.0)}
+        months:
+          type: array
+          description: '지급월별 합(dueYm 순). 예정·보류가 모두 0인 달은 싣지 않는다(1.1.1) — 취소 항목만 있는 달도 항목이 없는 달처럼 빠지고, 그 항목은 items에 남는다'
+          items:
+            type: object
+            additionalProperties: false
+            required: [dueYm, expected, held]
+            properties:
+              dueYm: {$ref: '#/components/schemas/Ym'}
+              expected: {$ref: '#/components/schemas/Won', description: 'Σ SCHEDULED + RELEASED. RETENTION이면 floor(expectedBase × p / 100) — 포털의 유일한 금액 곱셈(설계서 §6.4)'}
+              held: {$ref: '#/components/schemas/Won', description: Σ HELD(시나리오와 무관 — 원값)}
+              expectedBase: {$ref: '#/components/schemas/Won', description: RETENTION일 때 적용 전 예정(1.1.0)}
+              bar:
+                type: object
+                additionalProperties: false
+                required: [expected, held]
+                description: '막대 너비(1.1.0) — 값 / 범위 안 max(expected + held). max ≤ 0이면 생략'
+                properties:
+                  expected: {$ref: '#/components/schemas/Percent'}
+                  held: {$ref: '#/components/schemas/Percent'}
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [scheduleId, dueYm, amount, status, reason, payCondition, policyMasked, policyKey, sourceCalcId]
+            properties:
+              scheduleId: {$ref: '#/components/schemas/Key'}
+              dueYm: {$ref: '#/components/schemas/Ym'}
+              amount: {$ref: '#/components/schemas/Won'}
+              status: {type: string, enum: [SCHEDULED, RELEASED, HELD, CANCELLED]}
+              statusReason: {type: string, enum: [DUE_RELEASED, POLICY_NOT_INFORCE, POLICY_TERMINATED, SOURCE_REVERSED]}
+              reason: {type: string, enum: [CURVE, LIMIT_DEFER]}
+              payCondition: {type: string, minLength: 1}
+              policyMasked: {$ref: '#/components/schemas/PolicyMasked'}
+              policyKey: {$ref: '#/components/schemas/PolicyKey'}
+              sourceCalcId: {$ref: '#/components/schemas/Key'}
+    SimNewContractRequest:
+      type: object
+      additionalProperties: false
+      required: [productKey, monthlyPremium, contractDate]
+      description: 신계약 시뮬레이션 요청(1.1.0). 설계사는 토큰·identity_link로 정한다. 시책 코드는 받지 않는다 — 엔진이 그 계약에 맞는 시책을 전부 적용한다
+      properties:
+        productKey: {$ref: '#/components/schemas/EngineId'}
+        monthlyPremium: {$ref: '#/components/schemas/DigitWon'}
+        contractDate: {$ref: '#/components/schemas/Date'}
+        paymentTermMonths: {$ref: '#/components/schemas/DigitCount'}
+        insurerCd: {$ref: '#/components/schemas/EngineId', description: 보험사 코드 — 422 INSURER_AMBIGUOUS를 받은 뒤에만 준다}
+    SimPolicyEventRequest:
+      type: object
+      additionalProperties: false
+      required: [policyKey, eventType, asOfDate]
+      description: 계약 이벤트 시뮬레이션 요청(1.1.0). 계약은 policyKey로 — 그 설계사의 계약이 아니면 404(엔진 호출 없음). REDUCE면 newMonthlyPremium 필수
+      properties:
+        policyKey: {$ref: '#/components/schemas/PolicyKey'}
+        eventType: {type: string, enum: [CANCEL, LAPSE, WITHDRAW, REDUCE, REINSTATE, PAYMENT_OVERDUE]}
+        asOfDate: {$ref: '#/components/schemas/Date'}
+        elapsedInstallments: {$ref: '#/components/schemas/DigitCount', description: 경과 회차 — 없으면 엔진이 체결일과 asOfDate의 개월 수로 근사한다}
+        newMonthlyPremium: {$ref: '#/components/schemas/DigitWon', description: 감액 뒤 월납(REDUCE일 때만 필수)}
+      if:
+        properties: {eventType: {const: REDUCE}}
+        required: [eventType]
+      then:
+        required: [newMonthlyPremium]
+    SimNewContractResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, dataStatus, simId, requestedAt, fyCommissionByInstallment, incentives, deferral, ruleSnapshotId, generatedAt]
+      description: 엔진 NewContractResult(엔진 계약 사본 1.4.0)의 속성을 값 그대로 + 포털 사실 넷. 엔진 필수 목록과 같다(SimulationSchemaParityTest)
+      properties:
+        asOf: {$ref: '#/components/schemas/AsOf'}
+        dataStatus: {$ref: '#/components/schemas/DataStatus'}
+        simId: {$ref: '#/components/schemas/SimId'}
+        requestedAt: {$ref: '#/components/schemas/Instant', description: 포털이 요청을 기록한 시각(simulation_log.created_at)}
+        limitAmount: {$ref: '#/components/schemas/NonNegativeWon'}
+        fyCommissionByInstallment:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: ['no', amount]
+            properties:
+              'no': {type: integer, minimum: 1}
+              amount: {$ref: '#/components/schemas/Won'}
+        incentives:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [code, amount, limitIncluded]
+            properties:
+              code: {type: string, minLength: 1}
+              amount: {$ref: '#/components/schemas/Won'}
+              limitCutAmt: {$ref: '#/components/schemas/NonNegativeWon'}
+              limitIncluded: {type: boolean}
+        projectedAccum: {$ref: '#/components/schemas/Won'}
+        deferral:
+          type: object
+          additionalProperties: false
+          required: [firstYearPayout, schedule]
+          properties:
+            firstYearPayout: {$ref: '#/components/schemas/Won'}
+            schedule:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [dueYm, amount]
+                properties:
+                  dueYm: {$ref: '#/components/schemas/Ym'}
+                  amount: {$ref: '#/components/schemas/Won'}
+        ruleSnapshotId: {$ref: '#/components/schemas/EngineId'}
+        generatedAt: {$ref: '#/components/schemas/Instant', description: 엔진 산출 시각(엔진 값 그대로)}
+    SimPolicyEventResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, dataStatus, simId, requestedAt, clawbackAmount, offsetAgainstMonth, receivableRemaining, cancelledDeferrals, ruleSnapshotId]
+      description: 엔진 PolicyEventResult(엔진 계약 사본 1.4.0)의 속성을 값 그대로 + 포털 사실 넷. 엔진 필수 목록과 같다(SimulationSchemaParityTest)
+      properties:
+        asOf: {$ref: '#/components/schemas/AsOf'}
+        dataStatus: {$ref: '#/components/schemas/DataStatus'}
+        simId: {$ref: '#/components/schemas/SimId'}
+        requestedAt: {$ref: '#/components/schemas/Instant'}
+        clawbackAmount: {$ref: '#/components/schemas/Won', description: '환수(해약·실효는 ≤ 0, 부활 재지급은 > 0 — 엔진 부호 그대로)'}
+        offsetAgainstMonth:
+          type: object
+          additionalProperties: false
+          required: [closeYm, before, after]
+          description: 환수가 귀속되는 달(closeYm)의 세전·채권 상계 전 순액(gross + clawbackOffset)의 전후 — 이번 달이 아닐 수 있다
+          properties:
+            closeYm: {$ref: '#/components/schemas/Ym'}
+            before: {$ref: '#/components/schemas/Won'}
+            after: {$ref: '#/components/schemas/Won'}
+        receivableRemaining: {$ref: '#/components/schemas/Won'}
+        cancelledDeferrals:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [scheduleId, dueYm, amount]
+            properties:
+              scheduleId: {$ref: '#/components/schemas/EngineId'}
+              dueYm: {$ref: '#/components/schemas/Ym'}
+              amount: {$ref: '#/components/schemas/Won'}
+        ruleSnapshotId: {$ref: '#/components/schemas/EngineId'}
+    NotificationsResponse:
+      type: object
+      additionalProperties: false
+      required: [items, page, size, total, unreadCount]
+      description: 알림 한 페이지(1.2.0)
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Notification'}}
+        page: {type: integer, minimum: 0}
+        size: {type: integer, minimum: 1}
+        total: {type: integer, minimum: 0, description: 필터(unreadOnly)에 맞는 전체 수}
+        unreadCount: {type: integer, minimum: 0, description: 그 설계사의 안읽음 알림 수(unreadOnly와 무관)}
+    Notification:
+      description: |
+        알림 하나(1.2.0) — type이 params의 모양을 정한다(변이 여섯, 닫힌 params). 금액이 없다 — 금액·상태는 link 화면이 지금 값으로 보인다.
+        증권번호는 policyMasked만, 설계사·dedup 키는 없다. 문장은 화면이 type별 템플릿으로 만든다(서버 문장 없음).
+      oneOf:
+        - {$ref: '#/components/schemas/NotificationLedger'}
+        - {$ref: '#/components/schemas/NotificationLine'}
+        - {$ref: '#/components/schemas/NotificationDeferral'}
+        - {$ref: '#/components/schemas/NotificationPolicy'}
+        - {$ref: '#/components/schemas/NotificationMonth'}
+        - {$ref: '#/components/schemas/NotificationInquiry'}
+      discriminator:
+        propertyName: type
+        mapping:
+          LIMIT_WARN: '#/components/schemas/NotificationLedger'
+          LIMIT_CRIT: '#/components/schemas/NotificationLedger'
+          LIMIT_FULL: '#/components/schemas/NotificationLedger'
+          LIMIT_REBASE: '#/components/schemas/NotificationLedger'
+          LIMIT_CUT: '#/components/schemas/NotificationLine'
+          CLAWBACK: '#/components/schemas/NotificationLine'
+          DEFER_HELD: '#/components/schemas/NotificationDeferral'
+          DEFER_CANCELLED: '#/components/schemas/NotificationDeferral'
+          POLICY_PAYMENT_OVERDUE: '#/components/schemas/NotificationPolicy'
+          POLICY_LAPSE: '#/components/schemas/NotificationPolicy'
+          POLICY_CANCEL: '#/components/schemas/NotificationPolicy'
+          STMT_CONFIRMED: '#/components/schemas/NotificationMonth'
+          PAYOUT: '#/components/schemas/NotificationMonth'
+          INQUIRY_ANSWERED: '#/components/schemas/NotificationInquiry'
+    NotificationSeverity: {type: string, enum: [INFO, WARN, CRIT]}
+    ScreenLink:
+      type: string
+      description: 화면 경로(1.2.0) — /lines/{calcId}·/limits/{ledgerId}·/statements/{ym}·/inquiries/{id} 중 하나. 키 조각은 퍼센트 부호화. 화면은 이 넷에 대조한 뒤에만 이동한다
+      pattern: '^/((lines|limits)/[A-Za-z0-9._~%-]+|statements/[0-9]{4}(0[1-9]|1[0-2])|inquiries/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$'
+    NotificationLedger:
+      type: object
+      additionalProperties: false
+      required: [id, type, severity, createdAt, params]
+      description: 한도 원장 — 경계 상향 통과(단계마다 그 전기에 한 번)·재산정(1.2.0). link — 화면 /limits/{ledgerId}
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        type: {type: string, enum: [LIMIT_WARN, LIMIT_CRIT, LIMIT_FULL, LIMIT_REBASE]}
+        severity: {$ref: '#/components/schemas/NotificationSeverity'}
+        createdAt: {$ref: '#/components/schemas/Instant', description: 포털이 알림을 만든 시각}
+        readAt: {$ref: '#/components/schemas/Instant', description: 처음 읽은 시각(안읽음이면 없다)}
+        link: {$ref: '#/components/schemas/ScreenLink'}
+        params:
+          type: object
+          additionalProperties: false
+          required: [ledgerId, policyMasked]
+          properties:
+            ledgerId: {$ref: '#/components/schemas/Key'}
+            policyMasked: {$ref: '#/components/schemas/PolicyMasked'}
+    NotificationLine:
+      type: object
+      additionalProperties: false
+      required: [id, type, severity, createdAt, params]
+      description: 라인 하나 — 한도 초과 삭감·환수(1.2.0). link — 화면 /lines/{calcId}
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        type: {type: string, enum: [LIMIT_CUT, CLAWBACK]}
+        severity: {$ref: '#/components/schemas/NotificationSeverity'}
+        createdAt: {$ref: '#/components/schemas/Instant', description: 포털이 알림을 만든 시각}
+        readAt: {$ref: '#/components/schemas/Instant', description: 처음 읽은 시각(안읽음이면 없다)}
+        link: {$ref: '#/components/schemas/ScreenLink'}
+        params:
+          type: object
+          additionalProperties: false
+          required: [calcId, policyMasked, closeYm]
+          properties:
+            calcId: {$ref: '#/components/schemas/Key'}
+            policyMasked: {$ref: '#/components/schemas/PolicyMasked'}
+            closeYm: {$ref: '#/components/schemas/Ym', description: 그 라인의 마감월}
+    NotificationDeferral:
+      type: object
+      additionalProperties: false
+      required: [id, type, severity, createdAt, params]
+      description: 분급 항목 — 보류·취소(1.2.0). link — 화면 /lines/{calcId}
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        type: {type: string, enum: [DEFER_HELD, DEFER_CANCELLED]}
+        severity: {$ref: '#/components/schemas/NotificationSeverity'}
+        createdAt: {$ref: '#/components/schemas/Instant', description: 포털이 알림을 만든 시각}
+        readAt: {$ref: '#/components/schemas/Instant', description: 처음 읽은 시각(안읽음이면 없다)}
+        link: {$ref: '#/components/schemas/ScreenLink'}
+        params:
+          type: object
+          additionalProperties: false
+          required: [calcId, policyMasked, dueYm]
+          properties:
+            calcId: {$ref: '#/components/schemas/Key', description: 그 분급을 만든 원 라인}
+            policyMasked: {$ref: '#/components/schemas/PolicyMasked'}
+            dueYm: {$ref: '#/components/schemas/Ym', description: 그 항목의 지급 예정월}
+    NotificationPolicy:
+      type: object
+      additionalProperties: false
+      required: [id, type, severity, createdAt, params]
+      description: 계약 상태 — 납입 지연·실효·해약(1.2.0). link — 없음 — 이 종류에는 이동할 화면이 없다
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        type: {type: string, enum: [POLICY_PAYMENT_OVERDUE, POLICY_LAPSE, POLICY_CANCEL]}
+        severity: {$ref: '#/components/schemas/NotificationSeverity'}
+        createdAt: {$ref: '#/components/schemas/Instant', description: 포털이 알림을 만든 시각}
+        readAt: {$ref: '#/components/schemas/Instant', description: 처음 읽은 시각(안읽음이면 없다)}
+        params:
+          type: object
+          additionalProperties: false
+          required: [policyMasked, occurredOn]
+          properties:
+            policyMasked: {$ref: '#/components/schemas/PolicyMasked'}
+            occurredOn: {$ref: '#/components/schemas/Date', description: 엔진이 관측한 날}
+    NotificationMonth:
+      type: object
+      additionalProperties: false
+      required: [id, type, severity, createdAt, params]
+      description: 월 명세 — 확정·지급완료(그 달이 DRIFT이면 생기지 않는다)(1.2.0). link — 화면 /statements/{ym}
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        type: {type: string, enum: [STMT_CONFIRMED, PAYOUT]}
+        severity: {$ref: '#/components/schemas/NotificationSeverity'}
+        createdAt: {$ref: '#/components/schemas/Instant', description: 포털이 알림을 만든 시각}
+        readAt: {$ref: '#/components/schemas/Instant', description: 처음 읽은 시각(안읽음이면 없다)}
+        link: {$ref: '#/components/schemas/ScreenLink'}
+        params:
+          type: object
+          additionalProperties: false
+          required: [ym]
+          properties:
+            ym: {$ref: '#/components/schemas/Ym'}
+    NotificationInquiry:
+      type: object
+      additionalProperties: false
+      required: [id, type, severity, createdAt, params]
+      description: 문의 답변(1.2.0). link — 화면 /inquiries/{id}
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        type: {type: string, enum: [INQUIRY_ANSWERED]}
+        severity: {$ref: '#/components/schemas/NotificationSeverity'}
+        createdAt: {$ref: '#/components/schemas/Instant', description: 포털이 알림을 만든 시각}
+        readAt: {$ref: '#/components/schemas/Instant', description: 처음 읽은 시각(안읽음이면 없다)}
+        link: {$ref: '#/components/schemas/ScreenLink'}
+        params:
+          type: object
+          additionalProperties: false
+          required: [inquiryId]
+          properties:
+            inquiryId: {$ref: '#/components/schemas/Uuid'}
+    InquiryCategory: {type: string, enum: [AMOUNT, LIMIT, CLAWBACK, DEFERRAL, OTHER], description: 'AMOUNT 금액·LIMIT 한도 판정·CLAWBACK 환수·DEFERRAL 분급(넷은 calcId 필수)·OTHER 그 밖'}
+    InquiryStatus: {type: string, enum: [OPEN, ANSWERED, CLOSED]}
+    InquiryRequest:
+      type: object
+      additionalProperties: false
+      required: [category, message]
+      description: 문의 접수(1.2.0). 라인 분류 넷은 calcId 필수 — 그 설계사의 라인이 아니면 404(행 없음). 고객 이름·연락처·증권번호를 쓰지 않는다
+      properties:
+        category: {$ref: '#/components/schemas/InquiryCategory'}
+        calcId: {$ref: '#/components/schemas/Key'}
+        message: {type: string, minLength: 1, maxLength: 1000, pattern: '\S', description: '1~1,000자(유니코드 코드 포인트) — 공백만은 안 된다'}
+      if:
+        properties: {category: {enum: [AMOUNT, LIMIT, CLAWBACK, DEFERRAL]}}
+        required: [category]
+      then:
+        required: [calcId]
+    InquiryCreated:
+      type: object
+      additionalProperties: false
+      required: [id, status, category, createdAt]
+      description: 접수 결과(1.2.0) — 본문 없음
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        status: {$ref: '#/components/schemas/InquiryStatus'}
+        category: {$ref: '#/components/schemas/InquiryCategory'}
+        calcId: {$ref: '#/components/schemas/Key'}
+        createdAt: {$ref: '#/components/schemas/Instant'}
+    InquiriesResponse:
+      type: object
+      additionalProperties: false
+      required: [items, page, size, total]
+      description: 내 문의 한 페이지(1.2.0) — 본문 없음
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, status, category, createdAt]
+            properties:
+              id: {$ref: '#/components/schemas/Uuid'}
+              status: {$ref: '#/components/schemas/InquiryStatus'}
+              category: {$ref: '#/components/schemas/InquiryCategory'}
+              calcId: {$ref: '#/components/schemas/Key'}
+              createdAt: {$ref: '#/components/schemas/Instant'}
+              answeredAt: {$ref: '#/components/schemas/Instant'}
+        page: {type: integer, minimum: 0}
+        size: {type: integer, minimum: 1}
+        total: {type: integer, minimum: 0}
+    Inquiry:
+      type: object
+      additionalProperties: false
+      required: [id, status, category, message, createdAt]
+      description: 문의 상세(1.2.0) — 본문·답변이 나오는 유일한 응답(작성자 본인)
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        status: {$ref: '#/components/schemas/InquiryStatus'}
+        category: {$ref: '#/components/schemas/InquiryCategory'}
+        calcId: {$ref: '#/components/schemas/Key'}
+        message: {type: string, minLength: 1, maxLength: 1000}
+        createdAt: {$ref: '#/components/schemas/Instant'}
+        answeredAt: {$ref: '#/components/schemas/Instant'}
+        answer: {type: string, minLength: 1, maxLength: 4000}

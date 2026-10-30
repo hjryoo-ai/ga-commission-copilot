@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.11)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.12)
 
 > 변경 이력
+> - v0.1.12 (2026-10-30, Phase 2): §7 읽기 API 구현 규약 — 응답 구조는 상위 계약 `portal-api.openapi.yaml` 1.2.0(`126d848`) 사본 + 덧씌우기(`asOf`·`dataStatus`·`disclaimer`·`explanation`·`/me`의 `months`), 세션 쿠키(HMAC, `SESSION_SECRET`)와 요청마다 `demo_agents` 대조, `policyKey` 비밀 `POLICY_KEY_SECRET`, ETag `W/"<streamHash>.<demoNo>"` + `Vary: Cookie`, 데모 테넌트 표시 값(상위 §5 예시값), `/me`의 `budget`·`promptVersions`는 그 기능의 Phase에서, `policy_limit_history`(설계사 열 없음)는 소유 원장 부분 질의로 범위를 건다, 소진율 문자열은 0 쪽 버림 소수 1자리, 월 합산 검증 실패는 `monthDataStatus: DRIFT`.
 > - v0.1.11 (2026-10-30, Phase 2): §4.1(a) 데모 설계사 선정 결정론 규칙과 §4.2 G3 13항목(규칙이 3명을 못 채우면 FAIL) · §5.1 추가 테이블 9개 — `demo_agents` 표(PK `stream_hash, demo_no`)·`stream_meta.line_count`(적재기 ⑤ 재검사 값 — health는 stream_meta 1행만 읽어 규약 3 예외가 없어진다) · §5.4 되돌리기는 INSERT + UPDATE 두 문장(INSERT는 활성 상태를 바꾸지 않는다) · §7 `asOf {streamHash, generatedAt, demoNo}`, 공개 `GET /api/v1/demo/agents`(화면 1 카드) · §8 화면 1 카드 3 문구 "재산정·환수 상계 있음" · §11 CI/CD에 `ci.yml`(`pnpm lint`·`pnpm -r test`·`./gradlew test`).
 > - v0.1.10 (2026-10-30, Phase 1 수용): §5.4 되돌리기 절차(`load:d1 --rollback <hash>` — 같은 해시·같은 슬롯 행을 새 rowid로 다시 넣고 같은 UPDATE 한 문장으로 전환, 재적재 없음)·§12 Phase 7 복구 수단으로 참조 · §3.3 의존 방향에 `worker`·`web`·`packages` → `gen` 금지(규약 2 예외인 엔진 대역은 gen 안에서만) · §4.1(a) 분급 커브 각주(상위 엔진 샘플 연 40/20/20/20%, 상위 A-2 "48개월" 표현과 다름)와 전개 규칙 위치 정정(`gen/world/rules/`).
 > - v0.1.9 (2026-10-30, Phase 1 항목 6): §5.4 전환 문장의 행 순서 제약 — 부분 유일 인덱스는 UPDATE가 행을 바꿀 때마다 검사되므로 전환 대상은 활성 행보다 나중에 들어간 행(rowid 큼)이어야 한다. 되돌리기는 같은 문장으로 할 수 없다(문장 전체 실패, 변경 없음).
@@ -421,6 +422,16 @@ CREATE TABLE eval_case_result (
 | `GET /api/v1/budget` | 오늘·최근 7일 공급자별 사용, 폴백 깊이 분포, 캐시 적중률 (공개) | — |
 
 공통 필드: `asOf {streamHash, generatedAt, demoNo}`(v0.1.11 — 화면 칩이 "데모 설계사 n"을 표시), `dataStatus: OK|DEGRADED`(저하 모드), `disclaimer`(고정 문구). 금액은 정수 원.
+
+**읽기 API 구현 규약(v0.1.12, Phase 2)**
+
+- **응답 구조**: 상위 계약 `contracts/api/v1/portal-api.openapi.yaml` 1.2.0(상위 커밋 `126d848` 사본, `UPSTREAM`·`CHECKSUMS` 고정)의 스키마를 그대로 쓰고, `contracts/api/v1/copilot-overlay.json`의 덧씌우기만 바꾼다 — `AsOf` → `{streamHash, generatedAt, demoNo}`, `DataStatus` → `OK|DEGRADED`, 모든 응답에 `disclaimer`(고정 문구 const), 라인 상세·한도 상세에 `explanation`(Phase 2는 `null`), `MeResponse`에 `months {from, to}`(그 설계사 월 행의 처음·마지막 — 화면 월 목록 범위). 그 밖의 필드·`additionalProperties: false`·선택 필드 생략·`policyMasked`/`policyKey`·거부 바이트(401·404·400 `application/problem+json {code, message}`)는 상위와 같다. 시험이 모든 200 응답을 이 합성 스키마로 검증한다.
+- **세션**: `POST /api/v1/demo/session`이 활성 스트림의 `demo_agents`에서 그 번호의 설계사를 찾아 HMAC-SHA256 서명 쿠키(`SESSION_SECRET` — `.dev.vars`·`wrangler secret`, `HttpOnly; Secure; SameSite=Lax; Path=/`, 7일)에 `{agentId, demoNo}`를 싣는다. 요청마다 서명과 함께 활성 스트림의 `(stream_hash, demo_no)` 행의 `agent_id`가 쿠키와 같은지 본다 — 스트림이 바뀌어 다르면 401(화면은 설계사 선택으로).
+- **`policyKey`**: HMAC-SHA256(`POLICY_KEY_SECRET`, `tenant_id` + U+001F + `policy_no`) 앞 16자 16진(상위와 같은 식, 비밀은 `SESSION_SECRET`과 따로).
+- **캐시**: 200은 `Cache-Control: private, no-cache`, `Vary: Cookie`, 약한 ETag `W/"<streamHash>.<demoNo>"` — 같은 브라우저에서 설계사를 바꿔도 다른 설계사의 304가 나가지 않게 데모 번호를 넣는다. `If-None-Match`는 소유 확인 뒤에만 비교한다.
+- **`/me`**: 프로필(`agentId`, `role: AGENT`, `agentName`, `grade`, `orgPath`, `status`)과 데모 테넌트 표시 값(`name: 데모GA`, `payoutDayRule: NEXT_MONTH_D10`, `limitWarnBp: 8000`, `limitCritBp: 9500` — 상위 §5 `tenant` 예시값, 테넌트 표가 없어 Worker 상수). `budget`·`promptVersions`는 예산(Phase 4)·설명(Phase 3)이 생길 때 넣는다.
+- **범위**: `policy_limit_history`에는 `agent_id`가 없으므로 `ScopedQuery`가 `ledger_id IN (SELECT ledger_id FROM policy_limit_<slot> WHERE tenant_id = ? AND agent_id = ?)`로 건다(문장에 두 조건이 있다 — 규약 3).
+- **파생 수**(`DerivedNumbers`, 규약 2): 월 합산 검증(라인 Σ = 월 행 gross·clawback_offset·adjustment — 다르면 그 달 `monthDataStatus: DRIFT`), `byType`(라인 유형별 합), `remaining = limit − accum`, `utilization`(누적 × 1000 ÷ 한도를 0 쪽으로 버린 소수 1자리 문자열, 한도 0이면 생략 — 99.99%를 100.0%로 올리지 않는다), 단계(상위 `LimitStage`: 잔여 ≤ 0 FULL, 정수 bp 비교 CRIT·WARN). Worker·web의 그 밖의 코드는 금액에 사칙연산을 하지 않는다(아키텍처 시험).
 
 **응답 예시 — `POST /api/v1/me/ask`**
 

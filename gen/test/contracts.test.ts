@@ -41,8 +41,10 @@ function ajv(): Ajv2020 {
 describe("상위 계약 복사본은 해시가 고정되어 있다", () => {
   const events = pinned(join(CONTRACTS, "events/CHECKSUMS.upstream"), CONTRACTS);
   const shared = pinned(join(CONTRACTS, "shared/ga-disclosure/CHECKSUMS"), join(CONTRACTS, "shared/ga-disclosure"));
+  // 조회 API 계약(설계서 v0.1.12 §7) — 바꿀 것은 api/v1/copilot-overlay.json
+  const api = pinned(join(CONTRACTS, "api/CHECKSUMS.upstream"), CONTRACTS);
 
-  it.each([...events, ...shared].map(([p, h]) => [relative(CONTRACTS, p), p, h]))("%s", (_, path, hash) => {
+  it.each([...events, ...shared, ...api].map(([p, h]) => [relative(CONTRACTS, p), p, h]))("%s", (_, path, hash) => {
     expect(sha256(path)).toBe(hash);
   });
 
