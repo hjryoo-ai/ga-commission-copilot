@@ -2,7 +2,7 @@
 // CLI(d1.ts)는 wrangler로, 시험은 node:sqlite로 같은 흐름을 돌린다(마이그레이션 0001~0003을 그대로 적용).
 import type { DemoAgent } from "../verify/g3.ts";
 import { TENANT } from "../world/rules/tables.ts";
-import { countSql, estimateWrites, insertStatements, monthInvariantSql, READ_MODEL, type Row, type Slot, slotTable, sqlValue } from "./sql.ts";
+import { countSql, estimateWrites, insertInto, insertStatements, monthInvariantSql, READ_MODEL, type Row, type Slot, slotTable, sqlValue } from "./sql.ts";
 
 /** 무료 10만 rows written/일에 "가까우면 멈춘다"의 선(설계서 §5.3, 운영자 지시 (c)). */
 export const WRITE_STOP = 80_000;
@@ -233,10 +233,69 @@ export function purgeInactive(db: D1Exec, log: Log, tenant = TENANT): { slot: Sl
     [
       ...READ_MODEL.map((t) => `DELETE FROM ${slotTable(t, slot)} WHERE tenant_id = ${sqlValue(tenant)}`),
       `DELETE FROM demo_agents WHERE stream_hash IN (SELECT stream_hash FROM stream_meta WHERE slot = '${slot}' AND active = 0)`,
+      `DELETE FROM explanation WHERE tenant_id = ${sqlValue(tenant)} AND stream_hash IN (SELECT stream_hash FROM stream_meta WHERE slot = '${slot}' AND active = 0)`,
       `DELETE FROM stream_meta WHERE slot = '${slot}' AND active = 0`,
     ],
     `purge-${slot}`,
   );
   log(`purge slot ${slot}: ${JSON.stringify(before)} → rows_written ${meta.reduce((a, x) => a + (x.rows_written ?? 0), 0)}`);
   return { slot, before, meta };
+}
+
+/** 설명 레코드(data/explain/<hash>/<kind>.jsonl 한 줄 — gen/explain/store.ts ExplanationRecord와 같은 모양). */
+export interface ExplanationInput {
+  agentId: string;
+  kind: string;
+  subjectId: string;
+  streamHash: string;
+  promptVersion: string;
+  model: string;
+  text: string;
+  citedFields: readonly string[];
+  numbersUsed: readonly string[];
+  groundingStatus: string;
+  createdAt: string;
+}
+
+export interface ExplanationLoadReport {
+  streamHash: string;
+  records: number;
+  alreadyLoaded: number;
+  inserted: number;
+  totalAfter: number;
+  meta: ExecMeta[];
+}
+
+/**
+ * 설명 적재(설계서 v0.1.14 §4.1(b) — load:d1과 같은 실행기). 그 스트림이 stream_meta에 있어야 하고(활성·비활성 무관),
+ * D1에 이미 있는 키(agent_id, kind, subject_id, prompt_version — v0.1.15 PK)는 다시 쓰지 않는다 — rows written을 새 행만큼만 쓴다.
+ */
+export function loadExplanations(db: D1Exec, hash: string, records: readonly ExplanationInput[], log: Log, tenant = TENANT): ExplanationLoadReport {
+  if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error(`hash ${hash}: 형식 아님`);
+  if (!metaRows(db).rows.some((r) => r.stream_hash === hash)) throw new Error(`stream_meta에 ${hash.slice(0, 12)} 없음 — 스트림을 먼저 적재(load:d1)`);
+  for (const r of records) if (r.streamHash !== hash) throw new Error(`다른 스트림의 설명 ${r.streamHash.slice(0, 12)}`);
+  const key = (a: string, k: string, s: string, p: string) => `${a}\u001f${k}\u001f${s}\u001f${p}`;
+  const existing = new Set(
+    db
+      .query(`SELECT agent_id, kind, subject_id, prompt_version FROM explanation WHERE tenant_id = ${sqlValue(tenant)} AND stream_hash = ${sqlValue(hash)}`)
+      .map((r) => key(String(r.agent_id), String(r.kind), String(r.subject_id), String(r.prompt_version))),
+  );
+  const fresh = records.filter((r) => !existing.has(key(r.agentId, r.kind, r.subjectId, r.promptVersion)));
+  const rows: Row[] = fresh.map((r) => ({
+    agent_id: r.agentId,
+    kind: r.kind,
+    subject_id: r.subjectId,
+    stream_hash: r.streamHash,
+    prompt_version: r.promptVersion,
+    model: r.model,
+    text: r.text,
+    cited_fields: JSON.stringify(r.citedFields),
+    numbers_used: JSON.stringify(r.numbersUsed),
+    grounding_status: r.groundingStatus,
+    created_at: r.createdAt,
+  }));
+  const meta = rows.length ? db.apply(insertInto("explanation", tenant, rows), `explain-${hash.slice(0, 12)}`) : [];
+  const total = Number(db.query(`SELECT COUNT(*) AS n FROM explanation WHERE tenant_id = ${sqlValue(tenant)} AND stream_hash = ${sqlValue(hash)}`)[0]?.n ?? 0);
+  log(`explanation ${hash.slice(0, 12)}: 레코드 ${records.length}, 이미 있음 ${records.length - fresh.length}, 새로 ${fresh.length} → D1 ${total}행`);
+  return { streamHash: hash, records: records.length, alreadyLoaded: records.length - fresh.length, inserted: fresh.length, totalAfter: total, meta };
 }

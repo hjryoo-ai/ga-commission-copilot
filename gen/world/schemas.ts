@@ -10,6 +10,8 @@ export const SCHEMA_IDS = {
   envelope: "https://ga.example/portal/contracts/events/v1/envelope.schema.json",
   plan: "https://ga.example/copilot/contracts/plan/v1/plan.schema.json",
   planLlm: "https://ga.example/copilot/contracts/plan/v1/plan-llm.schema.json",
+  explainLlm: "https://ga.example/copilot/contracts/explain/v1/explanation-llm.schema.json",
+  explanation: "https://ga.example/copilot/contracts/explain/v1/explanation.schema.json",
 } as const;
 
 function schemaFiles(dir: string): string[] {

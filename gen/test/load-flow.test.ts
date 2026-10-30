@@ -7,9 +7,9 @@ import type { DemoAgent } from "../verify/g3.ts";
 import { type D1Exec, insertPlan, loadSlot, metaRows, purgeInactive, rollback, slotCounts, type StreamInfo } from "../load/flow.ts";
 import { loadMigration, type Row } from "../load/sql.ts";
 
-// Phase 1 항목 6 흐름 시험(+ 설계서 v0.1.11 demo_agents·line_count): 마이그레이션 0001~0003을 node:sqlite에 그대로 적용하고 적재·재개·전환·되돌리기·비우기를 돌린다.
+// Phase 1 항목 6 흐름 시험(+ 설계서 v0.1.11 demo_agents·line_count): 마이그레이션 0001~0004를 node:sqlite에 그대로 적용하고 적재·재개·전환·되돌리기·비우기를 돌린다.
 // (D1과 같은 SQLite 엔진이다. 원격 wrangler 실행 자체는 증거 문서의 로그로 본다.)
-const MIGRATIONS = ["0001_init.sql", "0002_ab_slots.sql", "0003_demo_agents.sql"].map((f) => readFileSync(join(REPO_ROOT, "worker/migrations", f), "utf8"));
+const MIGRATIONS = ["0001_init.sql", "0002_ab_slots.sql", "0003_demo_agents.sql", "0004_explanation_pk.sql"].map((f) => readFileSync(join(REPO_ROOT, "worker/migrations", f), "utf8"));
 
 function sqliteExec(db: DatabaseSync): D1Exec {
   return {

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/copilot/contracts/explain/v1/explanation-llm.schema.json",
+  "title": "설명 LLM 출력 v1(설계서 §4.1(b), 부록 B.4)",
+  "description": "prompts/explain_line|explain_limit|explain_month/v1.md 구조화 출력. 공급자 strict 구조화 출력에 그대로 넘길 수 있도록 type·required·additionalProperties만 쓴다. numbersUsed는 모델의 자기 신고이고 검증기는 text에서 직접 추출한다(부록 B.2).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["text", "citedFields", "numbersUsed"],
+  "properties": {
+    "text": { "type": "string" },
+    "citedFields": { "type": "array", "items": { "type": "string" } },
+    "numbersUsed": { "type": "array", "items": { "type": "string" } }
+  }
+}

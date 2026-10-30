@@ -18,12 +18,25 @@ function utcDay(now: Date): string {
 
 /** 1회 차감. 영향 행 0이면 소진 → 오류. 반환값은 차감 뒤 사용량이 아니라 차감 성공 여부(소진 시 throw). */
 export function reserveDevCall(now = new Date()): void {
+  reserveCall("dev", devBudgetCap(), now);
+}
+
+export class BudgetExhausted extends Error {}
+
+const SCOPE = /^[a-z][a-z0-9:_-]{0,63}$/;
+
+/**
+ * scope 하루 상한 안에서 1회 차감(설계서 §6.2·v0.1.14 §4.1(b) — 'dev', 'batch:explain:groq' …). 규약 5: UPDATE … WHERE used < ? 한 문장.
+ * 영향 행 0이면 BudgetExhausted.
+ */
+export function reserveCall(scope: string, cap: number, now = new Date()): void {
+  if (!SCOPE.test(scope)) throw new Error(`scope ${scope}: 형식 아님`);
+  if (!Number.isSafeInteger(cap) || cap < 1) throw new Error(`cap ${cap}: 양의 정수 아님`);
   const day = utcDay(now);
-  const cap = devBudgetCap();
-  // 값은 코드가 만든 리터럴(날짜·정수)뿐이다 — 외부 입력 없음.
+  // 값은 코드가 만든 리터럴(검사한 scope·날짜·정수)뿐이다 — 외부 입력 없음.
   const sql =
-    `INSERT OR IGNORE INTO budget_counter (scope, day, used) VALUES ('dev', '${day}', 0); ` +
-    `UPDATE budget_counter SET used = used + 1 WHERE scope = 'dev' AND day = '${day}' AND used < ${cap};`;
+    `INSERT OR IGNORE INTO budget_counter (scope, day, used) VALUES ('${scope}', '${day}', 0); ` +
+    `UPDATE budget_counter SET used = used + 1 WHERE scope = '${scope}' AND day = '${day}' AND used < ${cap};`;
   const out = execFileSync(
     "pnpm",
     ["--dir", join(REPO_ROOT, "worker"), "exec", "wrangler", "d1", "execute", "copilot", "--remote", "--json", "--command", sql],
@@ -31,5 +44,5 @@ export function reserveDevCall(now = new Date()): void {
   );
   const results = JSON.parse(out) as { meta?: { changes?: number } }[];
   const changes = results.at(-1)?.meta?.changes;
-  if (changes !== 1) throw new Error(`dev 예산 소진(scope=dev, day=${day}, cap=${cap}) — 실호출 중단`);
+  if (changes !== 1) throw new BudgetExhausted(`예산 소진(scope=${scope}, day=${day}, cap=${cap}) — 실호출 중단`);
 }

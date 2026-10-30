@@ -99,6 +99,15 @@ describe("정규화: 비율·회차·날짜", () => {
   });
 });
 
+describe("보이지 않는 문자·전각 숫자", () => {
+  it("U+200B로 숫자를 쪼개도 하나의 토큰으로 본다", () => {
+    expect(extractTokens("8\u200B55,000원")[0]).toMatchObject({ kind: "number", value: "855000" });
+  });
+  it("전각 숫자는 반각으로", () => {
+    expect(extractTokens("８５５，０００원")[0]).toMatchObject({ kind: "number", value: "855000" });
+  });
+});
+
 describe("제외 패턴(설계서 §6.1 4)", () => {
   it("조항 번호는 토큰이 아니다", () => {
     expect(extractTokens("가상 사규 제12조에 따라")).toEqual([]);
@@ -113,6 +122,9 @@ describe("제외 패턴(설계서 §6.1 4)", () => {
   it("생성 ID·규칙 버전 ID 안의 숫자는 토큰이 아니다", () => {
     expect(extractTokens("라인 c-A1003-07-2, 원장 l-A1003-16")).toEqual([]);
     expect(extractTokens("COMM_RATE:FY_COMM/inst=null:rateId=1001,v=1")).toEqual([]);
+  });
+  it("상품 키·유형 코드 안의 숫자는 토큰이 아니다(CHILD-30Y·WHOLE-LIFE-20Y)", () => {
+    expect(extractTokens("CHILD-30Y 상품의 FY_COMM 라인, WHOLE-LIFE-20Y")).toEqual([]);
   });
   it("증권번호 뒷자리는 마스킹 값과 대조한다", () => {
     expect(missingOf("***0001 계약")).toEqual([]);

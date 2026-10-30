@@ -2,18 +2,17 @@
 //   pnpm run load:d1 -- --local|--remote [--stream <sha256>]     비활성 슬롯에 적재 → SQL 재검사 → UPDATE 한 문장으로 전환
 //   pnpm run load:d1 -- --local|--remote --rollback <sha256>      비활성 슬롯에 남은 이전 스트림으로 재적재 없이 되돌리기
 //   pnpm run load:d1 -- --local|--remote --purge-inactive         비활성 슬롯 비우기(§14.1-10: 전환 다음 날 00:00 UTC 이후)
+//   pnpm run load:d1 -- --local|--remote --explain [--stream <sha256>] [--dir <dir>]   설명 적재(v0.1.14 §4.1(b) — 기본 data/explain, 없는 키만)
 // 적재는 ① data/stream/<hash>.jsonl을 projection-java로 다시 리플레이해 뷰를 얻고 meta의 뷰 해시와 대조한 뒤 flow.loadSlot(②~⑦).
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT } from "../providers/prompt.ts";
-import type { DemoAgent } from "../verify/g3.ts";
-import { buildReplayCli, REPLAY_BIN } from "../verify/g2.ts";
-import { type D1Exec, type ExecMeta, loadSlot, purgeInactive, rollback } from "./flow.ts";
-import { loadMigration, READ_MODEL, type Row } from "./sql.ts";
+import { type D1Exec, type ExecMeta, type ExplanationInput, loadExplanations, loadSlot, purgeInactive, rollback } from "./flow.ts";
+import { loadMigration } from "./sql.ts";
+import { DATA_DIR, pickStream, readMeta, viewsOf } from "./views.ts";
 
 const OUT_DIR = join(import.meta.dirname, "../out");
-const DATA_DIR = join(REPO_ROOT, "data/stream");
 /** --command 한 번에 넘길 SQL 길이 상한. 넘으면 --file. */
 const COMMAND_MAX = 50_000;
 
@@ -55,45 +54,6 @@ export function wranglerExec(target: Target): D1Exec {
   };
 }
 
-interface StreamMeta {
-  generatedAt: string;
-  eventCount: number;
-  plan: { prompt: string };
-  replay: { viewsSha256: string };
-  demoAgents?: DemoAgent[];
-}
-
-function pickStream(arg: string | undefined): string {
-  if (arg) return arg;
-  const hashes = readdirSync(DATA_DIR).filter((f) => f.endsWith(".meta.json")).map((f) => f.slice(0, -".meta.json".length));
-  if (hashes.length !== 1) throw new Error(`data/stream에 스트림이 ${hashes.length}개 — --stream <sha256>로 고른다`);
-  return hashes[0]!;
-}
-
-/** ① projection-java로 뷰를 다시 만들고 meta의 뷰 해시와 대조. */
-function viewsOf(hash: string, meta: StreamMeta): Record<string, Row[]> {
-  const viewsDir = join(OUT_DIR, `views-${hash.slice(0, 12)}`);
-  mkdirSync(viewsDir, { recursive: true });
-  const buildError = buildReplayCli();
-  if (buildError) throw new Error(buildError);
-  const r = spawnSync(REPLAY_BIN, ["replay", join(DATA_DIR, `${hash}.jsonl`), "--views", viewsDir], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  if (r.status !== 0) throw new Error(`replay exit ${r.status}: ${r.stderr.slice(0, 1000)}`);
-  const summary = JSON.parse(r.stdout.trim().split("\n").at(-1)!) as { viewsSha256: string };
-  if (summary.viewsSha256 !== meta.replay.viewsSha256) throw new Error(`뷰 해시 ${summary.viewsSha256} ≠ meta ${meta.replay.viewsSha256}`);
-  const out: Record<string, Row[]> = {};
-  for (const t of READ_MODEL) {
-    out[t] = readFileSync(join(viewsDir, `${t}.jsonl`), "utf8")
-      .split("\n")
-      .filter((l) => l.trim() !== "")
-      .map((l) => JSON.parse(l) as Row);
-  }
-  return out;
-}
-
-function readMeta(hash: string): StreamMeta {
-  return JSON.parse(readFileSync(join(DATA_DIR, `${hash}.meta.json`), "utf8")) as StreamMeta;
-}
-
 function writeReport(target: Target, kind: string, report: unknown): void {
   writeFileSync(join(OUT_DIR, `${kind}.${target.slice(2)}.report.json`), `${JSON.stringify(report, null, 2)}\n`);
 }
@@ -110,6 +70,19 @@ function main(): void {
   const log = (l: string) => console.log(l);
   mkdirSync(OUT_DIR, { recursive: true });
 
+  if (args.includes("--explain")) {
+    const hash = pickStream(arg("--stream"));
+    const dir = join(arg("--dir") ?? join(REPO_ROOT, "data/explain"), hash);
+    if (!existsSync(dir)) throw new Error(`${dir} 없음 — pnpm run explain 먼저`);
+    const records = readdirSync(dir)
+      .filter((f) => f.endsWith(".jsonl"))
+      .sort()
+      .flatMap((f) => readFileSync(join(dir, f), "utf8").split("\n").filter((l) => l.trim() !== "").map((l) => JSON.parse(l) as ExplanationInput));
+    const report = loadExplanations(db, hash, records, log);
+    writeReport(target, "explain", report);
+    log(`   실측 rows written(wrangler): ${report.meta.reduce((a, x) => a + (x.rows_written ?? 0), 0)}`);
+    return;
+  }
   if (args.includes("--purge-inactive")) {
     writeReport(target, "purge", purgeInactive(db, log));
     return;

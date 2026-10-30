@@ -9,7 +9,9 @@
     "load:d1": "node load/d1.ts",
     "fixture:plan": "node scripts/make-plan-fixture.ts",
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "explain": "node explain/run.ts",
+    "verify:explain": "node explain/verify-explanations.ts"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

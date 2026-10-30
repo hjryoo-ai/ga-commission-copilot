@@ -42,13 +42,19 @@ export function sqlValue(v: unknown): string {
 
 /** 다중 행 INSERT 문장들(문장마다 MAX_STATEMENT_BYTES 이하). 모든 행의 열 집합이 같아야 한다. */
 export function insertStatements(table: string, slot: Slot, tenant: string, rows: readonly Row[]): string[] {
+  return insertInto(slotTable(table, slot), tenant, rows);
+}
+
+/** 슬롯 없는 표(explanation 등)에도 쓰는 다중 행 INSERT. */
+export function insertInto(target: string, tenant: string, rows: readonly Row[]): string[] {
+  const table = target;
   if (rows.length === 0) return [];
   const cols = Object.keys(rows[0]!);
   for (const r of rows) {
     const k = Object.keys(r);
     if (k.length !== cols.length || k.some((c, i) => c !== cols[i])) throw new Error(`${table}: 행마다 열이 다르다`);
   }
-  const head = `INSERT INTO ${slotTable(table, slot)} (tenant_id, ${cols.join(", ")}) VALUES\n`;
+  const head = `INSERT INTO ${target} (tenant_id, ${cols.join(", ")}) VALUES\n`;
   const out: string[] = [];
   let tuples: string[] = [];
   let bytes = Buffer.byteLength(head);

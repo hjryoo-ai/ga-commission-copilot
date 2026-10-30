@@ -2,7 +2,7 @@
 // - 금액·건수·배수·회차는 kind "number" 하나다(S도 한 집합이라 단위로 나눌 이유가 없다). 부호는 뗀다 — "72만 원 환수" ↔ -720000.
 // - "94만 5천 원"·"0.945백만"·"2천5백만" 같은 만/억 묶음은 정수로 접는다. 소수 연산은 문자열·BigInt로만 한다(double 금지, 규약 8).
 // - 비율은 "%"·"퍼센트"가 붙은 것, 날짜는 YYYY-MM-DD·YYYY년 M월 D일·YYYY년 M월·yyyyMM·M월·D일.
-// - 제외: 조항 번호(제12조), 순번(1번째·둘째), 목록 머리(1.), 식별자(calcId·ledgerId·설계사 ID·증권번호 — 설계사 ID·증권번호는 G6 몫).
+// - 제외: 조항 번호(제12조), 순번(1번째·둘째), 목록 머리(1.), 식별자(calcId·ledgerId·상품 키 같은 대문자 코드·설계사 ID·증권번호 — 설계사 ID·증권번호는 G6 몫).
 //   마스킹 증권번호 뒷자리(***0001)는 제외가 아니라 kind "policyTail"로 컨텍스트의 마스킹 값과 대조한다.
 
 export type TokenKind = "number" | "percent" | "date" | "month" | "monthOfYear" | "monthDay" | "year" | "day" | "policyTail";
@@ -96,6 +96,7 @@ const EXCLUDE: readonly RegExp[] = [
   /\bA-\d{4}\b/g, // 설계사 ID(G6)
   /\bPOL-\d{4}-\d{4,5}\b/g, // 증권번호(G6)
   /\b[A-Z][A-Z_]+:[^\s)]+/g, // 규칙 버전 ID(COMM_RATE:…)
+  /\b[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)+\b/g, // 대문자 코드(상품 키 WHOLE-LIFE-20Y·CHILD-30Y, FY_COMM) — 숫자가 아닌 식별자(§6.1 4)
 ];
 
 interface Rule {
@@ -144,8 +145,14 @@ const RULES: readonly Rule[] = [
   },
 ];
 
+/** NFKC(전각 숫자 "１２３" → "123") + 서식 문자(U+200B 같은 \p{Cf}) 제거 — 보이지 않는 문자로 숫자를 쪼개 검사를 피하지 못하게. */
+export function normalizeText(text: string): string {
+  return text.normalize("NFKC").replace(/\p{Cf}/gu, "");
+}
+
 /** 텍스트의 숫자 토큰(설계서 §6.1 2). 근사어("약", "대략")는 떼지 않는다 — 근사 표현으로 빠져나가지 못한다. */
-export function extractTokens(text: string): NumberToken[] {
+export function extractTokens(input: string): NumberToken[] {
+  const text = normalizeText(input);
   const taken = new Array<boolean>(text.length).fill(false);
   const mark = (from: number, to: number) => {
     for (let i = from; i < to; i++) taken[i] = true;

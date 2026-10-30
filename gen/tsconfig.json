@@ -16,6 +16,7 @@
   },
   "include": [
     "world",
+    "explain",
     "verify",
     "load",
     "providers",
