@@ -1,0 +1,8 @@
+1 허구설계사01 SR /HQ1/BR01/TM01 9 한도 100% 소진 후 해약·환수 계약 보유
+2 허구설계사02 SR /HQ1/BR01/TM01 15 분급제 계약 보유
+3 허구설계사03 SR /HQ1/BR01/TM01 19 재산정으로 한도 초과·환수 상계 계약 보유
+demo 1 A-1001: months 25 (202603..202806) lines 103 ledgers 5
+demo 2 A-1002: months 31 (202507..202806) lines 155 ledgers 8
+demo 3 A-1003: months 35 (202507..202806) lines 224 ledgers 8
+validated {"DemoAgentsResponse":1,"MeResponse":3,"EarningsResponse":3,"MonthResponse":91,"LinesResponse":91,"LineDetailResponse":482,"LimitsResponse":3,"LimitDetailResponse":21} drift 0 stages {"OK":19,"WARN":1,"FULL":1}
+errors 0 []

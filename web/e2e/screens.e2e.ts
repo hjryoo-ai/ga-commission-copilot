@@ -36,6 +36,7 @@ for (const n of [1, 2, 3] as const) {
     // 라인 상세
     await page.getByTestId("line-link").first().click();
     await expect(page).toHaveURL(/\/me\/earnings\/lines\//);
+    expect(page.url()).not.toMatch(/POL-\d{4}-\d{4,5}/); // 경로에 증권번호 없음(설계서 v0.1.13)
     await expect(page.getByTestId("line-detail")).toBeVisible();
     await expect(page.getByText("설명 없음")).toBeAttached();
     await expect(page.locator("body")).not.toContainText(/POL-\d{4}-\d+\s/); // 화면 본문에 증권번호 원문 없음(가린 값만)
@@ -49,6 +50,7 @@ for (const n of [1, 2, 3] as const) {
     await page.screenshot({ path: `${CAPTURES}/phase-2-demo${n}-screen3-limits.png`, fullPage: true });
     await ledgers.first().click();
     await expect(page).toHaveURL(/\/me\/limits\/.+/);
+    expect(page.url()).not.toMatch(/POL-\d{4}-\d{4,5}/);
     await expect(page.getByTestId("limit-detail")).toContainText("배 → 한도");
     await expect(page.getByTestId("limit-history").locator("li").first()).toBeVisible();
   });

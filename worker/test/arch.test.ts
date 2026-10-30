@@ -5,6 +5,7 @@ import {
   importSpecifiers,
   moneyArithmetic,
   pointsIntoGen,
+  stripCommentsAndStrings,
   slotLiterals,
   sqlWithoutTenant,
   tenantTableSqlWithoutTenant,
@@ -91,7 +92,24 @@ describe("아키텍처: 금액 사칙연산은 DerivedNumbers.ts에만(CLAUDE.md
   });
 });
 
+describe("아키텍처: 응답에 증권번호를 싣지 않는다(상위 §7, 설계서 v0.1.13)", () => {
+  // 응답 객체 키로 policyNo·policy_no를 만들지 않는다 — 증권번호는 policyMasked()·policyKeys()와 조회 조건으로만 쓴다
+  it.each(files.filter((f) => f.path.startsWith("src/api/")))("$path", ({ text }) => {
+    // 객체 리터럴 키(값이 타입 string이 아닌 것)만 센다 — 행 타입 선언·매개변수 타입은 응답이 아니다
+    expect(stripCommentsAndStrings(text).match(/[{,]\s*policy_?[nN]o\s*:(?!\s*string\b)/g)?.map(() => "policy_no:") ?? []).toEqual(
+      // 조회 조건(where: { policy_no: … })만 허용
+      [...stripCommentsAndStrings(text).matchAll(/where:\s*\{[^}]*\bpolicy_no\s*:/g)].map(() => "policy_no:"),
+    );
+  });
+});
+
 describe("스캐너 자체 검사", () => {
+  it("응답 키 검사: 객체 리터럴의 policyNo 값은 잡고, 타입 선언·조회 조건은 통과", () => {
+    const keys = (t: string) => stripCommentsAndStrings(t).match(/[{,]\s*policy_?[nN]o\s*:(?!\s*string\b)/g) ?? [];
+    expect(keys("return { calcId: r.calc_id, policyNo: r.policy_no };")).toHaveLength(1);
+    expect(keys("interface R { policy_no: string; }\nq.all<{ policy_no: string }>(t, {});\nfunction f(policyNo: string) {}")).toEqual([]);
+  });
+
   it("금액 필드의 사칙연산·복합 대입·단항 부호를 잡고, 쪽수·달 순번·비교·문자열·주석은 통과시킨다", () => {
     expect(moneyArithmetic("const t = a.amount + b.amount;")).toHaveLength(2);
     expect(moneyArithmetic("sum += line.amount;")).toEqual(["+= line.amount"]);

@@ -1,0 +1,113 @@
+$ wrangler d1 info copilot  (2026-10-30T12:06:45Z)
+├───────────────────────┼──────────────────────────────────────┤
+│ jurisdiction          │ null                                 │
+├───────────────────────┼──────────────────────────────────────┤
+│ database_size         │ 3.01 MB                              │
+├───────────────────────┼──────────────────────────────────────┤
+│ read_queries_24h      │ 0                                    │
+├───────────────────────┼──────────────────────────────────────┤
+│ write_queries_24h     │ 0                                    │
+├───────────────────────┼──────────────────────────────────────┤
+│ rows_read_24h         │ 0                                    │
+├───────────────────────┼──────────────────────────────────────┤
+│ rows_written_24h      │ 0                                    │
+├───────────────────────┼──────────────────────────────────────┤
+│ read_replication.mode │ disabled                             │
+└───────────────────────┴──────────────────────────────────────┘
+
+$ wrangler d1 migrations list copilot --remote
+Resource location: remote 
+
+Migrations to be applied:
+┌──────────────────────┐
+│ Name                 │
+├──────────────────────┤
+│ 0003_demo_agents.sql │
+└──────────────────────┘
+
+$ wrangler d1 migrations apply copilot --remote
+Your database may not be available to serve requests during the migration, continue?
+🤖 Using fallback value in non-interactive context: yes
+🌀 Executing on remote database copilot (f97c77d4-3afc-4ec3-ae17-d91bee6015dc):
+🌀 To execute on your local development database, remove the --remote flag from your wrangler command.
+🚣 Executed 4 commands in 8.26ms
+┌──────────────────────┬────────┐
+│ name                 │ status │
+├──────────────────────┼────────┤
+│ 0003_demo_agents.sql │ ✅     │
+└──────────────────────┴────────┘
+
+$ SELECT stream_hash, slot, active, line_count FROM stream_meta
+    "results": [
+      {
+        "stream_hash": "e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f",
+        "slot": "a",
+        "active": 1,
+        "line_count": 5200
+      }
+    ],
+    "success": true,
+
+$ pnpm run load:d1 -- --remote
+  policy_flag               181행 × (1 + 1) =    362
+  stream_meta                 1행 × (1 + 3) =      5
+  demo_agents                 3행 × (1 + 2) =      9
+  합계 7014행 → rows written 약 24826 (무료 100,000/일의 25%)
+이미 활성: e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f (slot a) — 슬롯 표는 그대로, demo_agents만 확인
+demo_agents e2e435e7bd59… 3행 넣음: 1=A-1001 2=A-1002 3=A-1003
+
+$ SELECT demo_no, agent_id, card_label, contract_count FROM demo_agents
+{"stream_hash":"e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f","demo_no":1,"agent_id":"A-1001","card_label":"한도 100% 소진 후 해약·환수 계약 보유","contract_count":9}
+{"stream_hash":"e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f","demo_no":2,"agent_id":"A-1002","card_label":"분급제 계약 보유","contract_count":15}
+{"stream_hash":"e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f","demo_no":3,"agent_id":"A-1003","card_label":"재산정으로 한도 초과·환수 상계 계약 보유","contract_count":19}
+
+$ openssl rand -hex 32 | wrangler secret put SESSION_SECRET   (값은 출력·기록하지 않음)
+───────────────────────────────────────────────
+🌀 Creating the secret for the Worker "ga-commission-copilot"
+✨ Success! Uploaded secret SESSION_SECRET
+
+$ openssl rand -hex 32 | wrangler secret put POLICY_KEY_SECRET   (값은 출력·기록하지 않음)
+───────────────────────────────────────────────
+🌀 Creating the secret for the Worker "ga-commission-copilot"
+✨ Success! Uploaded secret POLICY_KEY_SECRET
+
+$ wrangler secret list
+"name": "POLICY_KEY_SECRET"
+"name": "SESSION_SECRET"
+
+$ pnpm --filter @copilot/web build && wrangler deploy   (HEAD b785873)
+dist/index.html                   0.42 kB │ gzip:  0.32 kB
+dist/assets/index-DkIuHzja.css    4.11 kB │ gzip:  1.44 kB
+dist/assets/index-CrCSnZNU.js   241.80 kB │ gzip: 75.34 kB
+✓ built in 52ms
+🌀 Building list of assets...
+✨ Read 4 files from the assets directory /Users/hjr/Documents/workspace/ai/ga-commision-copilot/web/dist
+🌀 Found 3 new or modified static assets to upload. Proceeding with upload...
++ /assets/index-DkIuHzja.css
++ /assets/index-CrCSnZNU.js
+Uploaded 1 of 3 assets
+Uploaded 2 of 3 assets
+Uploaded 3 of 3 assets
+✨ Success! Uploaded 3 files (1.27 sec)
+Total Upload: 94.44 KiB / gzip: 25.20 KiB
+Uploaded ga-commission-copilot (5.74 sec)
+Deployed ga-commission-copilot triggers (0.98 sec)
+  https://ga-commission-copilot.ga-copilot-demo.workers.dev
+Current Version ID: f87c551c-8007-40ea-917b-5e97371d9d17
+
+$ 외부 확인 https://ga-commission-copilot.ga-copilot-demo.workers.dev (2026-10-30T12:07:58Z)
+GET /api/v1/health → {"ok":true,"d1":1,"streamHash":"e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f","earningsLines":5200}
+GET /api/v1/me (쿠키 없음) → 401 {"code":"UNAUTHENTICATED","message":"데모 설계사를 먼저 선택하세요"}
+POST /api/v1/demo/session {demoAgent:1} → {"asOf":{"streamHash":"e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f","generatedAt":"2026-10-30T10:59:50.264Z","demoNo":1},"agentId":"A-1001","agentName":"허구설계사01","disclaimer":"가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"}
+Set-Cookie 속성: set-cookie: copilot_session=<서명값 생략>; Max-Age=604800; Path=/; HttpOnly; Secure; SameSite=Lax
+GET /api/v1/me → {"asOf":{"streamHash":"e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f","generatedAt":"2026-10-30T10:59:50.264Z","demoNo":1},"dataStatus":"OK","agentId":"A-1001","role":"AGENT","agentName":"허구설계사01","grade":"SR","orgPath":"/HQ1/BR01/TM01","status":"ACTIVE","tenant":{"name":"데모GA","payoutDayRule":"NEXT_MONTH_D10","limitWarnBp":8000,"limitCritBp":9500},"months":{"from":"202603","to":"202806"},"disclaimer":"가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"}
+GET /api/v1/me 헤더: cache-control: private, no-cache etag: W/"e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f.1" vary: Cookie 
+GET / → 200 text/html · GET /me/limits(SPA) → 200 text/html
+
+$ node worker/scripts/smoke-contract.mjs https://ga-commission-copilot.ga-copilot-demo.workers.dev
+3 허구설계사03 SR /HQ1/BR01/TM01 19 재산정으로 한도 초과·환수 상계 계약 보유
+demo 1 A-1001: months 25 (202603..202806) lines 103 ledgers 5
+demo 2 A-1002: months 31 (202507..202806) lines 155 ledgers 8
+demo 3 A-1003: months 35 (202507..202806) lines 224 ledgers 8
+validated {"DemoAgentsResponse":1,"MeResponse":3,"EarningsResponse":3,"MonthResponse":91,"LinesResponse":91,"LineDetailResponse":482,"LimitsResponse":3,"LimitDetailResponse":21} drift 0 stages {"OK":19,"FULL":1,"WARN":1}
+errors 0 []

@@ -11,7 +11,8 @@ const add = (n, e) => { S[n].properties = { ...S[n].properties, ...e.properties 
 for (const n of ov.responses) add(n, ov.addToEveryResponse);
 for (const [n, e] of Object.entries(ov.addTo)) add(n, e);
 const vals = {};
-const check = (name, body, where) => { vals[name] ??= new Validator({ $ref: `#/components/schemas/${name}`, components: { schemas: S } }, "2020-12", false); const r = vals[name].validate(body); if (!r.valid) { errors.push([where, r.errors.slice(-2).map((e) => `${e.instanceLocation} ${e.error}`)]); } count[name] = (count[name] ?? 0) + 1; };
+const POL = /POL-\d{4}-\d{4,5}/;
+const check = (name, body, where) => { if (POL.test(JSON.stringify(body))) errors.push([where, "증권번호 패턴(설계서 v0.1.13)"]); vals[name] ??= new Validator({ $ref: `#/components/schemas/${name}`, components: { schemas: S } }, "2020-12", false); const r = vals[name].validate(body); if (!r.valid) { errors.push([where, r.errors.slice(-2).map((e) => `${e.instanceLocation} ${e.error}`)]); } count[name] = (count[name] ?? 0) + 1; };
 const errors = []; const count = {}; const B = process.argv[2] ?? "http://localhost:8787";
 let drift = 0; const stages = {};
 const cards = await (await fetch(`${B}/api/v1/demo/agents`)).json(); check("DemoAgentsResponse", cards, "agents");

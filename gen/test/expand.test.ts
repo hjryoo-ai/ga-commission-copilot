@@ -25,6 +25,37 @@ describe("결정론", () => {
   });
 });
 
+describe("생성 ID에 증권번호가 없다(설계서 v0.1.13 §4.1(a))", () => {
+  // payload의 *Id 필드(원장·라인·스케줄·조정·채권과 그 참조) — policyNo 필드 자체는 엔진 이벤트 사실이라 제외
+  const ids = events.flatMap((e) => Object.entries(p(e)).filter(([k, v]) => /Id$/.test(k) && typeof v === "string").map(([k, v]) => [k, v as string] as const));
+  const RESERVED = new Set(["1", "2", "6"]);
+
+  it("어떤 ID 값에도 POL-\\d{4}-\\d{4,5} 패턴이 없다", () => {
+    expect(ids.length).toBeGreaterThan(1000);
+    expect(ids.filter(([, v]) => /POL-\d{4}-\d{4,5}/.test(v))).toEqual([]);
+  });
+
+  it("ID 모양: 예약 ID(A-1) 아니면 <종류>-<설계사 키>[-<계약 순번>]-<일련> 또는 l-<계약 키>", () => {
+    const shape: Record<string, RegExp> = {
+      calcId: /^c-A\d{4}-\d{2,}-\d+$/,
+      sourceCalcId: /^c-A\d{4}-\d{2,}-\d+$/,
+      targetCalcId: /^c-A\d{4}-\d{2,}-\d+$/,
+      originCalcId: /^c-A\d{4}-\d{2,}-\d+$/,
+      reversalOfCalcId: /^c-A\d{4}-\d{2,}-\d+$/,
+      ledgerId: /^l-A\d{4}-\d{2,}$/,
+      scheduleId: /^s-A\d{4}-\d{2,}-\d+$/,
+      adjId: /^a-A\d{4}-\d{2,}-\d+$/,
+      receivableId: /^r-A\d{4}-\d+$/,
+    };
+    const bad = ids.filter(([k, v]) => !RESERVED.has(v) && shape[k] && !shape[k]!.test(v));
+    expect(bad.slice(0, 5)).toEqual([]);
+    // 같은 계약의 원장·라인은 같은 계약 키
+    const a3 = of("LimitLedgerOpened").find((e) => p(e).policyNo === "POL-2026-0004")!;
+    expect(p(a3).ledgerId).toBe("l-A1003-16");
+    expect(of("CommissionCalculated").filter((e) => p(e).policyNo === "POL-2026-0004").every((e) => String(p(e).calcId).startsWith("c-A1003-16-"))).toBe(true);
+  });
+});
+
 describe("G1: 모든 이벤트가 상위 봉투 스키마를 통과", () => {
   it(`${events.length}건`, () => {
     const v = validator(SCHEMA_IDS.envelope);
@@ -77,9 +108,9 @@ describe("필수 케이스가 스트림에 있다(상위 부록 B)", () => {
 
   it("재산정(newLimit < 누적) 1건 이상", () => {
     // A-3: 누적 1,260,000(FY) > 새 한도 1,200,000
-    const a3 = of("LimitLedgerRebased").filter((e) => p(e).ledgerId === "l-POL-2026-0004");
+    const a3 = of("LimitLedgerRebased").filter((e) => p(e).ledgerId === "l-A1003-16");
     expect(a3.map((e) => [p(e).oldLimit, p(e).newLimit])).toEqual([[2_400_000, 1_200_000]]);
-    expect(ledgers.get("l-POL-2026-0004")!.accum).toBe(1_260_000);
+    expect(ledgers.get("l-A1003-16")!.accum).toBe(1_260_000);
   });
 
   it("HELD 분급·RELEASED 분급 각 1건 이상", () => {

@@ -105,7 +105,7 @@ describe("인가 매트릭스(PHASES Phase 2 항목 6)", () => {
   it("타인 calcId·ledgerId·월은 404(없는 자원과 같은 바이트)", async () => {
     await rejected(await get("/api/v1/me/earnings/lines/z1", one), 404);
     await rejected(await get("/api/v1/me/earnings/lines/없는키", one), 404);
-    await rejected(await get("/api/v1/me/limits/l-POL-2026-9999", one), 404);
+    await rejected(await get("/api/v1/me/limits/l-A1009-01", one), 404);
     const two = await login(app, 2);
     await rejected(await get("/api/v1/me/earnings/lines/1", two), 404);
     await rejected(await get("/api/v1/me/limits/1", two), 404);
@@ -123,7 +123,7 @@ describe("인가 매트릭스(PHASES Phase 2 항목 6)", () => {
     const lines = await ok("/api/v1/me/earnings/202608/lines", one);
     expect(lines.items.map((l: any) => l.calcId)).toEqual(["1", "c2", "c3", "c3r"]);
     const limits = await ok("/api/v1/me/limits", one);
-    expect(limits.items.map((l: any) => l.ledgerId)).toEqual(["1", "l-POL-2026-0002"]);
+    expect(limits.items.map((l: any) => l.ledgerId)).toEqual(["1", "l-A1001-02"]);
   });
 });
 
@@ -187,14 +187,15 @@ describe("응답(상위 §7 구조 + 덧씌우기)", () => {
   });
 
   it("증권번호 원문은 어느 응답에도 없다(policyMasked·policyKey만)", async () => {
-    // 값이 증권번호 그대로인 필드·policyNo 키가 없다. (데모 세계의 원장·라인 ID는 gen이 증권번호를 넣어 만든다 — ID 값 안의 부분 문자열은 따로 본다)
-    const policies = new Set(["POL-2026-0001", "POL-2026-0002"]);
+    // 설계서 v0.1.13: 응답 어떤 필드 값에도 POL-\d{4}-\d{4,5}가 없다(ID 포함), policyNo 키도 없다
     const values = (x: unknown): unknown[] => (x && typeof x === "object" ? Object.values(x).flatMap(values) : [x]);
-    for (const p of ME_PATHS) {
+    const responses = [...ME_PATHS, "/api/v1/me/earnings/202609", "/api/v1/me/earnings/202609/lines", "/api/v1/me/earnings/lines/c7", "/api/v1/me/limits/l-A1001-02"];
+    for (const p of responses) {
       const body = await ok(p, one);
-      expect(values(body).filter((v) => typeof v === "string" && policies.has(v)), p).toEqual([]);
+      expect(values(body).filter((v) => typeof v === "string" && /POL-\d{4}-\d{4,5}/.test(v)), p).toEqual([]);
       expect(JSON.stringify(body), p).not.toMatch(/"policy_?[nN]o"/);
     }
+    for (const body of [await (await get("/api/v1/demo/agents")).json()]) expect(JSON.stringify(body)).not.toMatch(/POL-\d{4}-\d{4,5}/);
     const line = (await ok("/api/v1/me/earnings/lines/1", one)).line;
     expect(line.policyMasked).toBe("*********0001");
     expect(line.policyKey).toMatch(/^[0-9a-f]{16}$/);
@@ -273,7 +274,7 @@ describe("응답(상위 §7 구조 + 덧씌우기)", () => {
     const l = await ok("/api/v1/me/limits", one);
     expect(l.items[0]).toMatchObject({ ledgerId: "1", remaining: 0, utilization: "100.0%", stage: "FULL", flags: [], productKey: "WHOLE-LIFE-20Y" });
     expect(l.items[1]).toMatchObject({ remaining: 150_000, utilization: "85.0%", stage: "WARN", flags: ["OVERDUE"] });
-    expect((await ok("/api/v1/me/limits?status=WARN", one)).items.map((x: any) => x.ledgerId)).toEqual(["l-POL-2026-0002"]);
+    expect((await ok("/api/v1/me/limits?status=WARN", one)).items.map((x: any) => x.ledgerId)).toEqual(["l-A1001-02"]);
     expect((await ok("/api/v1/me/limits?status=CRIT", one)).items).toEqual([]);
   });
 

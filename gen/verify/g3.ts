@@ -201,7 +201,7 @@ export function selectDemoAgents(events: readonly Envelope[]): DemoAgent[] {
 
   const a1 = ledgerAgent.get(A1_RESERVED.ledgerId);
   const full = a1 ? [...usage.entries()].find(([id, u]) => u >= 100 && ledgerAgent.get(id) === a1) : undefined;
-  if (a1 && full) pick(1, a1, { a1PolicyNo: A1_RESERVED.policyNo, fullLedgerId: full[0], usagePct: full[1] });
+  if (a1 && full) pick(1, a1, { fullLedgerId: full[0], usagePct: full[1] });
 
   for (const e of events) {
     if (e.type !== "DeferralStatusChanged" || p(e).to !== "HELD") continue;

@@ -70,6 +70,8 @@ interface Ledger {
 
 interface Policy {
   c: PlanContract;
+  /** 계약 키(설계서 v0.1.13 §4.1(a)): 설계사 키 + 설계사 내 계약 순번 — 생성 ID에 증권번호를 넣지 않는다. */
+  key: string;
   prod: Product;
   grade: string;
   premium: number;
@@ -127,6 +129,9 @@ export function worldEndDate(): string {
   return dateIn(addMonths(HORIZON_YM, 1), CLOCK.payoutDay);
 }
 
+/** 설계사 키: ID의 하이픈을 뺀 값(A-1003 → A1003). */
+const agentKey = (agentId: string) => agentId.replace(/-/g, "");
+
 export function expand(plan: Plan): Envelope[] {
   const events: Envelope[] = [];
   const agents = new Map<string, AgentState>(AGENTS.map((a) => [a.agentId, { lastSeq: 0, months: new Map(), receivables: [], receivableSeq: 0, pendingEstimates: new Set() }]));
@@ -134,6 +139,7 @@ export function expand(plan: Plan): Envelope[] {
     .sort((x, y) => x.agentId.localeCompare(y.agentId) || x.policyNo.localeCompare(y.policyNo))
     .map((c) => ({
       c,
+      key: "",
       prod: product(c.productKey),
       grade: agentOf(c.agentId).grade,
       premium: c.monthlyPremium,
@@ -145,6 +151,15 @@ export function expand(plan: Plan): Envelope[] {
       hasIncentive: false,
       adjusted: false,
     }));
+  // 설계사 내 계약 순번: 체결일·증권번호 순, 2자리 이상(예 A1003-07)
+  const byAgent = new Map<string, Policy[]>();
+  for (const p of policies) byAgent.set(p.c.agentId, [...(byAgent.get(p.c.agentId) ?? []), p]);
+  for (const list of byAgent.values()) {
+    const width = Math.max(2, String(list.length).length);
+    [...list]
+      .sort((x, y) => x.c.contractDate.localeCompare(y.c.contractDate) || x.c.policyNo.localeCompare(y.c.policyNo))
+      .forEach((p, i) => (p.key = `${agentKey(p.c.agentId)}-${String(i + 1).padStart(width, "0")}`));
+  }
   const byContractDate = new Map<string, Policy[]>();
   const byEventDate = new Map<string, { p: Policy; event: LifecycleEventType }[]>();
   for (const p of policies) {
@@ -179,7 +194,7 @@ export function expand(plan: Plan): Envelope[] {
       if (!id) throw new Error("A-1 계약의 예약 calcId 3개를 넘었다");
       return id;
     }
-    return `c-${p.c.policyNo}-${p.calcSeq}`;
+    return `c-${p.key}-${p.calcSeq}`;
   };
   const policySummary = (p: Policy) => ({ contractDate: p.c.contractDate, monthlyPremium: p.premium });
 
@@ -309,7 +324,7 @@ export function expand(plan: Plan): Envelope[] {
       const payout = PAYOUT_RATE[p.grade]!;
       const from = ruleFrom(today);
       if (c.contractDate >= LIMIT_FROM) {
-        const ledgerId = c.forcedCase === "A1" ? A1_RESERVED.ledgerId : `l-${c.policyNo}`;
+        const ledgerId = c.forcedCase === "A1" ? A1_RESERVED.ledgerId : `l-${p.key}`;
         p.ledger = { ledgerId, limit: mulFloor(p.premium, LIMIT_MULTIPLE), accum: 0, postingSeq: 0, fyEnd: fyEndOf(c.contractDate) };
         emit(CLOCK.contract, "LimitLedgerOpened", "LIMIT_LEDGER", ledgerId, c.agentId, {
           ledgerId,
@@ -364,7 +379,7 @@ export function expand(plan: Plan): Envelope[] {
         const share = mulFloor(fyAfter, CURVE.installmentShare);
         CURVE.installments.forEach((months, i) => {
           const amount = i < CURVE.installments.length - 1 ? share : fyAfter - fyPaidNow - share * (CURVE.installments.length - 1);
-          const s: Schedule = { scheduleId: `s-${c.policyNo}-${i + 1}`, sourceCalcId: fyLine.calcId, dueYm: addMonths(ymOf(c.contractDate), months), amount, status: "SCHEDULED" };
+          const s: Schedule = { scheduleId: `s-${p.key}-${i + 1}`, sourceCalcId: fyLine.calcId, dueYm: addMonths(ymOf(c.contractDate), months), amount, status: "SCHEDULED" };
           p.schedules.push(s);
           emit(CLOCK.contract, "DeferralScheduled", "DEFERRAL_SCHEDULE", s.scheduleId, c.agentId, {
             scheduleId: s.scheduleId,
@@ -473,7 +488,7 @@ export function expand(plan: Plan): Envelope[] {
         if (!target || !month(p.c.agentId, target.closeYm).closed) continue;
         const m = month(p.c.agentId, ym);
         if (m.closed) throw new Error(`마감월 ${ym}에 정정`);
-        const adjId = `a-${p.c.policyNo}-1`;
+        const adjId = `a-${p.key}-1`;
         const amount = -mulFloor(target.amount, ADJUSTMENT_RATE);
         emit(CLOCK.adjustment, "AdjustmentPosted", "ADJUSTMENT", adjId, p.c.agentId, {
           adjId,
@@ -526,7 +541,7 @@ export function expand(plan: Plan): Envelope[] {
         if (n.carriedReceivable > 0) {
           st.receivableSeq++;
           const r: Receivable = {
-            receivableId: `r-${a.agentId}-${st.receivableSeq}`,
+            receivableId: `r-${agentKey(a.agentId)}-${st.receivableSeq}`,
             originCalcId: m.clawbackCalcIds[0] ?? m.negativeCalcIds[0]!,
             amount: n.carriedReceivable,
             remaining: n.carriedReceivable,

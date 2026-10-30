@@ -1,6 +1,6 @@
 {
-  "streamSha256": "e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f",
-  "generatedAt": "2026-10-30T10:59:50.264Z",
+  "streamSha256": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+  "generatedAt": "2026-10-30T12:19:15.426Z",
   "eventCount": 9439,
   "plan": {
     "prompt": "plan/v1",
@@ -12,7 +12,7 @@
   },
   "replay": {
     "projection": "ga-agent-portal@126d848",
-    "viewsSha256": "afb2bb9271e698943193c8ca38098aed1baf5bacd68daee322c1f92d9e3b1b1e",
+    "viewsSha256": "ceec32200794bd1718c34feba923e65ec688daf9bd159b39075b13cc94d7f2f1",
     "tables": {
       "agent_profile": 30,
       "earnings_line": 5200,
@@ -34,7 +34,7 @@
     {
       "id": "LIMIT_80_95_100",
       "status": "PASS",
-      "detail": "80%대 2(l-POL-2026-10009) · 95%대 1(l-POL-2026-0006) · 100% 2(1)"
+      "detail": "80%대 2(l-A1010-10) · 95%대 1(l-A1005-09) · 100% 2(1)"
     },
     {
       "id": "CUT_AND_DEFER",
@@ -44,12 +44,12 @@
     {
       "id": "REBASE",
       "status": "PASS",
-      "detail": "LimitLedgerRebased 13(첫 seq 3041 l-POL-2026-03013)"
+      "detail": "LimitLedgerRebased 13(첫 seq 3041 l-A1003-13)"
     },
     {
       "id": "DEFERRAL_HELD",
       "status": "PASS",
-      "detail": "HELD 5(첫 seq 6734 s-POL-2027-0003-1)"
+      "detail": "HELD 5(첫 seq 6734 s-A1002-12-1)"
     },
     {
       "id": "RECEIVABLE_CARRIED",
@@ -59,12 +59,12 @@
     {
       "id": "REVERSAL_PAIR",
       "status": "PASS",
-      "detail": "짝 1(첫 seq 1922 c-POL-2026-0010-2→c-POL-2026-0010-1)"
+      "detail": "짝 1(첫 seq 1922 c-A1008-13-2→c-A1008-13-1)"
     },
     {
       "id": "ADJUSTMENT_AFTER_CLOSE",
       "status": "PASS",
-      "detail": "1(첫 seq 2766 a-POL-2026-0011-1 → c-POL-2026-0011-1)"
+      "detail": "1(첫 seq 2766 a-A1009-08-1 → c-A1009-08-1)"
     },
     {
       "id": "BOUNDARY_LIMIT_BEFORE",
@@ -94,7 +94,7 @@
     {
       "id": "DEMO_AGENTS",
       "status": "PASS",
-      "detail": "1 A-1001(POL-2026-0001 1 100) · 2 A-1002(6734 s-POL-2027-0003-1 15 4) · 3 A-1003(3041 l-POL-2026-03013 r-A-1003-1 1341 1561)"
+      "detail": "1 A-1001(1 100) · 2 A-1002(6734 s-A1002-12-1 15 4) · 3 A-1003(3041 l-A1003-13 r-A1003-1 1341 1561)"
     }
   ],
   "demoAgents": [
@@ -105,7 +105,6 @@
       "cardLabel": "한도 100% 소진 후 해약·환수 계약 보유",
       "contractCount": 9,
       "basis": {
-        "a1PolicyNo": "POL-2026-0001",
         "fullLedgerId": "1",
         "usagePct": 100
       }
@@ -118,7 +117,7 @@
       "contractCount": 15,
       "basis": {
         "heldSeq": 6734,
-        "scheduleId": "s-POL-2027-0003-1",
+        "scheduleId": "s-A1002-12-1",
         "curveSchedules": 15,
         "released": 4
       }
@@ -131,8 +130,8 @@
       "contractCount": 19,
       "basis": {
         "rebaseSeq": 3041,
-        "ledgerId": "l-POL-2026-03013",
-        "receivableId": "r-A-1003-1",
+        "ledgerId": "l-A1003-13",
+        "receivableId": "r-A1003-1",
         "openSeq": 1341,
         "offsetSeq": 1561
       }

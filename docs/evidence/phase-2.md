@@ -3,7 +3,7 @@
 - 수행일: 2026-10-30
 - 기준 문서: 설계서 v0.1.12 §4.1(a)·§5.1·§5.4·§7·§8, PHASES.md Phase 2, 상위 설계서 v1.9(`126d848`) §6.2·§6.3·§7·§8, 상위 계약 `portal-api.openapi.yaml` 1.2.0
 - 도구 버전: node 25.5.0(CI 24), pnpm 10.28.2, wrangler 4.153.0, Hono 4.13.14, vitest 4.1.12, @playwright/test 1.64.1(Chromium), @cfworker/json-schema 4.1.1, yaml 2.9.1, JDK 25.0.5
-- 상태: **완료 기준 셋 모두 로컬에서 통과. 원격 반영(마이그레이션 0003·demo_agents 적재·시크릿 2개)은 운영자 확인 대기** — 아래 "사람 작업"
+- 상태: **수용(2026-10-30)**. 수용 후속(v0.1.13 — 카드 문구·생성 ID·원격 반영)은 아래 "수용 후속". 새 스트림의 원격 적재는 2026-10-31 00:00 UTC 이후
 
 ## 완료 기준 대조
 
@@ -100,16 +100,31 @@ $ cd web && pnpm run e2e        # vite build → wrangler dev :8788(로컬 D1) �
 - Playwright는 CI에 넣지 않았다 — 로컬 D1에 적재된 스트림이 필요하다(CI는 `pnpm -r test`의 API 시험이 같은 경로를 시험 세계로 본다).
 - `worker/.dev.vars`에 `SESSION_SECRET`·`POLICY_KEY_SECRET` 로컬 값을 무작위로 추가했다(커밋 안 함). `worker/.dev.vars.example`을 새로 커밋(키 이름만 — 지금까지 저장소에 없었다).
 
-## 사람 작업
+## 수용 후속(설계서 v0.1.13, 2026-10-30)
 
-- [ ] **원격 반영(푸시 전에)** — `deploy.yml`은 마이그레이션을 돌리지 않으므로, 새 Worker가 배포되기 전에 아래가 먼저 있어야 한다(없으면 `/health`·`/demo/*`·`/me/*`가 실패): — 담당: 운영자(확인 후 실행 지시 또는 직접)
-  1. `cd worker && pnpm wrangler d1 migrations apply copilot --remote` (0003: 열·표 추가 + line_count 백필, 추가만)
-  2. `cd gen && pnpm run load:d1 -- --remote` (이미 활성 경로 — demo_agents 3행만, 약 9 rows written)
-  3. `cd worker && pnpm wrangler secret put SESSION_SECRET` · `pnpm wrangler secret put POLICY_KEY_SECRET` (서로 다른 무작위 값)
-- [ ] 원격 D1 rows_written 실측(Phase 1에서 이월).
+| 항목 | 결과 | 증거 |
+|---|---|---|
+| 편차 5건 수용 · Playwright CI는 Phase 8 | 설계서 §12 Phase 8에 계획(migrations --local → load:d1 --local → 시험 시크릿 → e2e job) | `416b956` |
+| 카드 문구 1·3 | "한도 100% 소진 후 해약·환수 계약 보유", "재산정으로 한도 초과·환수 상계 계약 보유"(규칙은 이력상 누적 = 한도 도달 그대로). 설계서 §8·§4.1(a), G3 라벨, 원격 demo_agents 적재값 | `416b956`, `b785873`, `logs/phase-2-remote.log` |
+| 원격: 0003 → demo_agents → 시크릿 2개 → deploy → 외부 확인 | 전부 완료. 0003 적용(line_count 백필 5200), demo_agents 3행(새 문구), `SESSION_SECRET`·`POLICY_KEY_SECRET`(`openssl rand -hex 32 \| wrangler secret put` — 값 미출력·미기록), 배포 버전 `f87c551c-8007-40ea-917b-5e97371d9d17`(HEAD `b785873`), 외부: `/health` 5200, 쿠키 없음 401, `/demo/session` 쿠키(HttpOnly·Secure·SameSite=Lax), `/me` ETag `W/"e2e435e7….1"`·`private, no-cache`·`Vary: Cookie`, 원격 smoke 698응답 계약 오류 0 | `logs/phase-2-remote.log` |
+| 생성 ID에서 증권번호 제거 | `l-A1003-16`·`c-A1003-16-n`·`s-A1002-12-1`·`a-A1009-08-1`·`r-A1003-1`, A-1 예약 ID(`1`·`2`·`6`, ledger `1`) 그대로. 새 스트림 `fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c`(9,439건, 뷰 `ceec3220…`) — G1·G2·G3 13항목 PASS(A-1 동등 포함), 구 스트림 `e2e435e7…` 파일 삭제 | `logs/phase-2-verify-v0113.log` |
+| 시험 | gen: 스트림 모든 `*Id`에 `POL-\d{4}-\d{4,5}` 없음 + ID 모양. worker API: 응답 모든 필드 값에 패턴 없음·policyNo 키 없음. 아키텍처: `src/api/**`가 응답 객체에 policyNo 키를 만들지 않음. Playwright: 화면 경로에 패턴 없음. smoke 스크립트도 검사. web 30 · gen 131 · worker 174 · Playwright 5 | `logs/phase-2-pnpm-r-test-v0113.log`, `logs/phase-2-playwright-v0113.log`, `logs/phase-2-smoke-contract-v0113.log` |
+| 로컬 D1 | 새 스트림을 슬롯 b에 적재·재검사(월 합산 불일치 0)·전환. 슬롯 a(구 스트림)는 남아 있다 | `logs/phase-2-load-local-v0113.log` |
+
+### 원격 D1 쓰기 기록
+
+| 시각(UTC) | rows_written_24h(`wrangler d1 info`) | 비고 |
+|---|---|---|
+| 2026-10-30 12:06 | 0 | 0003 적용 전. 오늘 첫 적재(약 24.8K, Phase 1)가 아직 집계에 안 잡힘 |
+| (2026-10-31 00:00 UTC 이후, 적재 직전) | _적재 전에 기록_ | 새 스트림 슬롯 b 적재 |
+
+## 사람 작업 · 예정 작업
+
+- [ ] **2026-10-31 00:00 UTC(09:00 KST) 이후**: `wrangler d1 info copilot` 값을 위 표에 적고 → `cd gen && pnpm run load:d1 -- --remote`(새 스트림 `fca1971c…` → 슬롯 b, 추정 24,826 rows written) → `/health` streamHash 확인 → 다시 하루 뒤(2026-11-01 00:00 UTC 이후) `load:d1 -- --remote --purge-inactive`(슬롯 a). — 담당: Claude(운영자 지시)
+- [ ] 원격 D1 rows_written 실측(Phase 1에서 이월) — 위 표로 대신한다.
 
 ## 남은 이슈
 
-1. **데모 1 카드 문구와 현재 원장 값**: A-1001의 A-1 원장(`1`)은 2026-08에 누적 1,800,000/1,800,000(100%)에 닿지만, 2027-02 해약 환수 뒤 끝 상태는 1,080,000(60.0%, 단계 OK)이다. 읽기 모델은 2028-06까지 다 돈 끝 상태라 한도 카드에는 100%가 안 보이고 타임라인에만 보인다. 카드 문구 "한도 100% 소진 계약 보유"를 유지할지, 선정 규칙을 "끝 상태 FULL"로 바꿀지(그 경우 A-1003의 `l-POL-2026-0004` 105.0% FULL이 유일) 결정이 필요하다.
-2. **ID 안의 증권번호**: gen 세계가 원장·라인·스케줄 ID를 `l-POL-…`·`c-POL-…-n`·`s-POL-…-n`으로 만들어, `policyNo` 필드는 없어도 ID 값과 화면 URL(`/me/limits/l-POL-2026-0004`)에 가상 증권번호가 들어간다(상위 §7·§8 "증권번호는 응답·경로에 없다"의 취지와 어긋남). 가상 데이터라 노출 위험은 없지만, 고치려면 gen ID 체계를 바꿔야 하고 스트림 해시가 바뀐다(A-1 예약 ID `1`·`2`·`6`은 영향 없음). 시험은 "값이 증권번호 그대로인 필드 없음"으로 좁혀 두었다.
+1. ~~**데모 1 카드 문구와 현재 원장 값**~~ — v0.1.13에서 문구 변경으로 해결: A-1001의 A-1 원장(`1`)은 2026-08에 누적 1,800,000/1,800,000(100%)에 닿지만, 2027-02 해약 환수 뒤 끝 상태는 1,080,000(60.0%, 단계 OK)이다. 읽기 모델은 2028-06까지 다 돈 끝 상태라 한도 카드에는 100%가 안 보이고 타임라인에만 보인다. 카드 문구 "한도 100% 소진 계약 보유"를 유지할지, 선정 규칙을 "끝 상태 FULL"로 바꿀지(그 경우 A-1003의 `l-POL-2026-0004` 105.0% FULL이 유일) 결정이 필요하다.
+2. ~~**ID 안의 증권번호**~~ — v0.1.13에서 gen ID 체계 변경으로 해결: gen 세계가 원장·라인·스케줄 ID를 `l-POL-…`·`c-POL-…-n`·`s-POL-…-n`으로 만들어, `policyNo` 필드는 없어도 ID 값과 화면 URL(`/me/limits/l-POL-2026-0004`)에 가상 증권번호가 들어간다(상위 §7·§8 "증권번호는 응답·경로에 없다"의 취지와 어긋남). 가상 데이터라 노출 위험은 없지만, 고치려면 gen ID 체계를 바꿔야 하고 스트림 해시가 바뀐다(A-1 예약 ID `1`·`2`·`6`은 영향 없음). 시험은 "값이 증권번호 그대로인 필드 없음"으로 좁혀 두었다.
 3. 소진 바의 백분율 글자가 90% 근처에서 채움 위에 겹친다(가독성 경미).

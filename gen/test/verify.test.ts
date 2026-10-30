@@ -118,8 +118,8 @@ describe("G3: 상위 부록 B 8종(경계 넷은 4항목) + A-1 payload 동등 +
       [2, "A-1002", "A2", DEMO_CARD_LABELS[2]],
       [3, "A-1003", "A3", DEMO_CARD_LABELS[3]],
     ]);
-    expect(d[1]!.basis).toMatchObject({ scheduleId: "s-POL-2027-0003-1" });
-    expect(d[2]!.basis).toMatchObject({ ledgerId: "l-POL-2026-03013", receivableId: "r-A-1003-1" });
+    expect(d[1]!.basis).toMatchObject({ scheduleId: "s-A1002-12-1" });
+    expect(d[2]!.basis).toMatchObject({ ledgerId: "l-A1003-13", receivableId: "r-A1003-1" });
     expect(d.every((x) => x.contractCount > 0)).toBe(true);
   });
 

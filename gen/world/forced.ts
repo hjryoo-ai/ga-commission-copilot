@@ -77,7 +77,8 @@ export function applyBoundaries(contracts: readonly PlanContract[]): PlanContrac
 
 /**
  * A-1 계약의 예약 ID(설계서 v0.1.5 §4.1(a)). 상위 샘플 값 그대로이고 다른 계약은 쓸 수 없다 —
- * 생성 계약은 policyNo `POL-<yyyy>-<5자리>`, calcId `c-<policyNo>-<n>`, ledgerId `l-<policyNo>` 접두 체계라 충돌할 수 없다.
+ * 생성 계약은 policyNo `POL-<yyyy>-<5자리>`, calcId `c-<계약 키>-<n>`, ledgerId `l-<계약 키>` 접두 체계라 충돌할 수 없다
+ * (계약 키 = 설계사 키 + 설계사 내 계약 순번, 예 `A1003-07` — 설계서 v0.1.13: 생성 ID에 증권번호를 넣지 않는다).
  */
 export const A1_RESERVED = {
   policyNo: "POL-2026-0001",

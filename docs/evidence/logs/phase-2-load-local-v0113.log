@@ -1,0 +1,22 @@
+
+> @copilot/gen@ load:d1 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node load/d1.ts -- --local
+
+적재 행 수·rows written 추정(행 × (1 + 인덱스)):
+  agent_profile              30행 × (1 + 1) =     60
+  earnings_line            5200행 × (1 + 3) =  20800
+  earnings_month            962행 × (1 + 1) =   1924
+  policy_limit              182행 × (1 + 2) =    546
+  policy_limit_history      215행 × (1 + 1) =    430
+  deferral_item             210행 × (1 + 2) =    630
+  clawback_item              30행 × (1 + 1) =     60
+  policy_flag               181행 × (1 + 1) =    362
+  stream_meta                 1행 × (1 + 3) =      5
+  demo_agents                 3행 × (1 + 2) =      9
+  합계 7014행 → rows written 약 24826 (무료 100,000/일의 25%)
+④ 문장 32개 → slot b
+⑤ 재검사 slot b: {"agent_profile":30,"earnings_line":5200,"earnings_month":962,"policy_limit":182,"policy_limit_history":215,"deferral_item":210,"clawback_item":30,"policy_flag":181}
+   월 합산 불변식: 월 행 962, 라인 있는 (설계사, 월) 962, 합계 불일치 0, 월 행 없는 라인 묶음 0
+   stream_meta.line_count = 5200 (비활성 행)
+⑦ 전환 완료: active=1 1행, fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c slot b
+   실측 rows written(wrangler): 적재 0

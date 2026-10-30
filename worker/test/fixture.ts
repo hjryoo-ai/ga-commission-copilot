@@ -118,7 +118,7 @@ export async function seed(): Promise<void> {
   );
   await insert("earnings_month_a", month("A-1001", "202609", -700_000, { clawback_offset: -100_000, status: "ESTIMATED", net_basis: "ESTIMATE", withholding_tax: 0, net: -800_000, estimate_as_of: "2026-10-01T00:30:00Z", estimate_basis_seq: 22 }));
   await insert("policy_limit_a", ledger("A-1001", "1", "POL-2026-0001", 1_800_000, 1_800_000));
-  await insert("policy_limit_a", ledger("A-1001", "l-POL-2026-0002", "POL-2026-0002", 1_000_000, 850_000));
+  await insert("policy_limit_a", ledger("A-1001", "l-A1001-02", "POL-2026-0002", 1_000_000, 850_000));
   await insert("policy_limit_history_a", { tenant_id: "T1", ledger_id: "1", source_seq: 10, posting_seq: 1, kind: "POST", calc_id: "1", amount: 1_000_000, accum_after: 1_000_000, limit_after: 1_800_000, occurred_at: "2026-08-01T00:00:00Z" });
   await insert("policy_limit_history_a", { tenant_id: "T1", ledger_id: "1", source_seq: 11, posting_seq: 2, kind: "POST", calc_id: "c2", amount: 800_000, accum_after: 1_800_000, limit_after: 1_800_000, occurred_at: "2026-08-02T00:00:00Z" });
   await insert("deferral_item_a", { tenant_id: "T1", schedule_id: "s-1", agent_id: "A-1001", policy_no: "POL-2026-0001", source_calc_id: "c2", due_ym: "202701", amount: 200_000, pay_condition: "POLICY_INFORCE", status: "SCHEDULED", reason: "LIMIT_DEFER", curve_version_id: "1", last_seq: 11 });
@@ -133,8 +133,8 @@ export async function seed(): Promise<void> {
   await insert("earnings_month_a", month("A-1003", "202607", 600_000));
   await insert("earnings_line_a", line("A-1009", "z1", "POL-2026-9999", "FY_COMM", 700_000, "202608", 40));
   await insert("earnings_month_a", month("A-1009", "202608", 700_000));
-  await insert("policy_limit_a", ledger("A-1009", "l-POL-2026-9999", "POL-2026-9999", 1_000_000, 700_000));
-  await insert("policy_limit_history_a", { tenant_id: "T1", ledger_id: "l-POL-2026-9999", source_seq: 40, posting_seq: 1, kind: "POST", calc_id: "z1", amount: 700_000, accum_after: 700_000, limit_after: 1_000_000, occurred_at: "2026-08-01T00:00:00Z" });
+  await insert("policy_limit_a", ledger("A-1009", "l-A1009-01", "POL-2026-9999", 1_000_000, 700_000));
+  await insert("policy_limit_history_a", { tenant_id: "T1", ledger_id: "l-A1009-01", source_seq: 40, posting_seq: 1, kind: "POST", calc_id: "z1", amount: 700_000, accum_after: 700_000, limit_after: 1_000_000, occurred_at: "2026-08-01T00:00:00Z" });
 }
 
 /** 데모 번호로 세션을 열고 쿠키 머리 값을 돌려준다. */
