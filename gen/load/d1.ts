@@ -43,7 +43,10 @@ function wrangler(target: Target, args: string[]): D1Result[] {
     maxBuffer: 64 * 1024 * 1024,
   });
   if (r.status !== 0) throw new Error(`wrangler d1 execute 실패(exit ${r.status}): ${(r.stderr || r.stdout).trim().slice(0, 2000)}`);
-  return JSON.parse(r.stdout) as D1Result[];
+  // 원격 --file은 --json이어도 업로드 진행 문구를 먼저 찍는다 — JSON 배열이 시작하는 줄부터 읽는다
+  const start = r.stdout.search(/^\[/m);
+  if (start < 0) throw new Error(`wrangler 출력에 JSON이 없다: ${r.stdout.slice(0, 500)}`);
+  return JSON.parse(r.stdout.slice(start)) as D1Result[];
 }
 
 const query = (target: Target, sql: string) => wrangler(target, ["--command", sql]).at(-1)!.results;
@@ -125,36 +128,32 @@ function load(target: Target, streamArg: string | undefined): void {
     console.log(`이미 활성: ${hash} (slot ${active.slot}) — 할 일 없음`);
     return;
   }
-  if (rows.some((x) => x.stream_hash === hash)) throw new Error(`${hash}가 비활성 슬롯에 이미 있다 — 전환만 하는 경로는 두지 않았다(--purge-inactive 뒤 다시 적재)`);
   const slot: Slot = active?.slot === "a" ? "b" : "a";
   const before = slotCounts(target, slot);
-  if (Object.values(before).some((n) => n > 0) || rows.some((x) => x.slot === slot)) {
+  // 이어서 하기: 같은 해시가 대상 슬롯에 비활성으로 이미 들어가 있고 표별 행 수가 뷰와 같으면 ④를 건너뛰고 ⑤ 재검사부터 한다
+  // (다시 넣으려면 삭제 + 재적재로 rows written이 두 배가 된다). 그 밖에 대상 슬롯이 비어 있지 않으면 중단.
+  const resumable = rows.some((x) => x.stream_hash === hash && x.slot === slot && x.active === 0) && READ_MODEL.every((t) => before[t] === counts[t]);
+  if (!resumable && rows.some((x) => x.stream_hash === hash)) throw new Error(`${hash}가 비활성으로 이미 있는데 행 수가 다르다 ${JSON.stringify(before)} — --purge-inactive 뒤 다시 적재`);
+  if (!resumable && (Object.values(before).some((n) => n > 0) || rows.some((x) => x.slot === slot))) {
     throw new Error(`대상 슬롯 ${slot}이 비어 있지 않다 ${JSON.stringify(before)} — 먼저 --purge-inactive(§14.1-10)`);
   }
   report.slot = slot;
   report.previousActive = active;
-
-  // ④ INSERT 파일
-  const statements = READ_MODEL.flatMap((t) => insertStatements(t, slot, TENANT, views[t]!));
-  const verifiedAt = new Date().toISOString();
-  statements.push(
-    `INSERT INTO stream_meta (stream_hash, generated_at, event_count, plan_prompt_version, verified_at, active, slot) VALUES (${[
-      hash,
-      meta.generatedAt,
-      meta.eventCount,
-      meta.plan.prompt,
-      verifiedAt,
-      0,
-      slot,
-    ]
-      .map(sqlValue)
-      .join(", ")});`,
-  );
-  const file = join(OUT_DIR, `load-${hash.slice(0, 12)}-${slot}.sql`);
-  writeFileSync(file, `${statements.join("\n")}\n`);
-  console.log(`④ ${file}: 문장 ${statements.length}개 → slot ${slot} (${target})`);
-  const applied = wrangler(target, ["--file", file]);
-  report.applyMeta = applied.map((x) => x.meta ?? null);
+  report.resumed = resumable;
+  let applied: D1Result[] = [];
+  if (resumable) {
+    console.log(`④ 건너뜀: slot ${slot}에 ${hash}가 이미 적재돼 있고 표별 행 수가 뷰와 같다 → 재검사부터`);
+  } else {
+    // ④ INSERT 파일
+    const statements = READ_MODEL.flatMap((t) => insertStatements(t, slot, TENANT, views[t]!));
+    const metaRow = [hash, meta.generatedAt, meta.eventCount, meta.plan.prompt, new Date().toISOString(), 0, slot].map(sqlValue).join(", ");
+    statements.push(`INSERT INTO stream_meta (stream_hash, generated_at, event_count, plan_prompt_version, verified_at, active, slot) VALUES (${metaRow});`);
+    const file = join(OUT_DIR, `load-${hash.slice(0, 12)}-${slot}.sql`);
+    writeFileSync(file, `${statements.join("\n")}\n`);
+    console.log(`④ ${file}: 문장 ${statements.length}개 → slot ${slot} (${target})`);
+    applied = wrangler(target, ["--file", file]);
+    report.applyMeta = applied.map((x) => ({ results: x.results, meta: x.meta ?? null }));
+  }
 
   // ⑤ 재검사(전환 전, 슬롯 표 직접)
   const after = slotCounts(target, slot);

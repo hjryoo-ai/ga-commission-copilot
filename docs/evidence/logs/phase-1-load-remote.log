@@ -1,0 +1,106 @@
+# Phase 1 항목 6 — 원격 D1 적재 (2026-10-30 20:13 KST)
+$ 원격 적용 전 확인: 0002가 DROP하는 9표의 행 수(첫 조회는 응답 파싱 실패로 재시도)
+[{'agent_profile': 0, 'earnings_line': 0, 'earnings_month': 0, 'policy_limit': 0, 'policy_limit_history': 0, 'deferral_item': 0, 'clawback_item': 0, 'policy_flag': 0, 'stream_meta': 0}]
+
+$ wrangler d1 migrations apply copilot --remote
+🌀 Executing on remote database copilot (f97c77d4-3afc-4ec3-ae17-d91bee6015dc):
+🌀 To execute on your local development database, remove the --remote flag from your wrangler command.
+🚣 Executed 35 commands in 5.70ms
+┌───────────────────┬────────┐
+│ name              │ status │
+├───────────────────┼────────┤
+│ 0002_ab_slots.sql │ ✅     │
+└───────────────────┴────────┘
+
+$ pnpm run load:d1 -- --remote
+적재 행 수·rows written 추정(행 × (1 + 인덱스)):
+  agent_profile              30행 × (1 + 1) =     60
+  earnings_line            5200행 × (1 + 3) =  20800
+  earnings_month            962행 × (1 + 1) =   1924
+  policy_limit              182행 × (1 + 2) =    546
+  policy_limit_history      215행 × (1 + 1) =    430
+  deferral_item             210행 × (1 + 2) =    630
+  clawback_item              30행 × (1 + 1) =     60
+  policy_flag               181행 × (1 + 1) =    362
+  stream_meta                 1행 × (1 + 3) =      4
+  합계 7011행 → rows written 약 24816 (무료 100,000/일의 25%)
+④ /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/out/load-e2e435e7bd59-a.sql: 문장 32개 → slot a (--remote)
+<anonymous_script>:1
+├ Checking if file needs uploading
+^
+
+SyntaxError: Unexpected token '├', "├ Checking"... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at wrangler (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/load/d1.ts:46:15)
+    at load (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/load/d1.ts:156:19)
+    at main (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/load/d1.ts:206:5)
+    at file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/load/d1.ts:210:23
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:655:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v25.5.0
+exit=1
+# ↑ 1회차: ④ 원격 --file 적용은 끝났으나(슬롯 a 적재, stream_meta active=0) wrangler가 JSON 앞에 업로드 진행 문구를 찍어 파싱에서 멈춤 → 전환 전 상태.
+#   파서를 고치고 '같은 해시·같은 행 수면 ⑤ 재검사부터' 경로를 넣어 이어서 실행(재적재하지 않음 — 쓰기 두 배 방지).
+
+$ pnpm run load:d1 -- --remote   (2회차, 이어서)
+적재 행 수·rows written 추정(행 × (1 + 인덱스)):
+  agent_profile              30행 × (1 + 1) =     60
+  earnings_line            5200행 × (1 + 3) =  20800
+  earnings_month            962행 × (1 + 1) =   1924
+  policy_limit              182행 × (1 + 2) =    546
+  policy_limit_history      215행 × (1 + 1) =    430
+  deferral_item             210행 × (1 + 2) =    630
+  clawback_item              30행 × (1 + 1) =     60
+  policy_flag               181행 × (1 + 1) =    362
+  stream_meta                 1행 × (1 + 3) =      4
+  합계 7011행 → rows written 약 24816 (무료 100,000/일의 25%)
+④ 건너뜀: slot a에 e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f가 이미 적재돼 있고 표별 행 수가 뷰와 같다 → 재검사부터
+⑤ 재검사 slot a: {"agent_profile":30,"earnings_line":5200,"earnings_month":962,"policy_limit":182,"policy_limit_history":215,"deferral_item":210,"clawback_item":30,"policy_flag":181}
+   월 합산 불변식: 월 행 962, 라인 있는 (설계사, 월) 962, 합계 불일치 0, 월 행 없는 라인 묶음 0
+⑦ 전환 완료: active=1 1행, e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f slot a
+   실측 rows written(wrangler meta): 적재 0 + 전환 2 = 2
+exit=0
+
+$ wrangler d1 info copilot   (지난 24시간 집계 — 적재 실측 rows written)
+ ⛅️ wrangler 4.153.0 (update available 4.156.0)
+───────────────────────────────────────────────
+┌───────────────────────┬──────────────────────────────────────┐
+│ DB                    │ f97c77d4-3afc-4ec3-ae17-d91bee6015dc │
+├───────────────────────┼──────────────────────────────────────┤
+│ name                  │ copilot                              │
+├───────────────────────┼──────────────────────────────────────┤
+│ created_at            │ 2026-10-27T10:36:41.593Z             │
+├───────────────────────┼──────────────────────────────────────┤
+│ num_tables            │ 25                                   │
+├───────────────────────┼──────────────────────────────────────┤
+│ running_in_region     │ APAC                                 │
+├───────────────────────┼──────────────────────────────────────┤
+│ jurisdiction          │ null                                 │
+├───────────────────────┼──────────────────────────────────────┤
+│ database_size         │ 3.01 MB                              │
+├───────────────────────┼──────────────────────────────────────┤
+│ read_queries_24h      │ 8                                    │
+├───────────────────────┼──────────────────────────────────────┤
+│ write_queries_24h     │ 35                                   │
+├───────────────────────┼──────────────────────────────────────┤
+│ rows_read_24h         │ 1,092                                │
+├───────────────────────┼──────────────────────────────────────┤
+│ rows_written_24h      │ 84                                   │
+├───────────────────────┼──────────────────────────────────────┤
+│ read_replication.mode │ disabled                             │
+└───────────────────────┴──────────────────────────────────────┘
+
+$ wrangler deploy
+Total Upload: 59.79 KiB / gzip: 15.12 KiB
+Uploaded ga-commission-copilot (4.79 sec)
+Deployed ga-commission-copilot triggers (0.75 sec)
+  https://ga-commission-copilot.ga-copilot-demo.workers.dev
+Current Version ID: 6b21fbad-28f3-4d40-8bee-c6d26a2ca5b1
+
+$ curl https://ga-commission-copilot.ga-copilot-demo.workers.dev/api/v1/health   (2026-10-30 20:15 KST)
+{"ok":true,"d1":1,"streamHash":"e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f","earningsLines":5200}
+
+$ 원격 확인: stream_meta, active=1 행 수
+[{'stream_hash': 'e2e435e7bd59bdf96837de92b8c0d466953f6bcb4ab20a5aee94669e84f5f82f', 'slot': 'a', 'active': 1, 'event_count': 9439, 'plan_prompt_version': 'plan/v1', 'generated_at': '2026-10-30T10:59:50.264Z', 'verified_at': '2026-10-30T11:13:50.858Z', 'active_rows': 1}]
