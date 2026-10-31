@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { extractTokens } from "@copilot/grounding";
 import { beforeEach, describe, expect, it } from "vitest";
 import { type AgentRows, limitContext, lineContext, monthDiffContext, type Row, subjectsOf } from "../explain/context.ts";
-import { type Caller, generateOne, labelOf, type Subject } from "../explain/generate.ts";
+import { type Caller, generateOne, labelOf, promptVersionOf, type Subject } from "../explain/generate.ts";
 import { recheckExplanations } from "../explain/recheck.ts";
 import { ExplanationStore, recordProblems } from "../explain/store.ts";
 import { type D1Exec, loadExplanations, loadSlot, purgeInactive } from "../load/flow.ts";
@@ -153,7 +153,7 @@ describe("생성 1건: G1 → G4·G5·G6 → 재생성 1회(PHASES Phase 3 항�
   it("첫 출력이 통과하면 1회로 PASS", async () => {
     const f = fake([good]);
     const r = await generateOne(subject, HASH, ctx, f.call, undefined, now);
-    expect(r).toMatchObject({ groundingStatus: "PASS", attempts: 1, promptVersion: "explain_line/v2", text: good.text });
+    expect(r).toMatchObject({ groundingStatus: "PASS", attempts: 1, promptVersion: promptVersionOf("LINE"), text: good.text });
     expect(f.labels).toEqual(["explain:LINE:A-1001:2"]);
     expect(recordProblems(r)).toEqual([]);
   });
@@ -183,7 +183,7 @@ describe("생성 1건: G1 → G4·G5·G6 → 재생성 1회(PHASES Phase 3 항�
     store.put(r);
     store.put(r);
     expect(new ExplanationStore(dir, HASH).all()).toEqual([r]);
-    expect(new ExplanationStore(dir, HASH).has({ ...subject, promptVersion: "explain_line/v2" })).toBe(true);
+    expect(new ExplanationStore(dir, HASH).has({ ...subject, promptVersion: promptVersionOf("LINE") })).toBe(true);
     expect(readFileSync(join(dir, HASH, "line.jsonl"), "utf8").trim().split("\n")).toHaveLength(1);
   });
 });

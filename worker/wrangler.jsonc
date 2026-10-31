@@ -33,7 +33,7 @@
 
   // 설계서 §6.3: 활성 프롬프트 버전. 설명(v0.1.14)은 explanation.prompt_version이 이 값인 행만 내보낸다.
   "vars": {
-    "PROMPT_VERSIONS": "explain_line=v2,explain_limit=v2,explain_month=v2"
+    "PROMPT_VERSIONS": "explain_line=v4,explain_limit=v4,explain_month=v4"
   },
 
   "observability": { "enabled": true }

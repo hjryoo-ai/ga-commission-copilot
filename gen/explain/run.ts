@@ -117,37 +117,50 @@ function contextFor(byAgent: Map<string, AgentRows>, s: Subject): Json {
   return ctx;
 }
 
+interface Tally {
+  pass: number;
+  fail: number;
+  /** 재생성 없이 첫 시도에 G1·G4·G5·G6을 통과한 수. */
+  firstPass: number;
+}
+
 export interface RunReport {
   mode: string;
   streamHash: string;
   subjects: number;
   skippedCached: number;
-  generated: { pass: number; fail: number; byKind: Record<string, { pass: number; fail: number }> };
+  generated: Tally & { byKind: Record<string, Tally>; byProvider: Record<string, Tally> };
+  /** 공급자에 실제로 보낸 HTTP 요청 수(예산 차감 수와 같다 — 재시도 포함). */
   calls: Record<string, number>;
+  /** 같은 요청을 다시 보낸 사유별 수(`groq:json_validate_failed`·`groq:429`·`workers-ai:5xx` …). */
+  providerRetries: Record<string, number>;
   stoppedBy?: string;
-  failures: { label: string; failure: ExplanationRecord["failure"] }[];
+  failures: { label: string; provider: string; failure: ExplanationRecord["failure"] }[];
+}
+
+const emptyTally = (): Tally => ({ pass: 0, fail: 0, firstPass: 0 });
+
+function newReport(mode: string, streamHash: string, subjects: number): RunReport {
+  return { mode, streamHash, subjects, skippedCached: 0, generated: { ...emptyTally(), byKind: {}, byProvider: {} }, calls: {}, providerRetries: {}, failures: [] };
 }
 
 function tally(report: RunReport, r: ExplanationRecord) {
-  const k = (report.generated.byKind[r.kind] ??= { pass: 0, fail: 0 });
-  if (r.groundingStatus === "PASS") {
-    report.generated.pass++;
-    k.pass++;
-  } else {
-    report.generated.fail++;
-    k.fail++;
-    report.failures.push({ label: labelOf(r), failure: r.failure });
+  for (const t of [report.generated, (report.generated.byKind[r.kind] ??= emptyTally()), (report.generated.byProvider[r.provider] ??= emptyTally())]) {
+    if (r.groundingStatus === "PASS") t.pass++;
+    else t.fail++;
+    if (r.groundingStatus === "PASS" && r.attempts === 1) t.firstPass++;
   }
+  if (r.groundingStatus === "FAIL") report.failures.push({ label: labelOf(r), provider: r.provider, failure: r.failure });
 }
 
 /** --stub: VCR 재생. */
 export async function runStub(hash: string, byAgent: Map<string, AgentRows>, subjects: Subject[], store: ExplanationStore): Promise<RunReport> {
   const src = openStub(VCR_NAME);
   if (src.kind !== "vcr") throw new Error("explain VCR 없음 — --record 먼저");
-  const report: RunReport = { mode: "stub", streamHash: hash, subjects: subjects.length, skippedCached: 0, generated: { pass: 0, fail: 0, byKind: {} }, calls: { vcr: 0 }, failures: [] };
+  const report = newReport("stub", hash, subjects.length);
   const recorded = new Set(Object.keys(src.file.entries));
   const call: Caller = async ({ label, hash: h }) => {
-    report.calls.vcr!++;
+    report.calls.vcr = (report.calls.vcr ?? 0) + 1;
     const e = (src.file as VcrFile).entries[label]!;
     return { json: replay(src, label, h), provider: "vcr", model: e.model, at: e.recordedAt };
   };
@@ -160,10 +173,22 @@ export async function runStub(hash: string, byAgent: Map<string, AgentRows>, sub
   return report;
 }
 
-/** 실호출 1회(예산 차감 → 공급자 호출, 429면 기다리거나 그 공급자를 끝낸다). */
-async function liveCall(provider: ProviderName, reserve: () => void, req: Parameters<typeof structured>[1]): Promise<{ json: unknown; model: string }> {
+/** 공급자가 구조화 출력을 만들지 못한 400(Groq json_validate_failed — 빈 출력, 같은 요청을 다시 보내면 대개 통과한다). */
+const isJsonFailure = (e: ProviderError) => e.status === 400 && e.message.includes("json_validate_failed");
+
+/**
+ * 실호출(시도마다 예산 차감 → 공급자 호출). 429면 기다리거나 그 공급자를 끝내고, 5xx·구조화 출력 실패(400)는 같은 요청을 다시 보낸다(최대 3회).
+ * 3회 모두 구조화 출력 실패면 json=null을 돌려준다 — 호출자의 G1이 실패로 판정해 재생성·FAIL 경로를 탄다(배치가 멈추지 않는다).
+ */
+async function liveCall(provider: ProviderName, reserve: () => void, req: Parameters<typeof structured>[1], report: RunReport): Promise<{ json: unknown; model: string }> {
+  const retry = (why: string) => {
+    const k = `${provider}:${why}`;
+    report.providerRetries[k] = (report.providerRetries[k] ?? 0) + 1;
+  };
+  let jsonFailures = 0;
   for (let i = 0; i < 3; i++) {
     reserve();
+    report.calls[provider] = (report.calls[provider] ?? 0) + 1;
     try {
       const r = await structured(provider, req);
       return { json: r.json, model: r.model };
@@ -171,18 +196,28 @@ async function liveCall(provider: ProviderName, reserve: () => void, req: Parame
       if (e instanceof ProviderError && e.status === 429) {
         const wait = e.retryAfterSeconds ?? 30;
         if (wait > LONG_WAIT_S) throw new BudgetExhausted(`${provider} 429 retry-after ${wait}s — 그날 한도`);
+        retry("429");
         console.warn(`[live] ${provider} 429, ${wait + 1}s 대기`);
         await sleep((wait + 1) * 1000);
         continue;
       }
       if (e instanceof ProviderError && e.status >= 500) {
+        retry("5xx");
         console.warn(`[live] ${provider} ${e.status}, 10s 뒤 다시`);
         await sleep(10_000);
+        continue;
+      }
+      if (e instanceof ProviderError && isJsonFailure(e)) {
+        jsonFailures++;
+        retry("json_validate_failed");
+        console.warn(`[live] ${provider} 구조화 출력 실패(400 json_validate_failed), 같은 요청 다시`);
+        await sleep(5_000);
         continue;
       }
       throw e;
     }
   }
+  if (jsonFailures === 3) return { json: null, model: req.model };
   throw new Error(`${provider}: 3회 실패`);
 }
 
@@ -191,7 +226,7 @@ export async function runRecord(hash: string, byAgent: Map<string, AgentRows>, s
   const previous: Record<string, VcrEntry> = existsSync(vcrPath(VCR_NAME)) ? (JSON.parse(readFileSync(vcrPath(VCR_NAME), "utf8")) as VcrFile).entries : {};
   // 이번 녹화에 쓰인 항목만 남긴다(프롬프트가 바뀌어 안 쓰이게 된 옛 항목·옛 #retry는 버린다)
   const entries: Record<string, VcrEntry> = {};
-  const report: RunReport = { mode: "record", streamHash: hash, subjects: subjects.length, skippedCached: 0, generated: { pass: 0, fail: 0, byKind: {} }, calls: { groq: 0 }, failures: [] };
+  const report = newReport("record", hash, subjects.length);
   let n = 0;
   const call: Caller = async ({ label, attempt, req, hash: h }) => {
     const prev = previous[label];
@@ -201,8 +236,7 @@ export async function runRecord(hash: string, byAgent: Map<string, AgentRows>, s
       return { json: prev.response, provider: "groq", model: prev.model, at: prev.recordedAt };
     }
     if (n++ > 0) await sleep(RECORD_SPACING_MS);
-    const r = await liveCall("groq", () => reserveDevCall(), req);
-    report.calls.groq!++;
+    const r = await liveCall("groq", () => reserveDevCall(), req, report);
     const at = new Date().toISOString();
     entries[label] = { requestHash: h, repairs: attempt, model: r.model, recordedAt: at, usage: null, response: r.json };
     writeVcr(VCR_NAME, entries);
@@ -219,7 +253,7 @@ export async function runRecord(hash: string, byAgent: Map<string, AgentRows>, s
 
 /** --batch: 캐시에 없는 subject를 공급자 순서·하루 상한대로. */
 export async function runBatch(hash: string, byAgent: Map<string, AgentRows>, subjects: Subject[], store: ExplanationStore, limit: number): Promise<RunReport> {
-  const report: RunReport = { mode: "batch", streamHash: hash, subjects: subjects.length, skippedCached: 0, generated: { pass: 0, fail: 0, byKind: {} }, calls: {}, failures: [] };
+  const report = newReport("batch", hash, subjects.length);
   const pending = subjects.filter((s) => {
     const cached = store.has({ ...s, promptVersion: promptVersionOf(s.kind) });
     if (cached) report.skippedCached++;
@@ -236,8 +270,7 @@ export async function runBatch(hash: string, byAgent: Map<string, AgentRows>, su
     while (!record && p < BATCH_PROVIDERS.length) {
       const bp = BATCH_PROVIDERS[p]!;
       const call: Caller = async ({ req }) => {
-        report.calls[bp.provider] = (report.calls[bp.provider] ?? 0) + 1;
-        const r = await liveCall(bp.provider, () => reserveCall(bp.scope, bp.cap), req);
+        const r = await liveCall(bp.provider, () => reserveCall(bp.scope, bp.cap), req, report);
         await sleep(bp.spacingMs);
         return { json: r.json, provider: bp.provider, model: r.model };
       };
@@ -282,10 +315,12 @@ async function main(): Promise<void> {
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, `explain.${mode}.report.json`), `${JSON.stringify(report, null, 2)}\n`);
   const g = report.generated;
-  const rate = g.pass + g.fail ? ((g.pass * 1000) / (g.pass + g.fail) / 10).toFixed(1) : "-";
-  console.log(`${mode}: 생성 ${g.pass + g.fail}(PASS ${g.pass} · FAIL ${g.fail} — 통과율 ${rate}%), 캐시 건너뜀 ${report.skippedCached}, 호출 ${JSON.stringify(report.calls)}${report.stoppedBy ? `, 멈춤: ${report.stoppedBy}` : ""}`);
-  for (const [k, v] of Object.entries(g.byKind)) console.log(`  ${k}: PASS ${v.pass} · FAIL ${v.fail}`);
-  for (const f of report.failures) console.log(`  FAIL ${f.label} ${JSON.stringify(f.failure)}`);
+  const pct = (n: number, d: number) => (d ? `${((n * 1000) / d / 10).toFixed(1)}%` : "-");
+  const line = (t: Tally) => `PASS ${t.pass} · FAIL ${t.fail} — 첫 시도 ${t.firstPass}/${t.pass + t.fail}(${pct(t.firstPass, t.pass + t.fail)}) · 재생성 후 ${pct(t.pass, t.pass + t.fail)}`;
+  console.log(`${mode}: 생성 ${g.pass + g.fail}(${line(g)}), 캐시 건너뜀 ${report.skippedCached}, 호출 ${JSON.stringify(report.calls)}, 재시도 ${JSON.stringify(report.providerRetries)}${report.stoppedBy ? `, 멈춤: ${report.stoppedBy}` : ""}`);
+  for (const [k, v] of Object.entries(g.byKind)) console.log(`  ${k}: ${line(v)}`);
+  for (const [k, v] of Object.entries(g.byProvider)) console.log(`  ${k}: ${line(v)}`);
+  for (const f of report.failures) console.log(`  FAIL ${f.label} ${f.provider} ${JSON.stringify(f.failure)}`);
 }
 
 if (import.meta.main) await main();

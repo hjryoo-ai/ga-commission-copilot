@@ -9,9 +9,9 @@ import type { Kind } from "./context.ts";
 import type { ExplanationRecord } from "./store.ts";
 
 export const PROMPTS: Readonly<Record<Kind, { name: string; version: string }>> = {
-  LINE: { name: "explain_line", version: "v2" },
-  LIMIT: { name: "explain_limit", version: "v2" },
-  MONTH_DIFF: { name: "explain_month", version: "v2" },
+  LINE: { name: "explain_line", version: "v4" },
+  LIMIT: { name: "explain_limit", version: "v4" },
+  MONTH_DIFF: { name: "explain_month", version: "v4" },
 };
 export const REPAIR_PROMPT = { name: "explain_repair", version: "v1" } as const;
 const MAX_COMPLETION_TOKENS = 1500;

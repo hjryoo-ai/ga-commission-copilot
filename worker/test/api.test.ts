@@ -211,7 +211,7 @@ describe("응답(상위 §7 구조 + 덧씌우기)", () => {
       agentName: "허구설계사01",
       tenant: { name: "데모GA", payoutDayRule: "NEXT_MONTH_D10", limitWarnBp: 8000, limitCritBp: 9500 },
       months: { from: "202608", to: "202609" },
-      promptVersions: { explain_line: "v2", explain_limit: "v2", explain_month: "v2" },
+      promptVersions: { explain_line: "v4", explain_limit: "v4", explain_month: "v4" },
     });
   });
 
@@ -301,14 +301,14 @@ describe("사전 생성 설명(설계서 v0.1.14 §4.1(b)·§7, PHASES Phase 3 �
       text: "2026년 8월 FY 수수료 1,000,000원이 지급되었습니다.",
       citedFields: ["line.amount"],
       numbersUsed: ["1,000,000원"],
-      promptVersion: "explain_line/v2",
+      promptVersion: "explain_line/v4",
       model: "openai/gpt-oss-120b",
     });
   });
 
   it("FAIL이면 본문을 내보내지 않는다(화면 '설명 없음')", async () => {
     const e = (await ok("/api/v1/me/earnings/lines/c2", one)).explanation;
-    expect(e).toEqual({ groundingStatus: "FAIL", promptVersion: "explain_line/v2" });
+    expect(e).toEqual({ groundingStatus: "FAIL", promptVersion: "explain_line/v4" });
   });
 
   it("활성 프롬프트 버전·활성 스트림이 아닌 행은 null", async () => {
@@ -317,12 +317,12 @@ describe("사전 생성 설명(설계서 v0.1.14 §4.1(b)·§7, PHASES Phase 3 �
   });
 
   it("한도 상세 설명(kind=LIMIT)", async () => {
-    expect((await ok("/api/v1/me/limits/1", one)).explanation).toMatchObject({ groundingStatus: "PASS", citedFields: ["ledger.limitAmount", "history[1].accumAfter"], promptVersion: "explain_limit/v2" });
+    expect((await ok("/api/v1/me/limits/1", one)).explanation).toMatchObject({ groundingStatus: "PASS", citedFields: ["ledger.limitAmount", "history[1].accumAfter"], promptVersion: "explain_limit/v4" });
   });
 
   it("월비교: 자기 설명만(같은 달 다른 설계사 행과 섞이지 않는다), 설명 없는 달은 null", async () => {
     const d = await ok("/api/v1/me/earnings/202609/diff", one);
-    expect(d).toMatchObject({ closeYm: "202609", previousYm: "202608", promptVersion: "explain_month/v2", explanation: { text: "전월보다 총액이 줄었습니다." } });
+    expect(d).toMatchObject({ closeYm: "202609", previousYm: "202608", promptVersion: "explain_month/v4", explanation: { text: "전월보다 총액이 줄었습니다." } });
     expect((await ok("/api/v1/me/earnings/202608/diff", one)).explanation).toBeNull();
   });
 

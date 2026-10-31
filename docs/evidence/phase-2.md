@@ -116,11 +116,12 @@ $ cd web && pnpm run e2e        # vite build → wrangler dev :8788(로컬 D1) �
 | 시각(UTC) | rows_written_24h(`wrangler d1 info`) | 비고 |
 |---|---|---|
 | 2026-10-30 12:06 | 0 | 0003 적용 전. 오늘 첫 적재(약 24.8K, Phase 1)가 아직 집계에 안 잡힘 |
-| (2026-10-31 00:00 UTC 이후, 적재 직전) | _적재 전에 기록_ | 새 스트림 슬롯 b 적재 |
+| 2026-10-31 04:56 | 24,960 | 적재 직전(직전 24시간 — 10-30 Phase 2 쓰기). 04:57 새 스트림 슬롯 b 적재 실측 24,824(추정 24,826) — `phase-3.md` 원격 표 |
+| 2026-10-31 05:18 | 49,836 | 적재 + 0004 + 설명 32 뒤 |
 
 ## 사람 작업 · 예정 작업
 
-- [ ] **2026-10-31 00:00 UTC(09:00 KST) 이후**: `wrangler d1 info copilot` 값을 위 표에 적고 → `cd gen && pnpm run load:d1 -- --remote`(새 스트림 `fca1971c…` → 슬롯 b, 추정 24,826 rows written) → `/health` streamHash 확인 → 다시 하루 뒤(2026-11-01 00:00 UTC 이후) `load:d1 -- --remote --purge-inactive`(슬롯 a). — 담당: Claude(운영자 지시)
+- [x] (2026-10-31 04:57 UTC 슬롯 b 적재·`/health` 완료, 퍼지는 11-01) **2026-10-31 00:00 UTC(09:00 KST) 이후**: `wrangler d1 info copilot` 값을 위 표에 적고 → `cd gen && pnpm run load:d1 -- --remote`(새 스트림 `fca1971c…` → 슬롯 b, 추정 24,826 rows written) → `/health` streamHash 확인 → 다시 하루 뒤(2026-11-01 00:00 UTC 이후) `load:d1 -- --remote --purge-inactive`(슬롯 a). — 담당: Claude(운영자 지시)
 - [ ] 원격 D1 rows_written 실측(Phase 1에서 이월) — 위 표로 대신한다.
 
 ## 남은 이슈

@@ -8,7 +8,7 @@ const pass = {
   text: "이 라인의 지급액은 855,000원입니다.",
   citedFields: ["line.amount", "deferrals[0].dueYm", "receivable"],
   numbersUsed: ["855,000원"],
-  promptVersion: "explain_line/v2",
+  promptVersion: "explain_line/v4",
   model: "openai/gpt-oss-120b",
 };
 
@@ -19,11 +19,11 @@ describe("설명 블록", () => {
     expect(html).toContain("855,000원입니다");
     expect(html).toContain("가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가");
     expect(html).toContain("근거 보기");
-    expect(html).toContain("explain_line/v2");
+    expect(html).toContain("explain_line/v4");
   });
 
   it("FAIL·없음: 본문 없이 '설명 없음'", () => {
-    const fail = renderToStaticMarkup(<ExplanationBody e={{ groundingStatus: "FAIL", promptVersion: "explain_line/v2" }} />);
+    const fail = renderToStaticMarkup(<ExplanationBody e={{ groundingStatus: "FAIL", promptVersion: "explain_line/v4" }} />);
     expect(fail).toContain("설명 없음");
     expect(fail).not.toContain("근거 보기");
     expect(renderToStaticMarkup(<ExplanationBody e={null} />)).toContain("설명 없음");

@@ -147,7 +147,7 @@ export function explanationRow(agent: string, kind: "LINE" | "LIMIT" | "MONTH_DI
     kind,
     subject_id: subject,
     stream_hash: HASH,
-    prompt_version: `${prompt}/v2`,
+    prompt_version: `${prompt}/v4`,
     model: "openai/gpt-oss-120b",
     text,
     cited_fields: JSON.stringify(["line.amount"]),

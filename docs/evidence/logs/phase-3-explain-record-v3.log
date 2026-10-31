@@ -1,0 +1,59 @@
+
+> @copilot/gen@ explain /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node explain/run.ts -- --record
+
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+[record] explain:LINE:A-1001:1 PASS
+[record] explain:LINE:A-1001:2 PASS
+[record] explain:LINE:A-1001:6 PASS
+[record] explain:LINE:A-1001:c-A1001-09-1 PASS
+[record] explain:LINE:A-1001:c-A1001-09-2 PASS
+[record] explain:LINE:A-1002:c-A1002-06-2 PASS
+[record] explain:LINE:A-1002:c-A1002-01-2 PASS
+[record] explain:LINE:A-1003:c-A1003-01-2 PASS
+file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/providers/groq.ts:79
+    throw new ProviderError(`${provider} ${res.status}: ${text}`, res.status, retry ? Number(retry) : null);
+          ^
+
+ProviderError: groq 400: {"error":{"message":"Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.","type":"invalid_request_error","code":"json_validate_failed","failed_generation":""}}
+
+    at structured (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/providers/groq.ts:79:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async liveCall (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/explain/run.ts:168:17)
+    at async call (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/explain/run.ts:204:15)
+    at async generateOne (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/explain/generate.ts:80:11)
+    at async runRecord (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/explain/run.ts:212:15)
+    at async main (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/explain/run.ts:279:40)
+    at async file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/explain/run.ts:291:23 {
+  status: 400,
+  retryAfterSeconds: null
+}
+
+Node.js v25.5.0
+ ELIFECYCLE  Command failed with exit code 1.
+
+> @copilot/gen@ explain /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node explain/run.ts -- --record
+
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+[record] explain:LINE:A-1001:1 PASS
+[record] explain:LINE:A-1001:2 PASS
+[record] explain:LINE:A-1001:6 PASS
+[record] explain:LINE:A-1001:c-A1001-09-1 PASS
+[record] explain:LINE:A-1001:c-A1001-09-2 PASS
+[record] explain:LINE:A-1002:c-A1002-06-2 PASS
+[record] explain:LINE:A-1002:c-A1002-01-2 PASS
+[record] explain:LINE:A-1003:c-A1003-01-2 PASS
+[record] explain:LINE:A-1003:c-A1003-01-1 PASS
+[record] explain:LINE:A-1002:c-A1002-01-1 PASS
+[record] explain:LIMIT:A-1001:1 PASS
+[record] explain:LIMIT:A-1002:l-A1002-11 PASS
+[record] explain:LIMIT:A-1003:l-A1003-13 PASS
+[record] explain:MONTH_DIFF:A-1001:202702 PASS
+[record] explain:MONTH_DIFF:A-1002:202607 PASS
+[record] explain:MONTH_DIFF:A-1003:202607 PASS
+record: 생성 16(PASS 16 · FAIL 0 — 첫 시도 16/16(100.0%) · 재생성 후 100.0%), 캐시 건너뜀 0, 호출 {"groq":8}, 재시도 {}
+  LINE: PASS 10 · FAIL 0 — 첫 시도 10/10(100.0%) · 재생성 후 100.0%
+  LIMIT: PASS 3 · FAIL 0 — 첫 시도 3/3(100.0%) · 재생성 후 100.0%
+  MONTH_DIFF: PASS 3 · FAIL 0 — 첫 시도 3/3(100.0%) · 재생성 후 100.0%
+  groq: PASS 16 · FAIL 0 — 첫 시도 16/16(100.0%) · 재생성 후 100.0%

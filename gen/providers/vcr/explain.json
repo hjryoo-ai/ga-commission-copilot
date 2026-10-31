@@ -3,105 +3,112 @@
   "name": "explain",
   "entries": {
     "explain:LINE:A-1001:1": {
-      "requestHash": "81067c56ccce9d268abb8a9cf96cfd91d69948c92be35e60222599c4402a70f5",
+      "requestHash": "7579493444be1e409907331163152ed9cf2df7323d49ba3ee7b5e52e39ec3ee3",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:16:03.856Z",
+      "recordedAt": "2026-10-31T05:08:00.443Z",
       "usage": null,
       "response": {
-        "text": "이 라인의 금액은 엔진이 요율 7과 지급률 0.9를 적용해 산출한 값이며, FY_COMM(초년도 수수료) 유형에 해당합니다. 2026년 8월에 전기된 후 누적 금액은 945,000원이며, 이는 전체 한도 1,800,000원 중 52.5%에 해당합니다. 한도 초과 삭감은 없으며, 현재 이 라인에 대한 분급이나 환수 채권도 존재하지 않습니다.",
+        "text": "2026년 8월 마감분으로, 증권번호 *********0001의 초년도 수수료가 945,000원 산출되었습니다. 엔진은 요율 7와 지급률 0.9를 적용해 산출한 값입니다. 이 금액은 한도 원장에 반영된 1,800,000원 한도 중 945,000원을 차지하여, 전기 누적액이 945,000원이고 소진율이 52.5%임을 나타냅니다. 계약일은 2026년 8월 1일이며, 한도는 2026년 8월 1일에 원장에 반영되었습니다.",
         "citedFields": [
           "line.amount",
-          "line.commType",
+          "line.policyMasked",
+          "line.closeYm",
           "basis.rate",
           "basis.payoutRate",
+          "ledger.limitAmount",
           "limitPosting.accumAfter",
           "limitPosting.utilizationAfter",
-          "limitPosting.postedOn"
+          "limitPosting.postedOn",
+          "policySummary.contractDate"
         ],
         "numbersUsed": [
           "945,000원",
+          "2026년 8월",
           "7",
           "0.9",
           "1,800,000원",
           "52.5%",
-          "2026년 8월"
+          "2026년 8월 1일"
         ]
       }
     },
     "explain:LINE:A-1001:2": {
-      "requestHash": "fc61cd395bb375c752648027ecaa33cf777063d97f96783ff0044414ace89332",
+      "requestHash": "76bcd9adee5df3aa8fe79c87f441ffe98319fb23b519e656caeac443fa967018",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:16:20.541Z",
+      "recordedAt": "2026-10-31T05:08:19.491Z",
       "usage": null,
       "response": {
-        "text": "이 라인의 지급액은 엔진이 요율 1을 적용해 산출한 금액이며, 금액은 855,000원입니다. 한도 초과분이 있어 DEFER_AFTER_FY 정책에 따라 145,000원 차감되어 한도 전기 뒤 누적·소진율은 100.0%이며, 한도 금액은 1,800,000원입니다. 요청액은 1,000,000원으로 기록되어 있습니다.",
+        "text": "시책 수수료가 855,000원으로 산출되었습니다. 엔진은 요율 1을 적용해 요청액 1,000,000원 중 한도 초과분 145,000원을 삭감했으며, 한도 1,800,000원 한도 소진율 100.0% 상태에서 2026년 8월 마감분으로 집계되었습니다. 한도 초과분은 다음 회계연도로 이연되었습니다.",
         "citedFields": [
           "line.amount",
           "line.limitCutAmt",
           "line.limitCutPolicy",
-          "limitPosting.utilizationAfter",
-          "limitPosting.limitAfter",
+          "line.policyMasked",
+          "basis.rate",
           "derived.requested",
-          "ledger.limitAmount"
+          "ledger.limitAmount",
+          "limitPosting.utilizationAfter",
+          "line.closeYm"
         ],
         "numbersUsed": [
           "855,000원",
           "145,000원",
-          "100.0%",
+          "1,000,000원",
           "1,800,000원",
-          "1,000,000원"
+          "100.0%",
+          "2026년 8월"
         ]
       }
     },
     "explain:LINE:A-1001:6": {
-      "requestHash": "b7c54fd910fa740cc93443103c2943786693ba0664934f83f6515fd483da79b8",
+      "requestHash": "15a75f3992d5ed755b5b62493fe95fa2153bab558eb45a74e230ab659fcb62bc",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:16:38.965Z",
+      "recordedAt": "2026-10-31T05:08:37.348Z",
       "usage": null,
       "response": {
-        "text": "이 라인은 CLAWBACK(환수) 수수료로, 엔진이 요율 0.4와 회차 7을 적용해 산출한 환수 금액 720,000원입니다. 해당 금액은 한도 1,800,000원 중 누적 사용액 1,080,000원 이후의 한도 소진율 60.0% 상황에서 청구되었습니다. 현재 이 라인의 환수 채권은 금액 720,000원, 잔액 0원이며 상태는 CLOSED로 처리되었습니다.",
+        "text": "2027년 2월 마감분으로 집계된 이 라인은 720,000원이 환수되었습니다. 엔진이 요율 0.4와 회차 7을 적용해 산출한 금액이며, 계약일은 2026년 8월입니다. 누적 금액은 1,080,000원이며, 소진율은 60.0%입니다. 환수 채권이 720,000원이며, 현재 잔액은 0원으로 회수 종료되었습니다.",
         "citedFields": [
           "line.amount",
           "line.commType",
+          "line.policyMasked",
           "basis.rate",
           "basis.installmentNo",
-          "ledger.limitAmount",
+          "policySummary.contractDate",
+          "line.closeYm",
           "limitPosting.accumAfter",
-          "limitPosting.limitAfter",
           "limitPosting.utilizationAfter",
           "receivable.amount",
-          "receivable.remaining",
           "receivable.status"
         ],
         "numbersUsed": [
           "720,000원",
+          "2026년 8월",
+          "2027년 2월",
           "0.4",
           "7",
-          "1,800,000원",
-          "1,080,000원",
           "60.0%"
         ]
       }
     },
     "explain:LINE:A-1001:c-A1001-09-1": {
-      "requestHash": "c7ead9cfbbb089cb65f43101e8b3dce18e40956b1221c48cf77a625d8940acad",
+      "requestHash": "305ae06304dfb87369484804027cf99403d15cff82f8eaf7a52c055d51303082",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:16:56.211Z",
+      "recordedAt": "2026-10-31T05:08:55.027Z",
       "usage": null,
       "response": {
-        "text": "이 라인의 금액은 엔진이 요율 6.5와 지급률 0.9를 적용해 산출한 값이며, 2027년 3월 18일에 집계된 FY_COMM 유형의 수수료로 187,200원입니다. 이 라인 전기 뒤 누적 지급액은 468,000원이며, 한도는 960,000원으로 이용률은 48.7%입니다. 또한 2028년 3월에 93,600원은 이미 지급된 상태이며, 2029년 3월과 2030년 3월에 각각 93,600원씩 예정되어 있습니다.",
+        "text": "2027년 3월 마감분으로 초년도 수수료 187,200원이 산출되었습니다. 이 금액은 요율 6.5와 지급률 0.9를 엔진이 적용해 산출한 값이며, 한도 원장에 반영된 한도 960,000원 중 현재까지 468,000원이 사용되어 소진율은 48.7%입니다. 증권번호 **********1008에 대해 2028년 3월에 93,600원이 지급되었으며, 2029년 3월과 2030년 3월에 각각 93,600원씩 지급 예정입니다.",
         "citedFields": [
           "line.amount",
-          "line.commType",
           "line.closeYm",
+          "line.policyMasked",
           "basis.rate",
           "basis.payoutRate",
+          "ledger.limitAmount",
           "limitPosting.accumAfter",
-          "limitPosting.limitAfter",
           "limitPosting.utilizationAfter",
           "deferrals[0].dueYm",
           "deferrals[0].amount",
@@ -117,112 +124,112 @@
           "187,200원",
           "6.5",
           "0.9",
-          "468,000원",
           "960,000원",
+          "468,000원",
           "48.7%",
-          "93,600원",
+          "2027년 3월",
           "2028년 3월",
+          "93,600원",
           "2029년 3월",
           "2030년 3월"
         ]
       }
     },
     "explain:LINE:A-1001:c-A1001-09-2": {
-      "requestHash": "ff84c7116789c60050a0928333113e8ec6a962609c0fe0600164c2f5f3e9cb64",
+      "requestHash": "a0304cc001716b1aa726b95cc0420d1a0ec1d2691a45f6c7eaa809dfd6ec597d",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:17:12.883Z",
+      "recordedAt": "2026-10-31T05:09:12.113Z",
       "usage": null,
       "response": {
-        "text": "이 라인은 2028년 3월에 집계된 DEFERRED(분급) 수수료이며, 금액은 엔진이 적용한 요율·지급률을 바탕으로 산출된 93,600원입니다. 해당 계약은 **********1008이며, 한도 원장에 기록된 한도 금액은 960,000원입니다.",
+        "text": "2028년 3월 마감분으로 산출된 분급 지급분은 93,600원입니다. 이 금액은 엔진이 요율·지급률을 적용해 산출한 값이며, 증권번호 **********1008에 해당합니다.",
         "citedFields": [
-          "line.closeYm",
-          "line.commType",
           "line.amount",
-          "line.policyMasked",
-          "ledger.limitAmount"
+          "line.closeYm",
+          "line.policyMasked"
         ],
         "numbersUsed": [
-          "2028년 3월",
           "93,600원",
-          "960,000원"
+          "2028년 3월"
         ]
       }
     },
     "explain:LINE:A-1002:c-A1002-06-2": {
-      "requestHash": "212d55939641968f3de88ca2a2733f1d524afe870425eec4953405e67187fb4c",
+      "requestHash": "d4d24212f98d6ec94f85480cd717ff78b2635b8c7fe7aa3ae97bfdc371221645",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:17:29.708Z",
+      "recordedAt": "2026-10-31T05:09:29.316Z",
       "usage": null,
       "response": {
-        "text": "이 라인은 CLAW백(환수)으로, 엔진이 요율 0.7을 적용해 산출한 금액 -1,102,500원입니다. 해당 계약은 **********2006이며, 2026년 7월에 마감되었습니다. 현재 환수 채권은 금액 125,100원이며, 잔액은 0원으로 CLOSED 상태입니다.",
+        "text": "2026년 7월 마감분으로, 증권번호 **********2006에 대해 1,102,500원이 환수되었습니다. 엔진은 요율 0.7과 회차 3을 적용해 산출한 값입니다. 또한 환수 채권이 125,100원이며 잔액이 0원이고 회수 종료되었습니다.",
         "citedFields": [
+          "line.closeYm",
+          "line.policyMasked",
           "line.amount",
           "line.commType",
           "basis.rate",
-          "line.policyMasked",
-          "line.closeYm",
+          "basis.installmentNo",
           "receivable.amount",
           "receivable.remaining",
           "receivable.status"
         ],
         "numbersUsed": [
+          "2026년 7월",
           "1,102,500원",
           "0.7",
+          "3",
           "125,100원",
-          "2026년 7월"
+          "0원"
         ]
       }
     },
     "explain:LINE:A-1002:c-A1002-01-2": {
-      "requestHash": "9a51317c97f6904b5054dedeafc9b06258f02d5df0617331e30c9aee6b1fabd1",
+      "requestHash": "256f5eec3ac55bec6f810879a5c57ae4f9e306975bb6cc99df8403f9abd26d41",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:17:46.996Z",
+      "recordedAt": "2026-10-31T05:09:46.826Z",
       "usage": null,
       "response": {
-        "text": "2026년 7월에 집계된 이 라인은 갱신( RE​NEWAL ) 수수료이며, 엔진이 요율 0.05와 지급률 0.9를 적용해 산출한 금액이 5,400원입니다. 해당 금액은 13회차(installmentNo 13) 기준으로 계산되었습니다. 계약은 **********2001 번호로, 계약일은 2025년 7월 5일이며 월 보험료는 120,000원입니다.",
+        "text": "2026년 7월 마감분으로 집계된 유지 수수료는 5,400원이 산출되었습니다. 엔진은 계약 체결일이 2025년 7월 5일인 이 계약에 대해 요율 0.05와 지급률 0.9를 적용하고, 회차 13회 차에 해당하는 금액을 계산했습니다. 월 보험료는 120,000원이며, 이 금액을 기반으로 위 요율·지급률이 적용되어 해당 금액이 산출되었습니다.",
         "citedFields": [
+          "line.amount",
           "line.closeYm",
           "line.commType",
+          "line.policyMasked",
           "basis.rate",
           "basis.payoutRate",
-          "line.amount",
           "basis.installmentNo",
-          "line.policyMasked",
           "policySummary.contractDate",
           "policySummary.monthlyPremium"
         ],
         "numbersUsed": [
+          "5,400원",
           "2026년 7월",
+          "2025년 7월 5일",
           "0.05",
           "0.9",
-          "5,400원",
           "13",
-          "2025년 7월 5일",
           "120,000원"
         ]
       }
     },
     "explain:LINE:A-1003:c-A1003-01-2": {
-      "requestHash": "26ff0a5b5f16eeed183bce4dd9646bd650252ffa6b7728ac7f9c23ec07d9937d",
+      "requestHash": "44581b5438f5c0dbbf3b78fbfe1e21f24949cf39ecce24dac2be58ed3e4cba7f",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:18:04.368Z",
+      "recordedAt": "2026-10-31T05:10:03.802Z",
       "usage": null,
       "response": {
-        "text": "이 라인은 2026년 7월에 RENEWAL(갱신) 수수료로 5,400원 지급액이 산출되었습니다. 엔진은 요율 0.05와 지급률 0.9를 적용하여 해당 금액을 산출했으며, 이는 13회차(installmentNo 13) 기준으로 계산된 결과입니다. 계약은 2025년 7월 5일에 체결된 **********3001(이 계약)이며, 월보험료는 120,000원입니다.",
+        "text": "2026년 7월 마감분으로 집계된 유지 수수료는 5,400원이 산출되었습니다. 엔진은 요율 0.05와 지급률 0.9를 적용하여 13회 차에 해당 금액을 산출한 것으로 보입니다. 계약일은 2025년 7월 5일이며, 해당 계약은 **********3001로 표시됩니다.",
         "citedFields": [
-          "line.amount",
-          "line.commType",
           "line.closeYm",
+          "line.commType",
+          "line.amount",
           "basis.rate",
           "basis.payoutRate",
           "basis.installmentNo",
-          "line.policyMasked",
           "policySummary.contractDate",
-          "policySummary.monthlyPremium"
+          "line.policyMasked"
         ],
         "numbersUsed": [
           "5,400원",
@@ -230,136 +237,123 @@
           "0.05",
           "0.9",
           "13",
-          "2025년 7월 5일",
-          "120,000원"
+          "2025년 7월 5일"
         ]
       }
     },
     "explain:LINE:A-1003:c-A1003-01-1": {
-      "requestHash": "04592c26e21eea611166f1d45b51a1ccfb75aee63718433fe95f6ca2c92f5d12",
+      "requestHash": "8e71b63ddff2737cb3b02e65b19621f695c93c74638e54561b4e0e167b9b4718",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:18:21.130Z",
+      "recordedAt": "2026-10-31T05:10:21.393Z",
       "usage": null,
       "response": {
-        "text": "이 라인의 금액은 756,000원이며, FY_COMM(초년도 수수료) 유형으로 2025년 7월에 집계되었습니다. 엔진은 요율 7과 지급률 0.9를 적용해 산출한 값으로 이 금액이 결정되었습니다. 해당 계약은 **********3001 번호로 확인됩니다.",
+        "text": "2025년 7월 5일에 체결된 이 계약의 2025년 7월 마감분으로, 요율 7와 지급률 0.9를 적용한 엔진이 산출한 금액 756,000원이 초년도 수수료로 집계되었습니다. 월 보험료는 120,000원이며, 증권번호 **********3001입니다.",
         "citedFields": [
-          "line.amount",
-          "line.commType",
+          "policySummary.contractDate",
           "line.closeYm",
           "basis.rate",
           "basis.payoutRate",
+          "line.amount",
+          "policySummary.monthlyPremium",
           "line.policyMasked"
         ],
         "numbersUsed": [
-          "756,000원",
+          "2025년 7월 5일",
           "2025년 7월",
           "7",
-          "0.9"
+          "0.9",
+          "756,000원",
+          "120,000원"
         ]
       }
     },
     "explain:LINE:A-1002:c-A1002-01-1": {
-      "requestHash": "41be8807364909b62da71546f3b91fe6e050a6048201a1cd555d05fadfe2163c",
+      "requestHash": "b5af9dfaa09ad7b22d6969cc6587a632c0eba833868f68c365dcb76138bcc95a",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:18:37.997Z",
+      "recordedAt": "2026-10-31T05:10:39.357Z",
       "usage": null,
       "response": {
-        "text": "이 라인의 금액은 756,000원이며, FY_COMM(초년도 수수료) 유형으로 2025년 7월 5일에 계약된 계약(**********2001)에서 적용되었습니다. 엔진은 요율 7과 지급률 0.9를 적용해 산출한 값이며, 월 보험료는 120,000원입니다. 해당 라인은 2025년 7월 마감(2025년 7월)으로 집계되었습니다.",
+        "text": "2025년 7월 5일에 체결된 이 계약의 2025년 7월 마감분으로, 요율 7와 지급률 0.9를 적용한 엔진이 산출한 금액 756,000원이 초년도 수수료로 집계되었습니다. 월 보험료는 120,000원이며, 해당 금액은 증권번호 **********2001에 해당합니다. 분급이 존재하지 않아 지급 예정월은 데이터로 확인되지 않습니다.",
         "citedFields": [
           "line.amount",
-          "line.commType",
-          "line.closeYm",
           "line.policyMasked",
-          "policySummary.contractDate",
+          "line.closeYm",
           "basis.rate",
           "basis.payoutRate",
-          "policySummary.monthlyPremium"
+          "policySummary.contractDate",
+          "policySummary.monthlyPremium",
+          "deferrals"
         ],
         "numbersUsed": [
           "756,000원",
           "2025년 7월 5일",
+          "2025년 7월",
           "7",
           "0.9",
           "120,000원",
-          "2025년 7월"
+          "**********2001"
         ]
       }
     },
     "explain:LIMIT:A-1001:1": {
-      "requestHash": "1fb6d6f301cec15353011e1414fa64e65315ed4ceaa74c9092d379a86d410067",
+      "requestHash": "36b60d2b5dc71129925172fd9d16116908a323fbee46ca63ca36b32a47b63996",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:18:55.885Z",
+      "recordedAt": "2026-10-31T05:10:58.303Z",
       "usage": null,
       "response": {
-        "text": "이 계약의 수수료 한도는 1,800,000원이며, 한도 배수는 12배입니다. 2026년 8월에 FY_COMM으로 945,000원 지급 후 누적이 945,000원(52.5% 이용)으로 증가했으며, 같은 달에 INCENTIVE로 855,000원 지급되면서 145,000원 이연(DEFER_AFTER_FY) 처리되어 누적이 한도에 도달해 100.0% 이용이 되었습니다. 이후 2027년 2월에 CLAWBACK으로 720,000원 차감되어 누적이 1,080,000원(60.0% 이용)으로 감소했고, 현재 남은 한도는 720,000원이며 단계는 OK입니다. 이연분의 지급 예정월은 데이터로는 확인되지 않습니다.",
+        "text": "한도는 1,800,000원이며, 초년도 수수료가 2026년 8월에 945,000원 집계되어 누적이 945,000원, 소진율 52.5%가 되었습니다. 같은 달에 시책이 855,000원 집계되면서 한도 초과분 145,000원이 이연되어 누적이 1,800,000원, 소진율이 100.0%가 되었습니다. 2027년 2월에 환수가 720,000원 발생하여 누적이 1,080,000원으로 감소하고 현재 소진율은 60.0%이며 잔여는 720,000원, 단계는 정상입니다. 이연 지급 예정은 데이터로는 확인되지 않습니다.",
         "citedFields": [
           "ledger.limitAmount",
-          "ledger.limitMultiple",
           "derived.remaining",
           "derived.utilization",
           "derived.stage",
           "history[0].on",
-          "history[0].commType",
-          "history[0].amount",
           "history[0].accumAfter",
           "history[0].utilizationAfter",
           "history[1].on",
-          "history[1].commType",
-          "history[1].amount",
           "history[1].limitCutAmt",
           "history[1].limitCutPolicy",
           "history[1].accumAfter",
           "history[1].utilizationAfter",
           "history[2].on",
-          "history[2].commType",
-          "history[2].amount",
           "history[2].accumAfter",
           "history[2].utilizationAfter",
           "deferrals"
         ],
         "numbersUsed": [
           "1,800,000원",
-          "12",
-          "720,000원",
-          "60.0%",
-          "OK",
           "2026년 8월",
-          "FY_COMM",
-          "945,000원",
           "945,000원",
           "52.5%",
-          "2026년 8월",
-          "INCENTIVE",
           "855,000원",
           "145,000원",
-          "DEFER_AFTER_FY",
-          "1,800,000원",
           "100.0%",
           "2027년 2월",
-          "CLAWBACK",
           "720,000원",
-          "1,080,000원",
-          "60.0%"
+          "60.0%",
+          "720,000원"
         ]
       }
     },
     "explain:LIMIT:A-1002:l-A1002-11": {
-      "requestHash": "1e8dee5475a1dbb23c3da1fe116df9e38e19ddb0e864defa5cc642195dcafa96",
+      "requestHash": "2c454cef0283ba25002f3c9210ea30083bdb89ddbf52368c2732bccf5b104c2a",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:19:14.119Z",
+      "recordedAt": "2026-10-31T05:11:17.176Z",
       "usage": null,
       "response": {
-        "text": "이 계약의 한도는 3,600,000원이며 현재 누적 지급액은 1,890,000원으로 한도 대비 52.5%가 소진되었습니다(잔여 1,710,000원, 단계 OK). 최초 지급은 2027년 1월 8일에 이루어졌으며, 그 이후 한도 초과나 삭감은 발생하지 않았습니다. 분급 이연금은 2028년 1월에 378,000원 지급 완료되었고, 2029년 1월과 2030년 1월에 각각 378,000원씩 예정되어 있습니다.",
+        "text": "계약은 2027년 1월에 체결되었으며, 한도는 3,600,000원이고 배수는 12배입니다. 현재 누적 지급액은 1,890,000원이며, 한도 대비 52.5% 이용 중이고 남은 금액은 1,710,000원입니다. 2027년 1월 마감분에 누적이 1,890,000원으로 기록되었으며, 그때 한도는 변동 없었고 이용률은 52.5%였습니다. 분급 지급은 2028년 1월에 378,000원 지급되었고, 2029년 1월과 2030년 1월에 각각 378,000원씩 예정되어 있습니다.",
         "citedFields": [
+          "ledger.contractDate",
           "ledger.limitAmount",
-          "derived.utilization",
+          "ledger.limitMultiple",
           "derived.remaining",
+          "derived.utilization",
           "derived.stage",
-          "history[0].on",
+          "history[0].closeYm",
           "history[0].accumAfter",
           "history[0].limitAfter",
           "history[0].utilizationAfter",
@@ -375,10 +369,11 @@
         ],
         "numbersUsed": [
           "3,600,000원",
+          "12배",
+          "1,890,000원",
           "52.5%",
           "1,710,000원",
-          "2027년 1월 8일",
-          "1,890,000원",
+          "2027년 1월",
           "378,000원",
           "2028년 1월",
           "2029년 1월",
@@ -387,144 +382,81 @@
       }
     },
     "explain:LIMIT:A-1003:l-A1003-13": {
-      "requestHash": "1f21cdbef483cebd08c3bb6ab9296c39143ce16d8d3c9b5097f215d7ef08dc6d",
+      "requestHash": "cddd43cdbf0223ed861ca1f1b52bdd6505fe4c737d06ce76ad5ce98eaac1aa64",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:19:31.099Z",
+      "recordedAt": "2026-10-31T05:11:35.370Z",
       "usage": null,
       "response": {
-        "text": "이 계약의 한도는 1,080,000원이며, 현재 누적 지급액은 972,000원으로 소진율은 90.0%이고 단계는 WARN입니다. 최초 지급은 2026년 8월에 이루어졌으며, 그때 누적액은 972,000원이고 한도는 2,160,000원으로 설정되었습니다. 2027년 2월에 한도가 1,080,000원으로 조정되었고, 그 이후에도 누적액은 변동이 없으며 한도 초과나 삭감·이연은 발생하지 않았습니다. 현재 예정된 분급은 없으며, 이연분의 지급 예정월은 데이터로는 확인되지 않습니다.",
+        "text": "이 계약의 한도는 1,080,000원이며 현재 누적 지급액은 972,000원으로 한도 대비 90.0%가 사용되었습니다. 2026년 8월에 최초로 972,000원이 누적되어 한도 2,160,000원으로 기록되었고, 2027년 2월에 한도가 1,080,000원으로 재산정되어 현재 단계는 주의 단계입니다. 현재 남은 금액은 108,000원이며, 이연 지급 예정액은 데이터로는 확인되지 않습니다.",
         "citedFields": [
           "ledger.limitAmount",
+          "ledger.accumPaid",
           "derived.remaining",
           "derived.utilization",
           "derived.stage",
           "history[0].on",
+          "history[0].closeYm",
           "history[0].amount",
+          "history[0].accumAfter",
           "history[0].limitAfter",
+          "history[0].utilizationAfter",
           "history[1].on",
           "history[1].limitAfter",
+          "history[1].utilizationAfter",
+          "history[1].reason",
           "deferrals"
         ],
         "numbersUsed": [
           "1,080,000원",
           "972,000원",
-          "90.0%",
           "2026년 8월",
-          "2,160,000원",
-          "2027년 2월"
+          "2027년 2월",
+          "90.0%",
+          "108,000원"
         ]
       }
     },
     "explain:MONTH_DIFF:A-1001:202702": {
-      "requestHash": "32e35ee2e48bdaf3e88532bf402d84d6ac81c054c42c7a366ff45011369a50b0",
+      "requestHash": "e8b4dd5d688f6923a5fe89fc99943ac905fb4e390b2e6b3cb0424320ab26d7a7",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:19:47.832Z",
+      "recordedAt": "2026-10-31T05:11:52.788Z",
       "usage": null,
       "response": {
-        "text": "이번 달(2027년 2월) 수수료 명세에는 전월 명세가 없으며, 이번에 발생한 항목은 해약 환수이며 금액은 -720,000원(환수)입니다. 해당 환수는 정책 번호 *********0001에 대해 적용되었습니다. 엔진이 요율·지급률을 적용해 산출한 값으로, 이번 달에만 반영되었습니다.",
+        "text": "2027년 2월 마감분에 환수가 720,000원 발생했습니다. 이번 달에 해당 환수는 증권번호 *********0001 계약에 대해 적용되었습니다. 전월 명세가 없으므로 이번 달 구성만 확인하실 수 있습니다.",
         "citedFields": [
-          "previous.statement",
           "month.closeYm",
-          "lines[0].commType",
-          "lines[0].amount",
-          "lines[0].policyMasked"
+          "month.clawbackOffset",
+          "previous.statement",
+          "lines[0].policyMasked",
+          "lines[0].amount"
         ],
         "numbersUsed": [
           "2027년 2월",
-          "-720,000원"
+          "720,000원"
         ]
       }
     },
     "explain:MONTH_DIFF:A-1002:202607": {
-      "requestHash": "4ce35c59722567e275183828daae0f98b45b6b69831ecc6b873f6b40acaf38ae",
+      "requestHash": "9a3c04c61732008f0e9489a80e7665f38eca36361e08d6d9fa7834f80ac2db4f",
       "repairs": 0,
       "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:20:05.036Z",
+      "recordedAt": "2026-10-31T05:12:10.904Z",
       "usage": null,
       "response": {
-        "text": "2026년 7월 기준 이번 달 총액은 977,400원이며, 전월 2026년 6월의 427,500원에 비해 549,900원 증가했습니다. 주요 변동은 해약 환수(클로백) 금액이 -1,102,500원으로 전월 대비 동일하게 감소한 점과 초년도 수수료가 544,500원 증가한 점, 그리고 유지(2차년도 이후) 수수료가 5,400원 추가된 점입니다. 이 차이는 엔진이 해당 요율·지급률을 적용해 산출한 결과이며, 전월 대비 클로백 차감액이 -1,102,500원, 순변동액이 -413,393원으로 나타났습니다.",
+        "text": "2026년 7월 마감분에서 총액이 549,900원 늘었으며, 초년도 수수료가 전월보다 544,500원 증가했습니다. 환수가 1,102,500원 늘어났고, 이에 따라 실지급액이 413,393원 감소했습니다. 이번 달에는 유지 수수료가 5,400원 추가되었습니다.",
         "citedFields": [
           "month.closeYm",
-          "month.gross",
           "previous.closeYm",
-          "previous.gross",
           "derived.grossDelta",
+          "derived.clawbackOffsetDelta",
+          "derived.netDelta",
           "byType[0].commType",
           "byType[0].delta",
           "byType[1].commType",
           "byType[1].delta",
           "byType[2].commType",
-          "byType[2].delta",
-          "derived.clawbackOffsetDelta",
-          "derived.netDelta"
-        ],
-        "numbersUsed": [
-          "2026년 7월",
-          "977,400원",
-          "2026년 6월",
-          "427,500원",
-          "549,900원",
-          "클로백",
-          "-1,102,500원",
-          "544,500원",
-          "5,400원",
-          "-413,393원"
-        ]
-      }
-    },
-    "explain:MONTH_DIFF:A-1002:202607#retry": {
-      "requestHash": "5fb129a733ac85968386c8dc0f692bcc62dc441ea6ca19516ed549ccf9fba0d0",
-      "repairs": 1,
-      "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:20:22.662Z",
-      "usage": null,
-      "response": {
-        "text": "2026년 7월 기준 이번 달 총액은 977,400원이며, 전월 2026년 6월의 427,500원에 비해 549,900원 증가했습니다. 주요 변동은 해약 환수(클로백) 금액이 -1,102,500원으로 감소한 점과 초년도 수수료가 544,500원 증가한 점, 그리고 유지 수수료가 5,400원 추가된 점입니다. 이 차이는 엔진이 해당 요율·지급률을 적용해 산출한 결과이며, 전월 대비 클로백 차감액이 -1,102,500원, 순변동액이 -413,393원으로 나타났습니다.",
-        "citedFields": [
-          "month.closeYm",
-          "month.gross",
-          "previous.closeYm",
-          "previous.gross",
-          "derived.grossDelta",
-          "byType[0].commType",
-          "byType[0].delta",
-          "byType[1].commType",
-          "byType[1].delta",
-          "byType[2].commType",
-          "byType[2].delta",
-          "derived.clawbackOffsetDelta",
-          "derived.netDelta"
-        ],
-        "numbersUsed": [
-          "2026년 7월",
-          "977,400원",
-          "2026년 6월",
-          "427,500원",
-          "549,900원",
-          "클로백",
-          "-1,102,500원",
-          "544,500원",
-          "5,400원",
-          "-413,393원"
-        ]
-      }
-    },
-    "explain:MONTH_DIFF:A-1003:202607": {
-      "requestHash": "48cd2c5c54230c636cc91e574447041ce5444e0582bb6e204f09e661dc0db1c1",
-      "repairs": 0,
-      "model": "openai/gpt-oss-120b",
-      "recordedAt": "2026-10-30T21:20:40.022Z",
-      "usage": null,
-      "response": {
-        "text": "2026년 7월 명세는 2026년 6월 대비 총액이 -1,547,100원 감소했습니다. 주요 차이는 초년도 수수료가 -1,552,500원 감소하고, 해약 환수로 -1,323,000원이 추가된 점이며, 유지 수수료가 5,400원 증가했습니다. 해당 금액은 각각 **********3012, **********3011, **********3001 계약에 반영되었습니다.",
-        "citedFields": [
-          "month.closeYm",
-          "previous.closeYm",
-          "derived.grossDelta",
-          "byType[0].delta",
-          "byType[1].delta",
           "byType[2].delta",
           "lines[0].policyMasked",
           "lines[1].policyMasked",
@@ -533,10 +465,116 @@
         "numbersUsed": [
           "2026년 7월",
           "2026년 6월",
-          "-1,547,100원",
-          "-1,552,500원",
-          "-1,323,000원",
-          "5,400원"
+          "549,900원",
+          "1,102,500원",
+          "544,500원",
+          "5,400원",
+          "413,393원"
+        ]
+      }
+    },
+    "explain:MONTH_DIFF:A-1003:202607": {
+      "requestHash": "bc7daf6d6f4a680acbec21537aa5e40a232ec8f97ae0cbadc2c064decacc0543",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T05:12:29.519Z",
+      "usage": null,
+      "response": {
+        "text": "2026년 7월 마감분에서 초년도 수수료가 전월보다 1,552,500원 줄었으며, 유지 수수료는 5,400원 늘었습니다. 환수가 전월보다 1,323,000원 늘어나 총액이 1,547,100원 감소했습니다. 실지급액도 전월 대비 1,827,630원 줄어들었습니다.",
+        "citedFields": [
+          "month.gross",
+          "month.clawbackOffset",
+          "month.net",
+          "previous.gross",
+          "previous.clawbackOffset",
+          "previous.withholdingTax",
+          "previous.net",
+          "byType[0].commType",
+          "byType[0].delta",
+          "byType[1].commType",
+          "byType[1].delta",
+          "byType[2].commType",
+          "byType[2].delta",
+          "derived.grossDelta",
+          "derived.clawbackOffsetDelta",
+          "derived.netDelta",
+          "lines[0].amount",
+          "lines[0].policyMasked",
+          "lines[1].amount",
+          "lines[1].policyMasked",
+          "lines[2].amount",
+          "lines[2].policyMasked"
+        ],
+        "numbersUsed": [
+          "342,900원",
+          "1,323,000원",
+          "0원",
+          "0원",
+          "1,552,500원",
+          "5,400원",
+          "1,547,100원",
+          "1,823,630원",
+          "337,500원",
+          "**********3012",
+          "1,323,000원",
+          "**********3011",
+          "5,400원",
+          "**********3001",
+          "2026년 7월",
+          "2026년 6월"
+        ]
+      }
+    },
+    "explain:MONTH_DIFF:A-1003:202607#retry": {
+      "requestHash": "c355342b0ecdf4f7dfc151e822c035ee4f396398fba075582d35bc1ff0b3684d",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T05:12:47.717Z",
+      "usage": null,
+      "response": {
+        "text": "2026년 7월 마감분에서 초년도 수수료가 전월보다 1,552,500원 줄었으며, 유지 수수료는 5,400원 늘었습니다. 환수가 전월보다 1,323,000원 늘어나 총액이 1,547,100원 감소했습니다. 실지급액도 전월 대비 1,827,630원 줄어들었습니다.",
+        "citedFields": [
+          "month.gross",
+          "month.clawbackOffset",
+          "month.net",
+          "previous.gross",
+          "previous.clawbackOffset",
+          "previous.withholdingTax",
+          "previous.net",
+          "byType[0].commType",
+          "byType[0].delta",
+          "byType[1].commType",
+          "byType[1].delta",
+          "byType[2].commType",
+          "byType[2].delta",
+          "derived.grossDelta",
+          "derived.clawbackOffsetDelta",
+          "derived.netDelta",
+          "lines[0].amount",
+          "lines[0].policyMasked",
+          "lines[1].amount",
+          "lines[1].policyMasked",
+          "lines[2].amount",
+          "lines[2].policyMasked",
+          "month.closeYm",
+          "previous.closeYm"
+        ],
+        "numbersUsed": [
+          "342,900원",
+          "1,323,000원",
+          "0원",
+          "1,552,500원",
+          "5,400원",
+          "1,547,100원",
+          "1,827,630원",
+          "337,500원",
+          "**********3012",
+          "1,323,000원",
+          "**********3011",
+          "5,400원",
+          "**********3001",
+          "2026년 7월",
+          "2026년 6월"
         ]
       }
     }

@@ -1,0 +1,18 @@
+$ wrangler d1 execute copilot --remote --command "SELECT COUNT(*) FROM explanation"
+        "n": 0
+$ wrangler d1 migrations apply copilot --remote
+└─────────────────────────┘
+? About to apply 1 migration(s)
+Your database may not be available to serve requests during the migration, continue?
+🤖 Using fallback value in non-interactive context: yes
+🌀 Executing on remote database copilot (f97c77d4-3afc-4ec3-ae17-d91bee6015dc):
+🌀 To execute on your local development database, remove the --remote flag from your wrangler command.
+🚣 Executed 3 commands in 0.52ms
+┌─────────────────────────┬────────┐
+│ name                    │ status │
+├─────────────────────────┼────────┤
+│ 0004_explanation_pk.sql │ ✅     │
+└─────────────────────────┴────────┘
+$ SELECT name FROM sqlite_master WHERE tbl_name='explanation'
+        "name": "explanation"
+        "name": "sqlite_autoindex_explanation_1"

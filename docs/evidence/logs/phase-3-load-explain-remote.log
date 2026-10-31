@@ -1,0 +1,18 @@
+2026-10-31T05:16:58Z
+$ wrangler d1 info copilot (적재 전)
+  "write_queries_24h": 0,
+  "rows_written_24h": 0
+
+> @copilot/gen@ load:d1 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node load/d1.ts -- --remote --explain
+
+explanation fca1971cdbce: 레코드 16, 이미 있음 0, 새로 16 → D1 16행
+   실측 rows written(wrangler): 32
+
+> @copilot/gen@ verify:explain /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node explain/verify-explanations.ts -- --remote
+
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 16 — PASS 16 · FAIL 0, PASS 행 위반 0
+  LIMIT: PASS 3 · FAIL 0
+  LINE: PASS 10 · FAIL 0
+  MONTH_DIFF: PASS 3 · FAIL 0
