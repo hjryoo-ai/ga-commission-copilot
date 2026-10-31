@@ -134,7 +134,9 @@ v6을 만든다면(운영자 결정 뒤): INCENTIVE 행에 "'인센티브'라고
 
 판정: **`gpt-oss-120b` 통과** — 첫 시도 93.8% ≥ 90%, 골든 3/3, 4종 위반 0(경계 1건 #13을 위반으로 세어도 1건·비골든이라 종료 규칙상 진행). #13은 남은 이슈와 Phase 6 평가 항목으로 넘긴다. 배치 Workers AI 모델 = `@cf/openai/gpt-oss-120b`, 하루 110(`BATCH_PROVIDERS`). 실측 107.5뉴런/회라 10,000뉴런으로는 약 93회에서 3036(그날 끝)이 먼저 온다.
 
-다음(2026-11-01 00:00 UTC 뒤): ① 슬롯 a 퍼지 ② Groq v6 녹화(`explain -- --record --prompt-version v6` → 카세트 `explain`·`data/explain`) → 같은 관문. 통과하면 v6 활성(`PROMPTS`·`PROMPT_VERSIONS`·`GATED_CASSETTES`에 120b 카세트·worker·web 시험) → v6 16행 원격 적재(v4 행은 이력으로 남김) → 배치 시작(보고 없이), 첫날 결과와 설계서 v0.1.16을 보고. Groq 미달이면 멈추고 실패 본문 전체를 보고(v7 없음).
+운영자 수용(2026-10-31): v6 Workers AI 관문 통과·120b 전환·경계 1건(#13) Phase 6 이관.
+
+다음(2026-11-01 00:00 UTC 뒤): ① 슬롯 a 퍼지 ② Groq v6 녹화(`explain -- --record --prompt-version v6` → 카세트 `explain`·`data/explain`) → 같은 관문. 통과하면 v6 활성(`PROMPTS`·`PROMPT_VERSIONS`·`GATED_CASSETTES`에 120b 카세트·worker·web 시험) → v6 16행 원격 적재(v4 행은 이력으로 남김) → **`PROMPT_VERSIONS`는 wrangler var라 배포가 필요 — web build → `wrangler deploy`를 직접 하고 외부 `/me.promptVersions`가 v6인지 확인**(운영자 추가 지시, git 푸시는 운영자. 2026-10-31 `wrangler deploy --dry-run` 통과) → 배치 시작(보고 없이), 첫날 결과와 설계서 v0.1.16을 보고. v0.1.16 내용(운영자 지정): Groq 호출당 약 3.0K 토큰·약 65/일, Workers AI `@cf/openai/gpt-oss-120b` 107.5뉴런/호출·약 93/일(§10.1 표·§4.1(b)·§10.4), 배치 약 4일, §4.1(b)에 "`gpt-oss-20b`는 관문 미달(정해진 문장 누락·시점 단정)로 배치에서 제외" 한 줄. Groq 미달이면 멈추고 실패 본문 전체를 보고(v7 없음).
 
 ## 완료 기준 대조
 
