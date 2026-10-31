@@ -1,0 +1,628 @@
+{
+  "kind": "vcr",
+  "name": "explain.wai-gpt-oss-120b",
+  "entries": {
+    "explain:LINE:A-1001:1": {
+      "requestHash": "062773c3a3a5a389ebe578c73c034cb771b80fefc9f733f3c070a47a942f87f3",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:27:42.767Z",
+      "usage": {
+        "prompt_tokens": 2416,
+        "completion_tokens": 307,
+        "total_tokens": 2723,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 97.80409240722656
+      },
+      "response": {
+        "text": "2026년 8월 마감분으로, 증권번호 *********0001에 대해 초년도 수수료 945,000원이 산출되었습니다. 엔진은 요율 7과 지급률 0.9를 적용해 산출했으며, 이 전기 뒤 누적이 945,000원으로 한도 1,800,000원 중 52.5%가 소진된 상태입니다.",
+        "citedFields": [
+          "line.amount",
+          "line.policyMasked",
+          "line.closeYm",
+          "basis.rate",
+          "basis.payoutRate",
+          "limitPosting.accumAfter",
+          "limitPosting.utilizationAfter",
+          "ledger.limitAmount"
+        ],
+        "numbersUsed": [
+          "945,000원",
+          "2026년 8월",
+          "7",
+          "0.9",
+          "1,800,000원",
+          "52.5%"
+        ]
+      }
+    },
+    "explain:LINE:A-1001:2": {
+      "requestHash": "a3f10e624e5c69467aad7f5fcf076e08d5a759593b71d41cb9194f8bbb59639d",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:27:47.323Z",
+      "usage": {
+        "prompt_tokens": 2444,
+        "completion_tokens": 282,
+        "total_tokens": 2726,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 96.9904556274414
+      },
+      "response": {
+        "text": "증권번호 *********0001에 대한 시책이 2026년 8월 마감분으로 855,000원이 산출되었습니다. 요청액은 1,000,000원이며, 한도 초과분 145,000원이 삭감되어 지급액이 결정되었습니다. 이 전기 뒤 누적이 1,800,000원이고, 이 전기 뒤 소진율이 100.0%로 한도가 전부 소진된 상태입니다.",
+        "citedFields": [
+          "line.amount",
+          "line.policyMasked",
+          "line.limitCutAmt",
+          "derived.requested",
+          "limitPosting.accumAfter",
+          "limitPosting.utilizationAfter",
+          "limitPosting.postedOn"
+        ],
+        "numbersUsed": [
+          "855,000원",
+          "2026년 8월",
+          "1,000,000원",
+          "145,000원",
+          "1,800,000원",
+          "100.0%"
+        ]
+      }
+    },
+    "explain:LINE:A-1001:6": {
+      "requestHash": "00879f49b55890c1c6d53fbac3fcdcee7bd1f530117c5e93d12c9d9c77a14def",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:27:53.400Z",
+      "usage": {
+        "prompt_tokens": 2447,
+        "completion_tokens": 213,
+        "total_tokens": 2660,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 92.38136291503906
+      },
+      "response": {
+        "text": "증권번호 *********0001에 대해 2027년 2월에 한도 원장에 반영된 금액은 720,000원이 환수되었습니다. 이 금액은 엔진이 요율 0.4와 회차 7을 적용해 산출한 값이며, 환수 채권이 720,000원이며 잔액이 0원으로 회수 종료되었습니다.",
+        "citedFields": [
+          "line.policyMasked",
+          "line.amount",
+          "receivable.amount",
+          "receivable.remaining",
+          "receivable.status",
+          "limitPosting.postedOn"
+        ],
+        "numbersUsed": [
+          "720,000원",
+          "2027년 2월"
+        ]
+      }
+    },
+    "explain:LINE:A-1001:c-A1001-09-1": {
+      "requestHash": "078ecdff8fde42f0bd5d180502e84bafa3dfb6496944786f3405a60d7c2a608b",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:27:58.053Z",
+      "usage": {
+        "prompt_tokens": 2529,
+        "completion_tokens": 424,
+        "total_tokens": 2953,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 109.37680053710938
+      },
+      "response": {
+        "text": "2027년 3월 18일에 체결된 이 계약의 2027년 3월 마감분으로 초년도 수수료 187,200원이 산출되었습니다. 엔진은 요율 6.5와 지급률 0.9를 적용해 해당 금액을 산출했으며, 한도는 960,000원으로 초과되지 않았습니다. 분급 지급분으로 2028년 3월에 93,600원이 지급되었고, 2029년 3월과 2030년 3월에 각각 93,600원씩 예정월에 지급될 예정입니다.",
+        "citedFields": [
+          "line.amount",
+          "line.commType",
+          "line.policyMasked",
+          "basis.rate",
+          "basis.payoutRate",
+          "ledger.limitAmount",
+          "limitPosting.limitAfter",
+          "deferrals[0].dueYm",
+          "deferrals[0].amount",
+          "deferrals[0].status",
+          "deferrals[1].dueYm",
+          "deferrals[1].amount",
+          "deferrals[1].status",
+          "deferrals[2].dueYm",
+          "deferrals[2].amount",
+          "deferrals[2].status"
+        ],
+        "numbersUsed": [
+          "187,200원",
+          "6.5",
+          "0.9",
+          "960,000원",
+          "93,600원",
+          "2028년 3월",
+          "2029년 3월",
+          "2030년 3월"
+        ]
+      }
+    },
+    "explain:LINE:A-1001:c-A1001-09-2": {
+      "requestHash": "fad8974e6787a38ac9214d46f124de5d6066b9716d17fbbafeb0886fadf06e63",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:28:02.593Z",
+      "usage": {
+        "prompt_tokens": 2345,
+        "completion_tokens": 253,
+        "total_tokens": 2598,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 91.86319732666016
+      },
+      "response": {
+        "text": "2028년 3월 마감분으로 집계된 **********1008 증권의 분급 지급분은 93,600원입니다. 이 금액은 엔진이 요율·지급률을 적용해 산출한 값이며, 한도 초과분 삭감이나 환수 채권, 분급 일정은 존재하지 않습니다.",
+        "citedFields": [
+          "line.amount",
+          "line.closeYm",
+          "line.policyMasked",
+          "deferrals"
+        ],
+        "numbersUsed": [
+          "93,600원",
+          "2028년 3월"
+        ]
+      }
+    },
+    "explain:LINE:A-1002:c-A1002-06-2": {
+      "requestHash": "2b5ec1acc8a01a74d0a3e72a1e96ea8a7f9a9043df3867e4f68d140b6712dc7f",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:28:52.841Z",
+      "usage": {
+        "prompt_tokens": 2348,
+        "completion_tokens": 314,
+        "total_tokens": 2662,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 96.11775207519531
+      },
+      "response": {
+        "text": "2026년 7월 마감분으로 집계된 금액은 엔진이 요율·지급률을 적용해 산출한 결과, 1,102,500원이 환수되었습니다. 해당 금액은 증권번호 **********2006에 대한 환수이며, 환수 채권이 125,100원이 회수 종료되었습니다. 기타 분급이나 한도 초과에 대한 내용은 데이터에 없습니다.",
+        "citedFields": [
+          "line.closeYm",
+          "line.amount",
+          "line.policyMasked",
+          "receivable.amount",
+          "receivable.status"
+        ],
+        "numbersUsed": [
+          "1,102,500원",
+          "2026년 7월",
+          "125,100원"
+        ]
+      }
+    },
+    "explain:LINE:A-1002:c-A1002-01-2": {
+      "requestHash": "f0d959bde3d32832f2e90e2b51e51d9ffa811547024188564d65538a298e1e69",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:28:58.020Z",
+      "usage": {
+        "prompt_tokens": 2329,
+        "completion_tokens": 370,
+        "total_tokens": 2699,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 99.33138275146484
+      },
+      "response": {
+        "text": "2026년 7월 마감분으로, 증권번호 **********2001에 대한 유지 수수료가 5,400원 산출되었습니다. 엔진은 요율 0.05와 지급률 0.9를 적용하고, 13회차에 해당하는 회차값을 반영하여 금액을 계산했습니다. 계약일은 2025년 7월이며, 월 보험료는 120,000원입니다.",
+        "citedFields": [
+          "line.amount",
+          "line.commType",
+          "line.closeYm",
+          "line.policyMasked",
+          "basis.rate",
+          "basis.payoutRate",
+          "basis.installmentNo",
+          "policySummary.contractDate",
+          "policySummary.monthlyPremium"
+        ],
+        "numbersUsed": [
+          "5,400원",
+          "2026년 7월",
+          "0.05",
+          "0.9",
+          "13",
+          "2025년 7월",
+          "120,000원"
+        ]
+      }
+    },
+    "explain:LINE:A-1003:c-A1003-01-2": {
+      "requestHash": "b0ac1e566efae1ba26e3ebd224444f6ddf127176c134683e1ea77ce193d40369",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:29:03.302Z",
+      "usage": {
+        "prompt_tokens": 2329,
+        "completion_tokens": 277,
+        "total_tokens": 2606,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 92.990478515625
+      },
+      "response": {
+        "text": "2026년 7월 마감분으로, 증권번호 **********3001의 유지 수수료가 5,400원 산출되었습니다. 엔진이 요율 0.05·지급률 0.9·회차 13을 적용해 계산한 결과입니다.",
+        "citedFields": [
+          "line.closeYm",
+          "line.policyMasked",
+          "line.amount",
+          "basis.rate",
+          "basis.payoutRate",
+          "basis.installmentNo"
+        ],
+        "numbersUsed": [
+          "2026년 7월",
+          "5,400원",
+          "0.05",
+          "0.9",
+          "13"
+        ]
+      }
+    },
+    "explain:LINE:A-1003:c-A1003-01-1": {
+      "requestHash": "0ee9297a211fc3db2adf160cd3609d92f77bceb5992108eb2774f53e27f8a34b",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:29:09.773Z",
+      "usage": {
+        "prompt_tokens": 2317,
+        "completion_tokens": 303,
+        "total_tokens": 2620,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 94.38139343261719
+      },
+      "response": {
+        "text": "2025년 7월 마감분으로 집계된 증권번호 **********3001의 초년도 수수료는 756,000원입니다. 엔진이 요율 7과 지급률 0.9를 적용해 산출한 금액이며, 별도의 한도 초과 삭감이나 분급, 환수 채권은 없습니다.",
+        "citedFields": [
+          "line.amount",
+          "line.commType",
+          "line.closeYm",
+          "line.policyMasked",
+          "basis.rate",
+          "basis.payoutRate"
+        ],
+        "numbersUsed": [
+          "756,000원",
+          "2025년 7월"
+        ]
+      }
+    },
+    "explain:LINE:A-1002:c-A1002-01-1": {
+      "requestHash": "83d6c1ef58dc6801ba7e1ab0fc216d5bd19e61f2c394eacd7c772ac7db535c0a",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:29:15.576Z",
+      "usage": {
+        "prompt_tokens": 2317,
+        "completion_tokens": 314,
+        "total_tokens": 2631,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 95.13139343261719
+      },
+      "response": {
+        "text": "2025년 7월 마감분으로 집계된 초년도 수수료는 756,000원입니다. 엔진은 요율 7과 지급률 0.9를 적용해 산출한 금액이며, 해당 계약(**********2001)의 초년도 수수료로 반영되었습니다.",
+        "citedFields": [
+          "line.amount",
+          "line.closeYm",
+          "line.commType",
+          "line.policyMasked",
+          "basis.rate",
+          "basis.payoutRate"
+        ],
+        "numbersUsed": [
+          "756,000원",
+          "2025년 7월",
+          "7",
+          "0.9"
+        ]
+      }
+    },
+    "explain:LIMIT:A-1001:1": {
+      "requestHash": "ed945c840a13fe4472b51f1ffe7d6587864b20b3080da8b79b897c0b34d7acbb",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:29:25.375Z",
+      "usage": {
+        "prompt_tokens": 2794,
+        "completion_tokens": 965,
+        "total_tokens": 3759,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 154.69491577148438
+      },
+      "response": {
+        "text": "증권번호 *********0001은 2026년 8월에 체결되었습니다. 2026년 8월 마감분에 초년도 수수료가 945,000원 집계되어 이 전기 뒤 누적이 945,000원, 소진율이 52.5%였습니다. 같은 달에 시책이 855,000원 집계되고 한도 초과분 145,000원이 이연되었습니다. 이 전기 뒤 누적이 1,800,000원으로 한도에 도달해 소진율이 100.0%가 되었습니다. 2027년 2월 마감분에 환수가 720,000원 발생하여 누적이 1,080,000원, 소진율이 60.0%로 돌아왔으며, 현재 남은 금액은 720,000원이고 소진율은 60.0%로 단계는 정상입니다. 이연분의 지급 시점은 데이터로는 확인되지 않습니다.",
+        "citedFields": [
+          "ledger.policyMasked",
+          "ledger.contractDate",
+          "ledger.limitAmount",
+          "derived.remaining",
+          "derived.utilization",
+          "derived.stage",
+          "history[0].on",
+          "history[0].closeYm",
+          "history[0].accumAfter",
+          "history[0].utilizationAfter",
+          "history[1].on",
+          "history[1].closeYm",
+          "history[1].amount",
+          "history[1].limitCutAmt",
+          "history[1].limitCutPolicy",
+          "history[1].accumAfter",
+          "history[1].utilizationAfter",
+          "history[2].on",
+          "history[2].closeYm",
+          "history[2].amount",
+          "history[2].accumAfter",
+          "history[2].utilizationAfter"
+        ],
+        "numbersUsed": [
+          "1,800,000원",
+          "945,000원",
+          "52.5%",
+          "855,000원",
+          "145,000원",
+          "100.0%",
+          "720,000원",
+          "60.0%",
+          "720,000원",
+          "60.0%",
+          "2026년 8월",
+          "2027년 2월"
+        ]
+      }
+    },
+    "explain:LIMIT:A-1002:l-A1002-11": {
+      "requestHash": "3187f60e9c36115c4389df027d154fd65a8d8e9168e601c264a0fa5f5e74f312",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:29:35.078Z",
+      "usage": {
+        "prompt_tokens": 2724,
+        "completion_tokens": 1054,
+        "total_tokens": 3778,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 158.5358428955078
+      },
+      "response": {
+        "text": "증권번호 **********2011 계약일은 2027년 1월 8일이며, 한도는 3,600,000원입니다. 2027년 1월에 초년도 수수료 1,890,000원이 집계되어 이 전기 뒤 누적이 1,890,000원, 이 전기 뒤 소진율이 52.5%였습니다. 현재 남은 금액은 1,710,000원이며, 소진율은 52.5%로 정상 단계입니다. 2028년 1월에 378,000원이 지급되었고, 2029년 1월과 2030년 1월에 각각 378,000원씩 지급 예정입니다.",
+        "citedFields": [
+          "ledger.policyMasked",
+          "ledger.contractDate",
+          "ledger.limitAmount",
+          "ledger.accumPaid",
+          "derived.remaining",
+          "derived.utilization",
+          "derived.stage",
+          "history[0].on",
+          "history[0].commType",
+          "history[0].closeYm",
+          "history[0].amount",
+          "history[0].accumAfter",
+          "history[0].utilizationAfter",
+          "deferrals[0].dueYm",
+          "deferrals[0].amount",
+          "deferrals[0].status",
+          "deferrals[1].dueYm",
+          "deferrals[1].amount",
+          "deferrals[1].status",
+          "deferrals[2].dueYm",
+          "deferrals[2].amount",
+          "deferrals[2].status"
+        ],
+        "numbersUsed": [
+          "3,600,000원",
+          "1,890,000원",
+          "52.5%",
+          "1,710,000원",
+          "378,000원",
+          "2027년 1월",
+          "2028년 1월",
+          "2029년 1월",
+          "2030년 1월"
+        ]
+      }
+    },
+    "explain:LIMIT:A-1003:l-A1003-13": {
+      "requestHash": "61654d31ffe0fd688b8cbfea875a9b305ced689d53fbefb84013e0fb8fac74c9",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:29:41.107Z",
+      "usage": {
+        "prompt_tokens": 2672,
+        "completion_tokens": 732,
+        "total_tokens": 3404,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 134.92677307128906
+      },
+      "response": {
+        "text": "증권번호 **********3013의 한도는 1,080,000원입니다. 2026년 8월에 972,000원이 집계되어 이 전기 뒤 누적이 972,000원, 이 전기 뒤 소진율이 45.0%였으며, 2027년 2월에 한도가 1,080,000원으로 조정되어 이 전기 뒤 소진율이 90.0%가 되었습니다. 현재 소진율은 90.0%이며, 잔여 금액은 108,000원이고, 한도 단계는 주의 상태입니다.",
+        "citedFields": [
+          "ledger.policyMasked",
+          "ledger.limitAmount",
+          "history[0].on",
+          "history[0].closeYm",
+          "history[0].amount",
+          "history[0].accumAfter",
+          "history[0].limitAfter",
+          "history[0].utilizationAfter",
+          "history[1].on",
+          "history[1].limitAfter",
+          "history[1].utilizationAfter",
+          "derived.remaining",
+          "derived.utilization",
+          "derived.stage"
+        ],
+        "numbersUsed": [
+          "1,080,000원",
+          "2026년 8월",
+          "972,000원",
+          "45.0%",
+          "2027년 2월",
+          "90.0%",
+          "108,000원"
+        ]
+      }
+    },
+    "explain:MONTH_DIFF:A-1001:202702": {
+      "requestHash": "bed4eaa2c0190463c018bd1e6114b7bcbad264e0c7b3e58b78274f87529d0e9f",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:29:45.087Z",
+      "usage": {
+        "prompt_tokens": 2326,
+        "completion_tokens": 218,
+        "total_tokens": 2544,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 88.87229919433594
+      },
+      "response": {
+        "text": "2027년 2월 마감분으로 집계된 내용은 전월 명세가 없으므로 이번 달 구성만 안내드립니다. 증권번호 *********0001에 대해 720,000원이 환수되었습니다.",
+        "citedFields": [
+          "month.closeYm",
+          "lines.policyMasked",
+          "lines.amount",
+          "byType.amount",
+          "month.clawbackOffset"
+        ],
+        "numbersUsed": [
+          "2027년 2월",
+          "720,000원"
+        ]
+      }
+    },
+    "explain:MONTH_DIFF:A-1001:202702#retry": {
+      "requestHash": "d59f12bf15a2fef47c8d84a9ae0b1141fdd742d1f503032fe80591bee1646a3e",
+      "repairs": 1,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:29:49.835Z",
+      "usage": {
+        "prompt_tokens": 2564,
+        "completion_tokens": 197,
+        "total_tokens": 2761,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 95.01316833496094
+      },
+      "response": {
+        "text": "2027년 2월 마감분으로 집계된 내용은 전월 명세가 없으므로 이번 달 구성만 안내드립니다. 증권번호 *********0001에 대해 720,000원이 환수되었습니다.",
+        "citedFields": [
+          "month.closeYm",
+          "lines[0].policyMasked",
+          "lines[0].amount",
+          "byType[0].amount",
+          "month.clawbackOffset"
+        ],
+        "numbersUsed": [
+          "2027년 2월",
+          "720,000원"
+        ]
+      }
+    },
+    "explain:MONTH_DIFF:A-1002:202607": {
+      "requestHash": "27fb805b447abbc2b7a07714ba2701d8b9f409ed0f1f64bf1276ee3be9fff763",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:29:56.139Z",
+      "usage": {
+        "prompt_tokens": 2553,
+        "completion_tokens": 581,
+        "total_tokens": 3134,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 120.84497833251953
+      },
+      "response": {
+        "text": "2026년 7월 마감분에서 총액이 전월보다 549,900원 늘었으며, 실지급액은 413,393원 감소했습니다. 초년도 수수료가 전월보다 544,500원 늘었고, 유지 수수료가 5,400원 추가되었습니다. 해약 환수 금액이 1,102,500원 증가하여 환수가 크게 늘었습니다.",
+        "citedFields": [
+          "month.closeYm",
+          "previous.closeYm",
+          "derived.grossDelta",
+          "derived.netDelta",
+          "byType[1].delta",
+          "byType[2].delta",
+          "byType[0].delta",
+          "lines[0].amount",
+          "lines[1].amount",
+          "lines[2].amount"
+        ],
+        "numbersUsed": [
+          "2026년 7월",
+          "2026년 6월",
+          "549,900원",
+          "413,393원",
+          "544,500원",
+          "5,400원",
+          "1,102,500원"
+        ]
+      }
+    },
+    "explain:MONTH_DIFF:A-1003:202607": {
+      "requestHash": "3d832825b7add138932eb47a80653ce9b849eb830103451dfe3f66166d356ea3",
+      "repairs": 0,
+      "model": "@cf/openai/gpt-oss-120b",
+      "recordedAt": "2026-10-31T08:30:01.243Z",
+      "usage": {
+        "prompt_tokens": 2559,
+        "completion_tokens": 402,
+        "total_tokens": 2961,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "neurons": 108.83133697509766
+      },
+      "response": {
+        "text": "2026년 7월 마감분에서 초년도 수수료가 전월보다 1,552,500원 줄었고, 환수가 1,323,000원 발생했습니다. 유지 수수료는 5,400원 늘어났으며, 총액이 전월 대비 1,547,100원 감소했습니다. 실지급액은 전월 대비 1,827,630원 줄어들었습니다.",
+        "citedFields": [
+          "month.closeYm",
+          "previous.closeYm",
+          "byType[0].delta",
+          "byType[1].delta",
+          "byType[2].delta",
+          "derived.grossDelta",
+          "derived.netDelta"
+        ],
+        "numbersUsed": [
+          "2026년 7월",
+          "1,552,500원",
+          "1,323,000원",
+          "5,400원",
+          "1,547,100원",
+          "1,827,630원"
+        ]
+      }
+    }
+  }
+}

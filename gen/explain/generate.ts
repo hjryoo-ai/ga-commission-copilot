@@ -16,7 +16,18 @@ export const PROMPTS: Readonly<Record<Kind, { name: string; version: string }>> 
 export const REPAIR_PROMPT = { name: "explain_repair", version: "v1" } as const;
 const MAX_COMPLETION_TOKENS = 1500;
 
-export const promptVersionOf = (kind: Kind) => `${PROMPTS[kind].name}/${PROMPTS[kind].version}`;
+/**
+ * 그 종류의 프롬프트 버전. EXPLAIN_PROMPT_VERSION(vN)이 있으면 세 종류 모두 그 버전 — 활성화 전 후보 버전 녹화용
+ * (`explain -- --record --prompt-version v6`). 없으면 PROMPTS(활성 버전).
+ */
+function versionOf(kind: Kind): string {
+  const o = process.env.EXPLAIN_PROMPT_VERSION;
+  if (!o) return PROMPTS[kind].version;
+  if (!/^v[1-9][0-9]*$/.test(o)) throw new Error(`EXPLAIN_PROMPT_VERSION ${o}: vN 형식 아님`);
+  return o;
+}
+
+export const promptVersionOf = (kind: Kind) => `${PROMPTS[kind].name}/${versionOf(kind)}`;
 
 export interface Subject {
   tenantId: string;
@@ -35,7 +46,7 @@ export interface LlmOutput {
 
 /** 첫 요청(설계서 §6.3 — 프롬프트 파일 + 컨텍스트). model을 주면 model_hint 대신 쓴다(Workers AI). */
 export function explainRequest(kind: Kind, context: Json, model?: string): { req: StructuredRequest; hash: string } {
-  const p = loadPrompt(PROMPTS[kind].name, PROMPTS[kind].version);
+  const p = loadPrompt(PROMPTS[kind].name, versionOf(kind));
   const req: StructuredRequest = {
     model: model ?? p.modelHint,
     messages: [{ role: "user", content: render(p.body, { context: JSON.stringify(context, null, 1) }) }],

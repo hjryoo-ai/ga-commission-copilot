@@ -2,10 +2,11 @@ import { spawnSync } from "node:child_process";
 import { extractTokens } from "@copilot/grounding";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type AgentRows, contextOf } from "../explain/context.ts";
-import { agentRowsOf, allSubjects, runStub, VCR_NAME, vcrSubjects } from "../explain/run.ts";
+import { agentRowsOf, allSubjects, cassetteOf, GATED_CASSETTES, runStub, vcrSubjects } from "../explain/run.ts";
 import { ExplanationStore } from "../explain/store.ts";
 import { pickStream, readMeta, viewsOf } from "../load/views.ts";
 import { openStub } from "../providers/cassette.ts";
+import type { ProviderName } from "../providers/groq.ts";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -52,15 +53,18 @@ describe.skipIf(!java)("커밋된 스트림의 설명 대상과 VCR 재생", () 
     expect(v.find((s) => s.kind === "MONTH_DIFF")).toMatchObject({ agentId: "A-1001", subjectId: "202702" });
   });
 
-  describe("VCR 재생(--stub)", () => {
+  // 관문을 넘은 모델의 카세트마다(운영자 2026-10-31 — 관문은 모델별). 후보 판정은 EXPLAIN_TEST_PROVIDER·EXPLAIN_TEST_MODEL
+  // (+ 활성화 전이면 EXPLAIN_PROMPT_VERSION)로 그 카세트 하나만 — 아래 골든 단언은 카세트와 관계없이 같다.
+  const cassettes = process.env.EXPLAIN_TEST_PROVIDER ? [cassetteOf(process.env.EXPLAIN_TEST_PROVIDER as ProviderName, process.env.EXPLAIN_TEST_MODEL)] : GATED_CASSETTES;
+  describe.each(cassettes)("VCR 재생(--stub) — $name", (cassette) => {
     let store: ExplanationStore;
     beforeAll(async () => {
       store = new ExplanationStore(mkdtempSync(join(tmpdir(), "explain-stub-")), hash);
-      await runStub(hash, byAgent, vcrSubjects(rows), store);
+      await runStub(hash, byAgent, vcrSubjects(rows), store, cassette);
     });
 
     it("16건 모두 재생된다(요청 해시 = 녹화 해시 — 프롬프트·컨텍스트가 녹화 때와 같다)", () => {
-      expect(openStub(VCR_NAME).kind).toBe("vcr");
+      expect(openStub(cassette.name).kind).toBe("vcr");
       expect(store.all()).toHaveLength(16);
     });
 

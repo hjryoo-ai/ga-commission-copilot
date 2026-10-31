@@ -1,10 +1,11 @@
 // 설명 사전 생성 CLI(설계서 v0.1.14 §4.1(b), PHASES Phase 3 항목 2·3).
 //   node explain/run.ts --stub     VCR 16건만 재생 → gen/out/explain/<hash>/ (커밋 안 함). 녹화 없는 subject는 건너뛴다.
-//   node explain/run.ts --record   VCR 16건을 Groq 실호출로 녹화(dev 예산) + data/explain/<hash>/에도 쓴다(같은 키는 배치가 건너뜀).
+//   node explain/run.ts --record   VCR 16건을 실호출로 녹화(dev 예산). Groq(기본)는 카세트 explain + data/explain/<hash>/에도 쓴다(같은 키는 배치가 건너뜀).
+//                                  --provider workers-ai [--model @cf/…]는 카세트 explain.wai-<모델> + gen/out/explain-record/에만(관문은 모델별 — 운영자 2026-10-31).
 //   node explain/run.ts --batch    data/explain/<hash>/에 없는 subject를 LINE → LIMIT → MONTH_DIFF 순으로 생성.
 //                                  첫 호출은 Workers AI 구조화 출력 확인(첫 subject를 Workers AI로 — json_schema 거부면 프롬프트 강제 JSON + G1).
-//                                  그다음 Groq(batch:explain:groq 130/일) → Workers AI gpt-oss-20b(batch:explain:workers-ai 200/일), 소진되면 멈춘다.
-//   공통: [--stream <sha256>] [--limit N]
+//                                  그다음 Groq(batch:explain:groq 130/일) → Workers AI gpt-oss-120b(batch:explain:workers-ai 110/일), 소진되면 멈춘다.
+//   공통: [--stream <sha256>] [--limit N] [--prompt-version vN](활성화 전 후보 버전) [--provider groq|workers-ai] [--model <id>](--stub·--record의 카세트)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Json } from "@copilot/grounding";
@@ -18,11 +19,31 @@ import { type Caller, gate, generateOne, labelOf, promptVersionOf, type Subject 
 import { DATA_EXPLAIN, type ExplanationRecord, ExplanationStore, OUT_EXPLAIN } from "./store.ts";
 
 export const VCR_NAME = "explain";
+const WAI_DEFAULT_MODEL = "@cf/openai/gpt-oss-20b";
+
+/** 녹화 카세트(공급자·모델별). Groq = 정본 `explain`(모델은 프롬프트 model_hint), Workers AI = `explain.wai-<모델 이름>`. */
+export interface Cassette {
+  name: string;
+  provider: ProviderName;
+  model?: string;
+}
+export const GROQ_CASSETTE: Cassette = { name: VCR_NAME, provider: "groq" };
+
+export function cassetteOf(provider: ProviderName, model?: string): Cassette {
+  if (provider === "groq") return GROQ_CASSETTE;
+  const m = model ?? WAI_DEFAULT_MODEL;
+  return { name: `${VCR_NAME}.wai-${m.split("/").at(-1)}`, provider, model: m };
+}
+
+/** 골든 시험(`test/explain-stream.test.ts`)이 재생하는 카세트 — 관문을 넘은 모델만 넣는다. */
+export const GATED_CASSETTES: readonly Cassette[] = [GROQ_CASSETTE];
 /** 배치 공급자 순서와 하루 상한(설계서 v0.1.14 §4.1(b)·§10.4). */
 export const BATCH_PROVIDERS: readonly { provider: ProviderName; scope: string; cap: number; model?: string; spacingMs: number }[] = [
   // TPM 8K ÷ 호출당 약 3.0K(v5 녹화 실측 — 15초 간격에서 TPM 429 5회) ≈ 분당 2.6회
   { provider: "groq", scope: "batch:explain:groq", cap: 130, spacingMs: 23_000 },
-  { provider: "workers-ai", scope: "batch:explain:workers-ai", cap: 200, model: "@cf/openai/gpt-oss-20b", spacingMs: 1_000 },
+  // 운영자 규칙(2026-10-31): 관문은 모델별 — v6 녹화에서 gpt-oss-20b 미달(골든 A-02·A-03) → gpt-oss-120b 통과, 하루 110.
+  // 실측 회당 약 107.5뉴런이라 10,000뉴런으로 하루 약 93회에서 3036(그날 끝)이 먼저 온다. 설계서 §4.1(b)·§10.4는 v0.1.16(배치 첫날 실측).
+  { provider: "workers-ai", scope: "batch:explain:workers-ai", cap: 110, model: "@cf/openai/gpt-oss-120b", spacingMs: 1_000 },
 ];
 const RECORD_SPACING_MS = 23_000;
 /** 429의 retry-after가 이보다 길면 그 공급자는 그날 끝(TPD·RPD)으로 본다. */
@@ -176,10 +197,10 @@ function tally(report: RunReport, r: ExplanationRecord) {
   if (r.groundingStatus === "FAIL") report.failures.push({ label: labelOf(r), provider: r.provider, failure: r.failure });
 }
 
-/** --stub: VCR 재생. */
-export async function runStub(hash: string, byAgent: Map<string, AgentRows>, subjects: Subject[], store: ExplanationStore): Promise<RunReport> {
-  const src = openStub(VCR_NAME);
-  if (src.kind !== "vcr") throw new Error("explain VCR 없음 — --record 먼저");
+/** --stub: VCR 재생(카세트의 모델로 요청을 만들어 해시를 대조한다). */
+export async function runStub(hash: string, byAgent: Map<string, AgentRows>, subjects: Subject[], store: ExplanationStore, cassette: Cassette = GROQ_CASSETTE): Promise<RunReport> {
+  const src = openStub(cassette.name);
+  if (src.kind !== "vcr") throw new Error(`${cassette.name} VCR 없음 — --record 먼저`);
   const report = newReport("stub", hash, subjects.length);
   const recorded = new Set(Object.keys(src.file.entries));
   const call: Caller = async ({ label, hash: h }) => {
@@ -189,7 +210,7 @@ export async function runStub(hash: string, byAgent: Map<string, AgentRows>, sub
   };
   for (const s of subjects) {
     if (!recorded.has(labelOf(s))) continue;
-    const r = await generateOne(s, hash, contextFor(byAgent, s), call);
+    const r = await generateOne(s, hash, contextFor(byAgent, s), call, cassette.model);
     store.put(r);
     tally(report, r);
   }
@@ -269,9 +290,11 @@ async function liveCall(provider: ProviderName, reserve: () => void, req: Parame
   throw new BudgetExhausted(`${provider} 3회 연속 실패(${reasons.join("·")})`);
 }
 
-/** --record: VCR 16건 녹화(Groq, dev 예산) + data/explain에도 기록. */
-export async function runRecord(hash: string, byAgent: Map<string, AgentRows>, subjects: Subject[], store: ExplanationStore): Promise<RunReport> {
-  const previous: Record<string, VcrEntry> = existsSync(vcrPath(VCR_NAME)) ? (JSON.parse(readFileSync(vcrPath(VCR_NAME), "utf8")) as VcrFile).entries : {};
+/** --record: VCR 16건 녹화(카세트의 공급자·모델, dev 예산). 저장소는 호출자가 고른다(Groq는 data/explain, Workers AI는 gen/out). */
+export async function runRecord(hash: string, byAgent: Map<string, AgentRows>, subjects: Subject[], store: ExplanationStore, cassette: Cassette = GROQ_CASSETTE): Promise<RunReport> {
+  const name = cassette.name;
+  const spacingMs = cassette.provider === "groq" ? RECORD_SPACING_MS : BATCH_PROVIDERS.find((b) => b.provider === cassette.provider)!.spacingMs;
+  const previous: Record<string, VcrEntry> = existsSync(vcrPath(name)) ? (JSON.parse(readFileSync(vcrPath(name), "utf8")) as VcrFile).entries : {};
   // 이번 녹화에 쓰인 항목만 남긴다(프롬프트가 바뀌어 안 쓰이게 된 옛 항목·옛 #retry는 버린다)
   const entries: Record<string, VcrEntry> = {};
   const report = newReport("record", hash, subjects.length);
@@ -280,18 +303,18 @@ export async function runRecord(hash: string, byAgent: Map<string, AgentRows>, s
     const prev = previous[label];
     if (prev && prev.requestHash === h) {
       entries[label] = prev;
-      writeVcr(VCR_NAME, entries);
-      return { json: prev.response, provider: "groq", model: prev.model, at: prev.recordedAt };
+      writeVcr(name, entries);
+      return { json: prev.response, provider: cassette.provider, model: prev.model, at: prev.recordedAt };
     }
-    if (n++ > 0) await sleep(RECORD_SPACING_MS);
-    const r = await liveCall("groq", () => reserveDevCall(), req, report);
+    if (n++ > 0) await sleep(spacingMs);
+    const r = await liveCall(cassette.provider, () => reserveDevCall(), req, report);
     const at = new Date().toISOString();
     entries[label] = { requestHash: h, repairs: attempt, model: r.model, recordedAt: at, usage: r.usage, response: r.json };
-    writeVcr(VCR_NAME, entries);
-    return { json: r.json, provider: "groq", model: r.model, at };
+    writeVcr(name, entries);
+    return { json: r.json, provider: cassette.provider, model: r.model, at };
   };
   for (const s of subjects) {
-    const r = await generateOne(s, hash, contextFor(byAgent, s), call);
+    const r = await generateOne(s, hash, contextFor(byAgent, s), call, cassette.model);
     store.put(r);
     tally(report, r);
     console.log(`[record] ${labelOf(s)} ${r.groundingStatus}${r.attempts === 2 ? " (재생성)" : ""}`);
@@ -384,21 +407,28 @@ async function main(): Promise<void> {
   const arg = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
   const mode = args.includes("--stub") ? "stub" : args.includes("--record") ? "record" : args.includes("--batch") ? "batch" : null;
   if (!mode) {
-    console.error("usage: explain -- --stub|--record|--batch [--stream <sha256>] [--limit N]");
+    console.error("usage: explain -- --stub|--record|--batch [--stream <sha256>] [--limit N] [--prompt-version vN] [--provider groq|workers-ai] [--model <id>]");
     process.exit(2);
   }
+  const pv = arg("--prompt-version");
+  if (pv) process.env.EXPLAIN_PROMPT_VERSION = pv;
+  const provider = arg("--provider") ?? "groq";
+  if (provider !== "groq" && provider !== "workers-ai") throw new Error(`--provider ${provider}: groq|workers-ai`);
+  const cassette = cassetteOf(provider, arg("--model"));
+  const canonical = cassette === GROQ_CASSETTE;
   const limit = Number(arg("--limit") ?? Number.MAX_SAFE_INTEGER);
   const { hash, rows, byAgent } = loadStream(arg("--stream"));
   const all = allSubjects(rows);
   const vcr = vcrSubjects(rows);
+  console.log(`프롬프트 ${promptVersionOf("LINE")}·${promptVersionOf("LIMIT")}·${promptVersionOf("MONTH_DIFF")}, 카세트 ${cassette.name}${cassette.model ? `(${cassette.model})` : ""}`);
   console.log(`stream ${hash.slice(0, 12)} — subjects ${all.length} (LINE ${all.filter((s) => s.kind === "LINE").length} · LIMIT ${all.filter((s) => s.kind === "LIMIT").length} · MONTH_DIFF ${all.filter((s) => s.kind === "MONTH_DIFF").length}), VCR ${vcr.length}`);
   let report: RunReport;
-  if (mode === "stub") report = await runStub(hash, byAgent, vcr, new ExplanationStore(OUT_EXPLAIN, hash));
-  else if (mode === "record") report = await runRecord(hash, byAgent, vcr, new ExplanationStore(DATA_EXPLAIN, hash));
-  else report = await runBatch(hash, byAgent, all, new ExplanationStore(DATA_EXPLAIN, hash), limit);
   const outDir = join(import.meta.dirname, "../out");
+  if (mode === "stub") report = await runStub(hash, byAgent, vcr, new ExplanationStore(canonical ? OUT_EXPLAIN : join(outDir, "explain-stub", cassette.name), hash), cassette);
+  else if (mode === "record") report = await runRecord(hash, byAgent, vcr, new ExplanationStore(canonical ? DATA_EXPLAIN : join(outDir, "explain-record", cassette.name), hash), cassette);
+  else report = await runBatch(hash, byAgent, all, new ExplanationStore(DATA_EXPLAIN, hash), limit);
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(join(outDir, `explain.${mode}.report.json`), `${JSON.stringify(report, null, 2)}\n`);
+  writeFileSync(join(outDir, `explain.${mode}${canonical ? "" : `.${cassette.name}`}.report.json`), `${JSON.stringify(report, null, 2)}\n`);
   const g = report.generated;
   const pct = (n: number, d: number) => (d ? `${((n * 1000) / d / 10).toFixed(1)}%` : "-");
   const line = (t: Tally) => `PASS ${t.pass} · FAIL ${t.fail} — 첫 시도 ${t.firstPass}/${t.pass + t.fail}(${pct(t.firstPass, t.pass + t.fail)}) · 재생성 후 ${pct(t.pass, t.pass + t.fail)}`;

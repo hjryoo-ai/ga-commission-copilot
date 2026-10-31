@@ -1,0 +1,9 @@
+✓ test/explain-stream.test.ts > 커밋된 스트림의 설명 대상과 VCR 재생 > 대상 591건 = LINE 482 · LIMIT 21 · MONTH_DIFF 88(설계서 v0.1.14 §4.1(b)), 데모 3명만 1ms
+✓ test/explain-stream.test.ts > 커밋된 스트림의 설명 대상과 VCR 재생 > 모든 컨텍스트에 증권번호 원문·설계사 ID가 없다 14ms
+✓ test/explain-stream.test.ts > 커밋된 스트림의 설명 대상과 VCR 재생 > VCR 대상 16건 = LINE 10 · LIMIT 3 · MONTH_DIFF 3, A-1 라인 1·2·6·원장 1·202702 포함 2ms
+✓ test/explain-stream.test.ts > 커밋된 스트림의 설명 대상과 VCR 재생 > VCR 재생(--stub) — 'explain.wai-gpt-oss-120b' > 16건 모두 재생된다(요청 해시 = 녹화 해시 — 프롬프트·컨텍스트가 녹화 때와 같다) 1ms
+✓ test/explain-stream.test.ts > 커밋된 스트림의 설명 대상과 VCR 재생 > VCR 재생(--stub) — 'explain.wai-gpt-oss-120b' > 골든 A-01(라인 2): 요청 1,000,000 · 지급 855,000 · 한도 초과 145,000 · 한도 1,800,000 · 사유=한도 0ms
+✓ test/explain-stream.test.ts > 커밋된 스트림의 설명 대상과 VCR 재생 > VCR 재생(--stub) — 'explain.wai-gpt-oss-120b' > 골든 A-02(원장 1): 한도 초과 145,000 · 이연 · 지급 예정월은 데이터로 확인되지 않음(임의 월 없음 — G4) 0ms
+✓ test/explain-stream.test.ts > 커밋된 스트림의 설명 대상과 VCR 재생 > VCR 재생(--stub) — 'explain.wai-gpt-oss-120b' > 골든 A-03(원장 1): 누적 1,800,000 = 한도 1,800,000 · 소진율 100.0% 0ms
+Test Files  1 passed (1)
+Tests  7 passed (7)

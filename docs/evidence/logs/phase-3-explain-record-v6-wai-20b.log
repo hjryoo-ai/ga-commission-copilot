@@ -1,0 +1,29 @@
+
+> @copilot/gen@ explain /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node explain/run.ts -- --record --provider workers-ai --prompt-version v6
+
+프롬프트 explain_line/v6·explain_limit/v6·explain_month/v6, 카세트 explain.wai-gpt-oss-20b(@cf/openai/gpt-oss-20b)
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+[record] explain:LINE:A-1001:1 PASS
+[record] explain:LINE:A-1001:2 PASS
+[record] explain:LINE:A-1001:6 PASS
+[record] explain:LINE:A-1001:c-A1001-09-1 PASS
+[record] explain:LINE:A-1001:c-A1001-09-2 PASS
+[record] explain:LINE:A-1002:c-A1002-06-2 PASS
+[record] explain:LINE:A-1002:c-A1002-01-2 PASS
+[record] explain:LINE:A-1003:c-A1003-01-2 PASS
+[record] explain:LINE:A-1003:c-A1003-01-1 PASS
+[record] explain:LINE:A-1002:c-A1002-01-1 PASS
+[record] explain:LIMIT:A-1001:1 PASS
+[record] explain:LIMIT:A-1002:l-A1002-11 PASS
+[record] explain:LIMIT:A-1003:l-A1003-13 PASS
+[record] explain:MONTH_DIFF:A-1001:202702 PASS
+[record] explain:MONTH_DIFF:A-1002:202607 PASS
+[record] explain:MONTH_DIFF:A-1003:202607 PASS
+record: 생성 16(PASS 16 · FAIL 0 — 첫 시도 16/16(100.0%) · 재생성 후 100.0%), 캐시 건너뜀 0, 호출 {"workers-ai":16}, 재시도 {}
+  LINE: PASS 10 · FAIL 0 — 첫 시도 10/10(100.0%) · 재생성 후 100.0%
+  LIMIT: PASS 3 · FAIL 0 — 첫 시도 3/3(100.0%) · 재생성 후 100.0%
+  MONTH_DIFF: PASS 3 · FAIL 0 — 첫 시도 3/3(100.0%) · 재생성 후 100.0%
+  workers-ai: PASS 16 · FAIL 0 — 첫 시도 16/16(100.0%) · 재생성 후 100.0%
+  모델 @cf/openai/gpt-oss-20b: 본문 16건 평균 3.3문장 · 성공 호출 16회 평균 출력 377토큰(추론 포함)
+  사용량 workers-ai: 성공 16회 · 입력 39481 · 출력 6031 토큰(회당 2844.5) · 882.3 뉴런(회당 55.1)

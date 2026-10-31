@@ -12,7 +12,7 @@ import { type D1Exec, loadExplanations, loadSlot, purgeInactive } from "../load/
 import { loadMigration } from "../load/sql.ts";
 import { parseContent, ProviderError } from "../providers/groq.ts";
 import { REPO_ROOT } from "../providers/prompt.ts";
-import { classifyError, rejectsResponseFormat, sentenceCount } from "../explain/run.ts";
+import { BATCH_PROVIDERS, cassetteOf, classifyError, GROQ_CASSETTE, rejectsResponseFormat, sentenceCount } from "../explain/run.ts";
 
 // PHASES Phase 3 항목 2·3·4(설계서 v0.1.14 §4.1(b)·§5.4): 컨텍스트 빌더, 재생성 1회, 저장 G1, 적재(없는 키만), 적재 후 전수 재검증.
 // 행은 부록 A-1 정본 값(월납 150,000·한도 1,800,000·FY 945,000·시책 855,000 + 삭감 145,000·해약 환수 −720,000).
@@ -316,5 +316,28 @@ describe("리포트 문장 수(게이트 아님 — 모델별 평균만 남긴�
     expect(sentenceCount("초년도 수수료가 945,000원으로 산출되었습니다. 소진율은 52.5%입니다.")).toBe(2);
     expect(sentenceCount("요율 7과 지급률 0.9를 적용한 값입니다. 한도는 1,800,000원입니다. 이연되었습니다")).toBe(3);
     expect(sentenceCount("")).toBe(0);
+  });
+});
+
+describe("모델별 카세트·후보 버전(운영자 2026-10-31 — 관문은 모델별)", () => {
+  it("Groq는 정본 카세트 explain, Workers AI는 모델 이름을 붙인 카세트", () => {
+    expect(cassetteOf("groq")).toBe(GROQ_CASSETTE);
+    expect(cassetteOf("workers-ai", "@cf/openai/gpt-oss-120b")).toEqual({ name: "explain.wai-gpt-oss-120b", provider: "workers-ai", model: "@cf/openai/gpt-oss-120b" });
+    expect(cassetteOf("workers-ai").model).toBe("@cf/openai/gpt-oss-20b");
+  });
+  it("배치 Workers AI는 관문을 넘은 gpt-oss-120b(하루 110)", () => {
+    expect(BATCH_PROVIDERS.find((b) => b.provider === "workers-ai")).toMatchObject({ model: "@cf/openai/gpt-oss-120b", cap: 110 });
+  });
+  it("EXPLAIN_PROMPT_VERSION은 세 종류 모두의 버전을 바꾸고, vN이 아니면 멈춘다", () => {
+    const before = process.env.EXPLAIN_PROMPT_VERSION;
+    try {
+      process.env.EXPLAIN_PROMPT_VERSION = "v6";
+      expect([promptVersionOf("LINE"), promptVersionOf("LIMIT"), promptVersionOf("MONTH_DIFF")]).toEqual(["explain_line/v6", "explain_limit/v6", "explain_month/v6"]);
+      process.env.EXPLAIN_PROMPT_VERSION = "6";
+      expect(() => promptVersionOf("LINE")).toThrow(/vN/);
+    } finally {
+      if (before === undefined) delete process.env.EXPLAIN_PROMPT_VERSION;
+      else process.env.EXPLAIN_PROMPT_VERSION = before;
+    }
   });
 });
