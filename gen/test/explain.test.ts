@@ -12,7 +12,7 @@ import { type D1Exec, loadExplanations, loadSlot, purgeInactive } from "../load/
 import { loadMigration } from "../load/sql.ts";
 import { parseContent, ProviderError } from "../providers/groq.ts";
 import { REPO_ROOT } from "../providers/prompt.ts";
-import { classifyError, rejectsResponseFormat } from "../explain/run.ts";
+import { classifyError, rejectsResponseFormat, sentenceCount } from "../explain/run.ts";
 
 // PHASES Phase 3 항목 2·3·4(설계서 v0.1.14 §4.1(b)·§5.4): 컨텍스트 빌더, 재생성 1회, 저장 G1, 적재(없는 키만), 적재 후 전수 재검증.
 // 행은 부록 A-1 정본 값(월납 150,000·한도 1,800,000·FY 945,000·시책 855,000 + 삭감 145,000·해약 환수 −720,000).
@@ -308,5 +308,13 @@ describe("배치 실호출 오류 분류(Workers AI 오류 코드 3036·3040, Gr
     expect(parseContent('{"text":"a"}')).toEqual({ text: "a" });
     expect(parseContent('```json\n{"text":"a"}\n```')).toEqual({ text: "a" });
     expect(() => parseContent("설명입니다")).toThrow();
+  });
+});
+
+describe("리포트 문장 수(게이트 아님 — 모델별 평균만 남긴다)", () => {
+  it("마침표 뒤 공백·끝으로 나누고 소수점은 나누지 않는다", () => {
+    expect(sentenceCount("초년도 수수료가 945,000원으로 산출되었습니다. 소진율은 52.5%입니다.")).toBe(2);
+    expect(sentenceCount("요율 7과 지급률 0.9를 적용한 값입니다. 한도는 1,800,000원입니다. 이연되었습니다")).toBe(3);
+    expect(sentenceCount("")).toBe(0);
   });
 });

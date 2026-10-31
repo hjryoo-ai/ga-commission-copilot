@@ -163,6 +163,8 @@ export async function seedExplanations(): Promise<void> {
     explanationRow("A-1001", "LINE", "1", "2026년 8월 FY 수수료 1,000,000원이 지급되었습니다."),
     explanationRow("A-1001", "LINE", "c2", "검증 실패한 설명", { grounding_status: "FAIL" }),
     explanationRow("A-1001", "LINE", "c3", "옛 프롬프트 설명", { prompt_version: "explain_line/v1" }),
+    // 같은 subject의 이전 버전 행(원격·로컬에 이력으로 남는 옛 버전 — 운영자 2026-10-31): 활성 버전 행만 나간다
+    explanationRow("A-1001", "LINE", "1", "이전 버전 설명(이력)", { prompt_version: "explain_line/v2" }),
     explanationRow("A-1001", "LINE", "c6", "다른 스트림 설명", { stream_hash: OTHER_HASH }),
     explanationRow("A-1001", "LIMIT", "1", "한도 1,800,000원에 누적 1,800,000원이 닿았습니다.", { cited_fields: JSON.stringify(["ledger.limitAmount", "history[1].accumAfter"]) }),
     explanationRow("A-1001", "MONTH_DIFF", "202609", "전월보다 총액이 줄었습니다."),

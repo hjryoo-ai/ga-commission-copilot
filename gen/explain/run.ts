@@ -10,7 +10,7 @@ import { join } from "node:path";
 import type { Json } from "@copilot/grounding";
 import { BudgetExhausted, reserveCall, reserveDevCall } from "../providers/budget.ts";
 import { openStub, replay, type VcrEntry, type VcrFile, vcrPath, writeVcr } from "../providers/cassette.ts";
-import { type ProviderName, ProviderError, structured } from "../providers/groq.ts";
+import { type ProviderName, ProviderError, structured, type StructuredResponse } from "../providers/groq.ts";
 import { pickStream, readMeta, viewsOf } from "../load/views.ts";
 import { TENANT } from "../world/rules/tables.ts";
 import { type AgentRows, contextOf, type Kind, type Row, subjectsOf } from "./context.ts";
@@ -20,10 +20,11 @@ import { DATA_EXPLAIN, type ExplanationRecord, ExplanationStore, OUT_EXPLAIN } f
 export const VCR_NAME = "explain";
 /** 배치 공급자 순서와 하루 상한(설계서 v0.1.14 §4.1(b)·§10.4). */
 export const BATCH_PROVIDERS: readonly { provider: ProviderName; scope: string; cap: number; model?: string; spacingMs: number }[] = [
-  { provider: "groq", scope: "batch:explain:groq", cap: 130, spacingMs: 15_000 }, // TPM 8K ÷ 호출당 약 2K
+  // TPM 8K ÷ 호출당 약 3.0K(v5 녹화 실측 — 15초 간격에서 TPM 429 5회) ≈ 분당 2.6회
+  { provider: "groq", scope: "batch:explain:groq", cap: 130, spacingMs: 23_000 },
   { provider: "workers-ai", scope: "batch:explain:workers-ai", cap: 200, model: "@cf/openai/gpt-oss-20b", spacingMs: 1_000 },
 ];
-const RECORD_SPACING_MS = 15_000;
+const RECORD_SPACING_MS = 23_000;
 /** 429의 retry-after가 이보다 길면 그 공급자는 그날 끝(TPD·RPD)으로 본다. */
 const LONG_WAIT_S = 120;
 
@@ -137,6 +138,11 @@ export interface RunReport {
   providerRetries: Record<string, number>;
   /** 성공한 요청의 공급자별 토큰·뉴런 합(설계서 §10.4 Groq TPD·Workers AI 뉴런 추정 대조). */
   usage: Record<string, { ok: number; prompt: number; completion: number; neurons: number }>;
+  /**
+   * 모델별 본문 문장 수·출력 토큰(운영자 2026-10-31 — 문장 수는 게이트가 아니다. gpt-oss-20b의 짧은 본문이 품질 문제인지 Phase 6에서 판단).
+   * records·sentences는 본문이 있는 생성 결과(재생성분은 그 모델), okCalls·completion은 성공한 실호출(추론 토큰 포함).
+   */
+  byModel: Record<string, { records: number; sentences: number; okCalls: number; completion: number }>;
   /** 배치 첫 호출 = Workers AI 구조화 출력 확인(운영자 규칙 2026-10-31). */
   probe?: { label: string; responseFormat: "json_schema" | "prompt"; firstG1: "PASS" | "FAIL" | "-"; status: string; model: string; note?: string };
   stoppedBy?: string;
@@ -146,10 +152,22 @@ export interface RunReport {
 const emptyTally = (): Tally => ({ pass: 0, fail: 0, firstPass: 0 });
 
 function newReport(mode: string, streamHash: string, subjects: number): RunReport {
-  return { mode, streamHash, subjects, skippedCached: 0, generated: { ...emptyTally(), byKind: {}, byProvider: {} }, calls: {}, providerRetries: {}, usage: {}, failures: [] };
+  return { mode, streamHash, subjects, skippedCached: 0, generated: { ...emptyTally(), byKind: {}, byProvider: {} }, calls: {}, providerRetries: {}, usage: {}, byModel: {}, failures: [] };
 }
 
+/** 본문 문장 수: 마침표·물음표·느낌표 뒤 공백(또는 끝)으로 나눈다 — "52.5%"의 소수점은 나누지 않는다. */
+export function sentenceCount(text: string): number {
+  return text.split(/(?<=[.!?。])\s+/).filter((x) => x.trim()).length;
+}
+
+const modelStats = (report: RunReport, model: string) => (report.byModel[model] ??= { records: 0, sentences: 0, okCalls: 0, completion: 0 });
+
 function tally(report: RunReport, r: ExplanationRecord) {
+  if (r.text) {
+    const m = modelStats(report, r.model);
+    m.records++;
+    m.sentences += sentenceCount(r.text);
+  }
   for (const t of [report.generated, (report.generated.byKind[r.kind] ??= emptyTally()), (report.generated.byProvider[r.provider] ??= emptyTally())]) {
     if (r.groundingStatus === "PASS") t.pass++;
     else t.fail++;
@@ -213,12 +231,13 @@ export const rejectsResponseFormat = (e: unknown) => e instanceof ProviderError 
  * 실호출(시도마다 예산 차감 → 공급자 호출). 오류는 classifyError대로: budget이면 BudgetExhausted, wait·retry·json은 같은 요청을 다시(최대 3회).
  * 3회 모두 구조화 출력 실패면 json=null을 돌려준다 — 호출자의 G1이 실패로 판정해 재생성·FAIL 경로를 탄다(배치가 멈추지 않는다).
  */
-async function liveCall(provider: ProviderName, reserve: () => void, req: Parameters<typeof structured>[1], report: RunReport, responseFormat = true): Promise<{ json: unknown; model: string }> {
+async function liveCall(provider: ProviderName, reserve: () => void, req: Parameters<typeof structured>[1], report: RunReport, responseFormat = true): Promise<{ json: unknown; model: string; usage: StructuredResponse["usage"] }> {
   const retry = (why: string) => {
     const k = `${provider}:${why}`;
     report.providerRetries[k] = (report.providerRetries[k] ?? 0) + 1;
   };
   let jsonFailures = 0;
+  const reasons: string[] = [];
   for (let i = 0; i < 3; i++) {
     reserve();
     report.calls[provider] = (report.calls[provider] ?? 0) + 1;
@@ -229,20 +248,25 @@ async function liveCall(provider: ProviderName, reserve: () => void, req: Parame
       u.prompt += r.usage?.prompt_tokens ?? 0;
       u.completion += r.usage?.completion_tokens ?? 0;
       u.neurons += r.usage?.neurons ?? 0;
-      return { json: r.json, model: r.model };
+      const m = modelStats(report, r.model);
+      m.okCalls++;
+      m.completion += r.usage?.completion_tokens ?? 0;
+      return { json: r.json, model: r.model, usage: r.usage };
     } catch (e) {
       const c = classifyError(e);
       if (c.action === "budget") throw new BudgetExhausted(`${provider} ${c.reason} — 그날 한도`);
       if (c.action === "fatal") throw e;
       retry(c.reason);
+      reasons.push(c.reason);
       if (c.action === "json") jsonFailures++;
       const waitMs = c.action === "wait" ? (c.waitS + 1) * 1000 : c.action === "retry" ? 10_000 : 5_000;
       console.warn(`[live] ${provider} ${c.reason}, ${waitMs / 1000}s 뒤 같은 요청`);
       await sleep(waitMs);
     }
   }
-  if (jsonFailures === 3) return { json: null, model: req.model };
-  throw new Error(`${provider}: 3회 실패`);
+  if (jsonFailures === 3) return { json: null, model: req.model, usage: null };
+  // 429·5xx가 섞여 3회 연속 실패 — 배치를 죽이지 않고 그 공급자는 이번 실행에서 끝(다음 공급자로)
+  throw new BudgetExhausted(`${provider} 3회 연속 실패(${reasons.join("·")})`);
 }
 
 /** --record: VCR 16건 녹화(Groq, dev 예산) + data/explain에도 기록. */
@@ -262,7 +286,7 @@ export async function runRecord(hash: string, byAgent: Map<string, AgentRows>, s
     if (n++ > 0) await sleep(RECORD_SPACING_MS);
     const r = await liveCall("groq", () => reserveDevCall(), req, report);
     const at = new Date().toISOString();
-    entries[label] = { requestHash: h, repairs: attempt, model: r.model, recordedAt: at, usage: null, response: r.json };
+    entries[label] = { requestHash: h, repairs: attempt, model: r.model, recordedAt: at, usage: r.usage, response: r.json };
     writeVcr(VCR_NAME, entries);
     return { json: r.json, provider: "groq", model: r.model, at };
   };
@@ -381,6 +405,9 @@ async function main(): Promise<void> {
   console.log(`${mode}: 생성 ${g.pass + g.fail}(${line(g)}), 캐시 건너뜀 ${report.skippedCached}, 호출 ${JSON.stringify(report.calls)}, 재시도 ${JSON.stringify(report.providerRetries)}${report.stoppedBy ? `, 멈춤: ${report.stoppedBy}` : ""}`);
   for (const [k, v] of Object.entries(g.byKind)) console.log(`  ${k}: ${line(v)}`);
   for (const [k, v] of Object.entries(g.byProvider)) console.log(`  ${k}: ${line(v)}`);
+  for (const [k, m] of Object.entries(report.byModel)) {
+    console.log(`  모델 ${k}: 본문 ${m.records}건 평균 ${m.records ? (m.sentences / m.records).toFixed(1) : "-"}문장 · 성공 호출 ${m.okCalls}회 평균 출력 ${m.okCalls ? Math.round(m.completion / m.okCalls) : "-"}토큰(추론 포함)`);
+  }
   for (const [k, u] of Object.entries(report.usage)) {
     const per = (x: number) => (u.ok ? (x / u.ok).toFixed(1) : "-");
     console.log(`  사용량 ${k}: 성공 ${u.ok}회 · 입력 ${u.prompt} · 출력 ${u.completion} 토큰(회당 ${per(u.prompt + u.completion)})${u.neurons ? ` · ${u.neurons.toFixed(1)} 뉴런(회당 ${per(u.neurons)})` : ""}`);

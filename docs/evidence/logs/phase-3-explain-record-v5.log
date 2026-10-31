@@ -1,0 +1,33 @@
+
+> @copilot/gen@ explain /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node explain/run.ts -- --record
+
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+[record] explain:LINE:A-1001:1 PASS
+[record] explain:LINE:A-1001:2 PASS
+[record] explain:LINE:A-1001:6 PASS
+[record] explain:LINE:A-1001:c-A1001-09-1 PASS
+[record] explain:LINE:A-1001:c-A1001-09-2 PASS
+[record] explain:LINE:A-1002:c-A1002-06-2 PASS (재생성)
+[record] explain:LINE:A-1002:c-A1002-01-2 PASS
+[record] explain:LINE:A-1003:c-A1003-01-2 PASS
+[record] explain:LINE:A-1003:c-A1003-01-1 PASS
+[record] explain:LINE:A-1002:c-A1002-01-1 PASS
+[record] explain:LIMIT:A-1001:1 PASS
+[live] groq 429, 5s 뒤 같은 요청
+[record] explain:LIMIT:A-1002:l-A1002-11 PASS
+[live] groq 429, 5s 뒤 같은 요청
+[record] explain:LIMIT:A-1003:l-A1003-13 PASS
+[live] groq 429, 3s 뒤 같은 요청
+[live] groq 429, 2s 뒤 같은 요청
+[record] explain:MONTH_DIFF:A-1001:202702 PASS
+[record] explain:MONTH_DIFF:A-1002:202607 PASS
+[live] groq 429, 2s 뒤 같은 요청
+[record] explain:MONTH_DIFF:A-1003:202607 PASS
+record: 생성 16(PASS 16 · FAIL 0 — 첫 시도 15/16(93.8%) · 재생성 후 100.0%), 캐시 건너뜀 0, 호출 {"groq":22}, 재시도 {"groq:429":5}
+  LINE: PASS 10 · FAIL 0 — 첫 시도 9/10(90.0%) · 재생성 후 100.0%
+  LIMIT: PASS 3 · FAIL 0 — 첫 시도 3/3(100.0%) · 재생성 후 100.0%
+  MONTH_DIFF: PASS 3 · FAIL 0 — 첫 시도 3/3(100.0%) · 재생성 후 100.0%
+  groq: PASS 16 · FAIL 0 — 첫 시도 15/16(93.8%) · 재생성 후 100.0%
+  모델 openai/gpt-oss-120b: 본문 16건 평균 3.0문장 · 성공 호출 17회 평균 출력 515토큰(추론 포함)
+  사용량 groq: 성공 17회 · 입력 42785 · 출력 8750 토큰(회당 3031.5)
