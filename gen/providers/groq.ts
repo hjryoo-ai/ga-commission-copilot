@@ -35,17 +35,21 @@ export interface StructuredRequest {
 export interface StructuredResponse {
   json: unknown;
   model: string;
-  usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null;
+  /** Workers AI는 neurons도 준다(설계서 §10.1 호출당 뉴런 실측). */
+  usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; neurons?: number } | null;
 }
 
 export class ProviderError extends Error {
   readonly status: number;
   readonly retryAfterSeconds: number | null;
+  /** HTTP는 성공했는데 본문이 비었거나 JSON이 아님(구조화 출력 실패와 같게 다룬다). */
+  readonly badContent: boolean;
 
-  constructor(message: string, status: number, retryAfterSeconds: number | null) {
+  constructor(message: string, status: number, retryAfterSeconds: number | null, badContent = false) {
     super(message);
     this.status = status;
     this.retryAfterSeconds = retryAfterSeconds;
+    this.badContent = badContent;
   }
 }
 
@@ -65,12 +69,23 @@ export async function groqStructured(req: StructuredRequest, timeoutMs = 60_000)
   return structured("groq", req, timeoutMs);
 }
 
-export async function structured(provider: ProviderName, req: StructuredRequest, timeoutMs = 60_000): Promise<StructuredResponse> {
+/** 응답 본문 → JSON. 코드 울타리(```json … ```) 하나로 감싼 출력도 받는다(프롬프트 강제 JSON 모드). */
+export function parseContent(content: string): unknown {
+  const fenced = /^\s*```(?:json)?\s*\n([\s\S]*?)\n\s*```\s*$/.exec(content);
+  return JSON.parse(fenced ? fenced[1]! : content);
+}
+
+/**
+ * responseFormat: false면 response_format을 빼고 보낸다 — 공급자가 json_schema를 거부할 때의 폴백(프롬프트 강제 JSON + 호출자의 G1).
+ * VCR 해시는 requestBody(req) 그대로라 폴백이 녹화 키를 바꾸지 않는다.
+ */
+export async function structured(provider: ProviderName, req: StructuredRequest, timeoutMs = 60_000, opts: { responseFormat?: boolean } = {}): Promise<StructuredResponse> {
   const { url, key } = endpointOf(provider);
+  const { response_format, ...rest } = requestBody(req) as Record<string, unknown>;
   const res = await fetch(url, {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-    body: JSON.stringify(requestBody(req)),
+    body: JSON.stringify(opts.responseFormat === false ? rest : { ...rest, response_format }),
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
@@ -84,12 +99,12 @@ export async function structured(provider: ProviderName, req: StructuredRequest,
     choices: { message: { content: string | null } }[];
   };
   const content = body.choices[0]?.message.content;
-  if (!content) throw new ProviderError(`${provider}: 빈 응답`, 502, null);
+  if (!content) throw new ProviderError(`${provider}: 빈 응답`, 502, null, true);
   let json: unknown;
   try {
-    json = JSON.parse(content);
+    json = parseContent(content);
   } catch {
-    throw new ProviderError(`${provider}: JSON 아님 ${content.slice(0, 200)}`, 502, null);
+    throw new ProviderError(`${provider}: JSON 아님 ${content.slice(0, 200)}`, 502, null, true);
   }
   return { json, model: body.model, usage: body.usage ?? null };
 }

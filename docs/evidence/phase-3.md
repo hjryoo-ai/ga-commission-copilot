@@ -91,7 +91,10 @@
 10. **활성 버전 v4(2026-10-31)**: 생성기 `PROMPTS`·`PROMPT_VERSIONS`(wrangler vars)·VCR(17항목 — 16 + `#retry` 1)·worker·web 시험 픽스처를 v4로. `data/explain/fca1971c…/`에는 v4 16건만 남겼다(v2는 커밋 `fdee8eb`, v3는 `logs/phase-3-explain-v3-bodies.log`에 본문). gen 시험은 버전 문자열 대신 `promptVersionOf()`를 쓴다.
 11. **공급자 구조화 출력 실패(Groq `400 json_validate_failed`)**: 위 녹화 절. 같은 요청 재전송 최대 3회 → 모두 실패면 G1 실패로 재생성·FAIL.
 12. **호출 수 집계**: `RunReport.calls`를 공급자에 실제로 보낸 HTTP 요청 수(= 예산 차감 수, 재시도 포함)로 바꾸고 `providerRetries`(사유별)·첫 시도 통과 수·공급자별 통과율(`byProvider` — /evals 모델별 표시용, 행에는 `model`)을 리포트에 넣었다.
-13. **Workers AI 인증**: 키가 `gen/.dev.vars`에 없어, `budget.ts`처럼 wrangler 로그인 인증을 Workers AI 호출에도 쓰려고 `wrangler auth token`의 출력 모양을 확인하려 했으나 권한 정책(자격 증명 탐색)에 거부됐다. 우회하지 않았다 — 키는 사람 작업으로 남는다.
+13. **Workers AI 인증**: 키가 `gen/.dev.vars`에 없어, `budget.ts`처럼 wrangler 로그인 인증을 Workers AI 호출에도 쓰려고 `wrangler auth token`의 출력 모양을 확인하려 했으나 권한 정책(자격 증명 탐색)에 거부됐다. 우회하지 않았다. 같은 날 운영자가 `CLOUDFLARE_API_TOKEN`·`CLOUDFLARE_ACCOUNT_ID`를 넣었다(값은 출력·기록하지 않음, `.gitignore`).
+14. **Workers AI 사전 확인(dev 예산 1회, 배치 아님)**: 키 동작과 구조화 출력을 배치 전에 보려고 배치와 같은 요청 본문(`requestBody` 그대로)을 데모 1 라인 1(골든 A-01)로 한 번 보냈다 — 아래 배치 절. 배치 실행의 첫 호출은 이와 별개로 다시 Workers AI 확인이다(운영자 규칙).
+15. **실호출 오류 분류(`classifyError`, 시험 5건)**: Workers AI 공식 오류 표(2026-10-31 열람)에 하루 무료 뉴런 소진은 **3036**(HTTP 429)이고 4006은 없다 — 남은 이슈의 "4006" 가정을 고쳤다. 3036은 retry-after가 없어 이전 코드는 30초씩 3번 재시도한 뒤 배치를 죽였다 → 그 공급자 그날 끝(`BudgetExhausted`). 3040(용량 초과)은 기다렸다 재시도. 빈 본문·JSON 아닌 본문(이전엔 502로 5xx 재시도 뒤 중단)과 Workers AI "JSON Mode couldn't be met"은 Groq `json_validate_failed`와 같게 같은 요청 3회 → G1 실패. 401·그 밖 400은 멈춘다. `response_format`을 거부한 400만 폴백(프롬프트 강제 JSON + G1, 코드 울타리 하나는 벗겨 읽는다) — 요청 본문에서 `response_format`만 빼고 VCR 해시는 그대로.
+16. **사용량 집계**: `RunReport.usage`에 공급자별 성공 요청 수·입력/출력 토큰·뉴런(Workers AI) 합 — 설계서 §10.4 추정(Groq 호출당 약 1.5K 토큰, Workers AI 약 7.6K 뉴런/일) 대조용. 배치 첫 호출 결과는 `RunReport.probe`.
 
 ## 원격 일정(운영자 지시 — 날짜별 rows_written_24h를 아래 표에 계속 적는다)
 
@@ -108,9 +111,21 @@
 
 - 실측/추정: 스트림 적재 24,824 / 24,826, 설명 32 / 32 — 10% 이내라 설계서 §5.3 계산은 그대로 둔다. `d1 info`의 `rows_written_24h`는 직전 24시간 누적이라(05:18 값에 전날 24,960이 들어 있다) 무료 한도(UTC 하루 10만)와 맞출 때는 적재기 실측 합을 쓴다 — 10-31 UTC 쓰기 약 24,876. 05:16 조회의 0은 집계 지연으로 보인다(2분 뒤 49,836).
 - 로그: `logs/phase-3-load-remote-slot-b.log`, `logs/phase-3-remote-0004.log`, `logs/phase-3-load-explain-remote.log`. 배포된 Worker는 아직 Phase 2 코드(`f87c551c`)라 설명 API는 푸시·CI 배포 뒤에 원격에서 보인다.
-| 2026-11-01 00:00 이후 | 슬롯 a 퍼지(구 스트림 e2e435e7…, 설명 0행) | | |
 
 ## 설명 배치(미실행 — 운영자 판정 대기)
+
+### Workers AI 사전 확인(2026-10-31 07:49 UTC, dev 예산 1회 — 결정·편차 14)
+
+| 항목 | 결과 |
+|---|---|
+| 요청 | 배치 본문 그대로: `model @cf/openai/gpt-oss-20b`, `temperature 0`, `reasoning_effort low`, `max_completion_tokens 1500`, `response_format json_schema strict` — 데모 1 라인 1(골든 A-01), `explain_line/v4` |
+| 응답 | **HTTP 200**, 2.7초, `finish_reason stop`. 메시지에 `reasoning_content`가 있다(추론 출력 분리) |
+| `json_schema` | 거부 없음, 본문이 스키마대로 JSON — **G1 PASS, G4·G5·G6 PASS**. 다만 공식 JSON Mode 지원 목록에 `gpt-oss-20b`는 없어 서버가 스키마를 강제하는지는 확인할 수 없다(모델이 프롬프트를 따른 것일 수 있음) → 폴백 없이 `json_schema`로 보내고, 어긋난 출력은 G1이 잡는다 |
+| 출력 길이 | 출력 293토큰(문서상 `max_tokens` 기본 256보다 길다 — `max_completion_tokens`가 먹는다) |
+| 사용량 | 입력 2,079 + 출력 293 토큰, **45.8뉴런**(§10.1 계산 약 47 — 차이 −3%). 하루 200회 ≈ 9,160뉴런 < 10,000 |
+| 본문 | "초년도 수수료가 945,000원으로 산출되었습니다. 계약은 2026년 8월 1일에 체결되었으며, 한도는 1,800,000원이고 이 라인 전기 누적은 945,000원, 소진율은 52.5%입니다." — 4종 오류 0, 다만 **2문장**(프롬프트 규칙 3~5문장 미달). 같은 subject의 Groq v4는 4문장 |
+
+로그: `logs/phase-3-workers-ai-probe.log`(키·계정 id 없음). 이 결과는 저장하지 않았다(`data/explain`에 없음 — 배치가 다시 만든다).
 
 운영자 규칙(2026-10-31): 하루 Groq 130 + Workers AI 200, LINE → LIMIT → MONTH_DIFF. 첫날 첫 호출로 Workers AI `gpt-oss-20b`의 `json_schema` 구조화 출력을 확인하고, 미지원이면 프롬프트 강제 JSON + G1로 폴백하고 여기에 적는다. 날마다 `data/explain/<hash>/`에 커밋하고 통과율(첫 시도·재생성 후)·공급자별 호출 수·FAIL 목록을 아래 표에. 최종 라인 통과율이 §12 기준 95% 미만이면 FAIL분을 모아 보고하고 재생성은 운영자가 정한다. 행의 `model`은 유지(/evals 모델별 통과율).
 
@@ -118,14 +133,15 @@
 |---|---|---|---|---|---|---|
 | — | — | — | — | — | — | — |
 
-명령(승인 뒤): `cd gen && pnpm run explain -- --batch` → `git add data/explain` 커밋 → `pnpm run load:d1 -- --remote --explain` → `pnpm run verify:explain -- --remote`. 남은 대상 575건(591 − 녹화 16).
+명령(승인 뒤): `cd gen && pnpm run explain -- --batch` → `git add data/explain` 커밋 → `pnpm run load:d1 -- --remote --explain` → `pnpm run verify:explain -- --remote`. 남은 대상 575건(591 − 녹화 16). 배치 첫 호출은 첫 대상(LINE)을 Workers AI로 만든다(`RunReport.probe` — 결과는 위 표에 날짜와 함께), 그다음 Groq → Workers AI.
 
 ## 사람 작업
 
 - [ ] **배치 관문 판정**: v4 #2 "다음 회계연도로 이연"을 4종 안으로 볼지(→ 지시대로 멈춤, v5 여부 결정) 밖으로 볼지(→ v4로 배치) — 담당: 운영자
-- [ ] Workers AI 배치 키: `gen/.dev.vars`에 `CLOUDFLARE_API_TOKEN`(Workers AI 권한)·`CLOUDFLARE_ACCOUNT_ID` — 없으면 배치는 Groq 130/일만 돌아 약 5일(있으면 약 2일), 첫날 `json_schema` 확인도 못 한다. wrangler 로그인 인증으로 대신하는 방법은 권한 정책에 거부됐다(결정·편차 13). 커밋 금지(규약 10) — 담당: 운영자
+- [x] Workers AI 배치 키: `gen/.dev.vars`에 `CLOUDFLARE_API_TOKEN`·`CLOUDFLARE_ACCOUNT_ID` — 2026-10-31 운영자가 넣음, 사전 확인 HTTP 200(결정·편차 13·14). 커밋 안 됨(`.gitignore`)
 
 ## 남은 이슈
 
 1. **뜻 품질(G4~G6 밖)**: v2의 4종(부호·날짜·코드·용어집 숫자)은 v3·v4에서 없앴다(위 점검표). v4에 남은 것: "다음 회계연도로 이연"(#2, 관문 경계), 전기 뒤 누적을 "현재까지"(#4), 계산 근거 서술(#7). 배치 575건의 뜻은 사람이 다 읽지 못한다 — 기계 점검(정규식)을 배치 결과에 돌려 날짜별 표에 참고로 붙이고, 내용 일치는 Phase 6 평가 몫.
-2. 배치 출력은 `openai/gpt-oss-120b`(Groq)와 `@cf/openai/gpt-oss-20b`(Workers AI)가 섞인다 — 같은 프롬프트 버전이라 행의 `model`로 구분. Workers AI 쪽 OpenAI 호환 구조화 출력(json_schema)·`reasoning_effort`는 배치 첫날 첫 호출로 확인한다(키 필요, 미실행). Workers AI 4006(하루 무료 뉴런 소진) 응답의 모양도 그때 보고 `BudgetExhausted`로 다룬다.
+2. 배치 출력은 `openai/gpt-oss-120b`(Groq)와 `@cf/openai/gpt-oss-20b`(Workers AI)가 섞인다 — 같은 프롬프트 버전이라 행의 `model`로 구분. 사전 확인 1건에서 20b는 G4~G6을 통과했지만 2문장으로 짧았다 — 첫날 리포트의 공급자별 첫 시도 통과율로 다시 본다. 3036 응답의 실제 모양은 소진될 때 로그로 확인한다(분류는 오류 코드·"daily free allocation" 문구 둘 다 본다).
+3. **Groq 하루 처리량 추정**: 설계서 §4.1(b)는 Groq 130/일을 "TPD 200K ÷ 호출당 약 1.5K 토큰"으로 잡았는데, 사전 확인의 같은 프롬프트 입력이 2,079토큰(같은 gpt-oss 계열 토크나이저)이라 Groq 호출당 약 2.4~2.6K 토큰 → 하루 약 80회에서 TPD 429(긴 retry-after → 그날 끝)로 먼저 멈출 것으로 보인다. 그러면 하루 약 280건, 남은 575건은 3일 안. 첫날 `RunReport.usage`의 Groq 실측으로 확인해 10% 이상 다르면 §4.1(b)·§10.4 수치를 고치자고 보고한다(설계서 수정은 승인 뒤).

@@ -2,7 +2,8 @@
 //   node explain/run.ts --stub     VCR 16건만 재생 → gen/out/explain/<hash>/ (커밋 안 함). 녹화 없는 subject는 건너뛴다.
 //   node explain/run.ts --record   VCR 16건을 Groq 실호출로 녹화(dev 예산) + data/explain/<hash>/에도 쓴다(같은 키는 배치가 건너뜀).
 //   node explain/run.ts --batch    data/explain/<hash>/에 없는 subject를 LINE → LIMIT → MONTH_DIFF 순으로 생성.
-//                                  Groq(batch:explain:groq 130/일) → Workers AI gpt-oss-20b(batch:explain:workers-ai 200/일), 소진되면 멈춘다.
+//                                  첫 호출은 Workers AI 구조화 출력 확인(첫 subject를 Workers AI로 — json_schema 거부면 프롬프트 강제 JSON + G1).
+//                                  그다음 Groq(batch:explain:groq 130/일) → Workers AI gpt-oss-20b(batch:explain:workers-ai 200/일), 소진되면 멈춘다.
 //   공통: [--stream <sha256>] [--limit N]
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -13,7 +14,7 @@ import { type ProviderName, ProviderError, structured } from "../providers/groq.
 import { pickStream, readMeta, viewsOf } from "../load/views.ts";
 import { TENANT } from "../world/rules/tables.ts";
 import { type AgentRows, contextOf, type Kind, type Row, subjectsOf } from "./context.ts";
-import { type Caller, generateOne, labelOf, promptVersionOf, type Subject } from "./generate.ts";
+import { type Caller, gate, generateOne, labelOf, promptVersionOf, type Subject } from "./generate.ts";
 import { DATA_EXPLAIN, type ExplanationRecord, ExplanationStore, OUT_EXPLAIN } from "./store.ts";
 
 export const VCR_NAME = "explain";
@@ -132,8 +133,12 @@ export interface RunReport {
   generated: Tally & { byKind: Record<string, Tally>; byProvider: Record<string, Tally> };
   /** 공급자에 실제로 보낸 HTTP 요청 수(예산 차감 수와 같다 — 재시도 포함). */
   calls: Record<string, number>;
-  /** 같은 요청을 다시 보낸 사유별 수(`groq:json_validate_failed`·`groq:429`·`workers-ai:5xx` …). */
+  /** 같은 요청을 다시 보낸 사유별 수(`groq:json_validate_failed`·`groq:429`·`workers-ai:3040`·`workers-ai:bad_content` …). */
   providerRetries: Record<string, number>;
+  /** 성공한 요청의 공급자별 토큰·뉴런 합(설계서 §10.4 Groq TPD·Workers AI 뉴런 추정 대조). */
+  usage: Record<string, { ok: number; prompt: number; completion: number; neurons: number }>;
+  /** 배치 첫 호출 = Workers AI 구조화 출력 확인(운영자 규칙 2026-10-31). */
+  probe?: { label: string; responseFormat: "json_schema" | "prompt"; firstG1: "PASS" | "FAIL" | "-"; status: string; model: string; note?: string };
   stoppedBy?: string;
   failures: { label: string; provider: string; failure: ExplanationRecord["failure"] }[];
 }
@@ -141,7 +146,7 @@ export interface RunReport {
 const emptyTally = (): Tally => ({ pass: 0, fail: 0, firstPass: 0 });
 
 function newReport(mode: string, streamHash: string, subjects: number): RunReport {
-  return { mode, streamHash, subjects, skippedCached: 0, generated: { ...emptyTally(), byKind: {}, byProvider: {} }, calls: {}, providerRetries: {}, failures: [] };
+  return { mode, streamHash, subjects, skippedCached: 0, generated: { ...emptyTally(), byKind: {}, byProvider: {} }, calls: {}, providerRetries: {}, usage: {}, failures: [] };
 }
 
 function tally(report: RunReport, r: ExplanationRecord) {
@@ -173,14 +178,42 @@ export async function runStub(hash: string, byAgent: Map<string, AgentRows>, sub
   return report;
 }
 
-/** 공급자가 구조화 출력을 만들지 못한 400(Groq json_validate_failed — 빈 출력, 같은 요청을 다시 보내면 대개 통과한다). */
-const isJsonFailure = (e: ProviderError) => e.status === 400 && e.message.includes("json_validate_failed");
+export type ErrorAction =
+  | { action: "budget"; reason: string } // 그 공급자는 그날 끝
+  | { action: "wait"; reason: string; waitS: number } // 기다렸다 같은 요청
+  | { action: "retry"; reason: string } // 10초 뒤 같은 요청
+  | { action: "json"; reason: string } // 구조화 출력 실패 — 같은 요청, 3회 모두면 G1 실패로 넘긴다
+  | { action: "fatal"; reason: string };
 
 /**
- * 실호출(시도마다 예산 차감 → 공급자 호출). 429면 기다리거나 그 공급자를 끝내고, 5xx·구조화 출력 실패(400)는 같은 요청을 다시 보낸다(최대 3회).
+ * 실호출 오류 분류(Workers AI 오류 코드: https://developers.cloudflare.com/workers-ai/platform/errors/ — 2026-10-31 열람).
+ * - 429 + 3036(하루 무료 10,000뉴런 소진)·retry-after가 긴 429(Groq TPD·RPD) → budget
+ * - 429 그 밖(3040 용량 초과·Groq TPM) → wait
+ * - Groq 400 json_validate_failed·Workers AI "JSON Mode couldn't be met"·빈/JSON 아닌 본문 → json
+ * - 5xx → retry, 나머지(400 요청 오류·401·403) → fatal
+ */
+export function classifyError(e: unknown): ErrorAction {
+  if (!(e instanceof ProviderError)) return { action: "fatal", reason: "other" };
+  if (e.status === 429) {
+    if (/\b3036\b|daily free allocation/i.test(e.message)) return { action: "budget", reason: "3036 하루 무료 뉴런 소진" };
+    const waitS = e.retryAfterSeconds ?? 30;
+    if (waitS > LONG_WAIT_S) return { action: "budget", reason: `429 retry-after ${waitS}s` };
+    return { action: "wait", reason: /\b3040\b/.test(e.message) ? "3040" : "429", waitS };
+  }
+  if (e.badContent) return { action: "json", reason: "bad_content" };
+  if (e.status === 400 && /json_validate_failed|JSON Mode couldn't be met/i.test(e.message)) return { action: "json", reason: "json_validate_failed" };
+  if (e.status >= 500) return { action: "retry", reason: "5xx" };
+  return { action: "fatal", reason: String(e.status) };
+}
+
+/** 공급자가 response_format(json_schema) 자체를 거부한 400 — 폴백(프롬프트 강제 JSON + G1) 대상. */
+export const rejectsResponseFormat = (e: unknown) => e instanceof ProviderError && e.status === 400 && classifyError(e).action === "fatal" && /response_format|json_schema/i.test(e.message);
+
+/**
+ * 실호출(시도마다 예산 차감 → 공급자 호출). 오류는 classifyError대로: budget이면 BudgetExhausted, wait·retry·json은 같은 요청을 다시(최대 3회).
  * 3회 모두 구조화 출력 실패면 json=null을 돌려준다 — 호출자의 G1이 실패로 판정해 재생성·FAIL 경로를 탄다(배치가 멈추지 않는다).
  */
-async function liveCall(provider: ProviderName, reserve: () => void, req: Parameters<typeof structured>[1], report: RunReport): Promise<{ json: unknown; model: string }> {
+async function liveCall(provider: ProviderName, reserve: () => void, req: Parameters<typeof structured>[1], report: RunReport, responseFormat = true): Promise<{ json: unknown; model: string }> {
   const retry = (why: string) => {
     const k = `${provider}:${why}`;
     report.providerRetries[k] = (report.providerRetries[k] ?? 0) + 1;
@@ -190,31 +223,22 @@ async function liveCall(provider: ProviderName, reserve: () => void, req: Parame
     reserve();
     report.calls[provider] = (report.calls[provider] ?? 0) + 1;
     try {
-      const r = await structured(provider, req);
+      const r = await structured(provider, req, 120_000, { responseFormat });
+      const u = (report.usage[provider] ??= { ok: 0, prompt: 0, completion: 0, neurons: 0 });
+      u.ok++;
+      u.prompt += r.usage?.prompt_tokens ?? 0;
+      u.completion += r.usage?.completion_tokens ?? 0;
+      u.neurons += r.usage?.neurons ?? 0;
       return { json: r.json, model: r.model };
     } catch (e) {
-      if (e instanceof ProviderError && e.status === 429) {
-        const wait = e.retryAfterSeconds ?? 30;
-        if (wait > LONG_WAIT_S) throw new BudgetExhausted(`${provider} 429 retry-after ${wait}s — 그날 한도`);
-        retry("429");
-        console.warn(`[live] ${provider} 429, ${wait + 1}s 대기`);
-        await sleep((wait + 1) * 1000);
-        continue;
-      }
-      if (e instanceof ProviderError && e.status >= 500) {
-        retry("5xx");
-        console.warn(`[live] ${provider} ${e.status}, 10s 뒤 다시`);
-        await sleep(10_000);
-        continue;
-      }
-      if (e instanceof ProviderError && isJsonFailure(e)) {
-        jsonFailures++;
-        retry("json_validate_failed");
-        console.warn(`[live] ${provider} 구조화 출력 실패(400 json_validate_failed), 같은 요청 다시`);
-        await sleep(5_000);
-        continue;
-      }
-      throw e;
+      const c = classifyError(e);
+      if (c.action === "budget") throw new BudgetExhausted(`${provider} ${c.reason} — 그날 한도`);
+      if (c.action === "fatal") throw e;
+      retry(c.reason);
+      if (c.action === "json") jsonFailures++;
+      const waitMs = c.action === "wait" ? (c.waitS + 1) * 1000 : c.action === "retry" ? 10_000 : 5_000;
+      console.warn(`[live] ${provider} ${c.reason}, ${waitMs / 1000}s 뒤 같은 요청`);
+      await sleep(waitMs);
     }
   }
   if (jsonFailures === 3) return { json: null, model: req.model };
@@ -259,27 +283,64 @@ export async function runBatch(hash: string, byAgent: Map<string, AgentRows>, su
     if (cached) report.skippedCached++;
     return !cached;
   });
-  let p = 0;
+  // Workers AI가 json_schema를 거부하면 false — 그 뒤 Workers AI 호출은 response_format 없이(프롬프트 강제 JSON + G1)
+  let waiSchema = true;
+  const callerOf = (bp: (typeof BATCH_PROVIDERS)[number], seen?: (json: unknown) => void): Caller => async ({ req, attempt }) => {
+    const r = await liveCall(bp.provider, () => reserveCall(bp.scope, bp.cap), req, report, bp.provider === "workers-ai" ? waiSchema : true);
+    if (attempt === 0) seen?.(r.json);
+    await sleep(bp.spacingMs);
+    return { json: r.json, provider: bp.provider, model: r.model };
+  };
+  const exhausted = new Set<ProviderName>();
   let done = 0;
+
+  // 첫 호출 = Workers AI 구조화 출력 확인(운영자 규칙 2026-10-31). 첫 subject를 Workers AI로 만들고 그 결과도 저장한다.
+  const wai = BATCH_PROVIDERS.find((b) => b.provider === "workers-ai");
+  const first = pending[0];
+  if (wai && first && limit > 0) {
+    const ctx = contextFor(byAgent, first);
+    let firstJson: unknown;
+    const seen = (j: unknown) => (firstJson = j);
+    let record: ExplanationRecord | null = null;
+    let note: string | undefined;
+    try {
+      record = await generateOne(first, hash, ctx, callerOf(wai, seen), wai.model);
+    } catch (e) {
+      if (e instanceof BudgetExhausted) {
+        exhausted.add("workers-ai");
+        note = e.message;
+      } else if (rejectsResponseFormat(e)) {
+        waiSchema = false;
+        note = `json_schema 거부 → 프롬프트 강제 JSON + G1: ${(e as Error).message.slice(0, 200)}`;
+        record = await generateOne(first, hash, ctx, callerOf(wai, seen), wai.model);
+      } else throw e;
+    }
+    const firstG1 = firstJson === undefined ? "-" : gate(firstJson, ctx, first.agentId).g1.length ? "FAIL" : "PASS";
+    report.probe = { label: labelOf(first), responseFormat: waiSchema ? "json_schema" : "prompt", firstG1, status: record ? `${record.groundingStatus}(attempts ${record.attempts})` : "미생성", model: record?.model ?? wai.model ?? "-", ...(note ? { note } : {}) };
+    console.log(`[batch] Workers AI 확인: ${JSON.stringify(report.probe)}`);
+    if (record) {
+      store.put(record);
+      tally(report, record);
+      done++;
+      pending.shift();
+    }
+  }
+
   for (const s of pending) {
     if (done >= limit) {
       report.stoppedBy = `--limit ${limit}`;
       break;
     }
     let record: ExplanationRecord | null = null;
-    while (!record && p < BATCH_PROVIDERS.length) {
-      const bp = BATCH_PROVIDERS[p]!;
-      const call: Caller = async ({ req }) => {
-        const r = await liveCall(bp.provider, () => reserveCall(bp.scope, bp.cap), req, report);
-        await sleep(bp.spacingMs);
-        return { json: r.json, provider: bp.provider, model: r.model };
-      };
+    for (const bp of BATCH_PROVIDERS) {
+      if (record) break;
+      if (exhausted.has(bp.provider)) continue;
       try {
-        record = await generateOne(s, hash, contextFor(byAgent, s), call, bp.model);
+        record = await generateOne(s, hash, contextFor(byAgent, s), callerOf(bp), bp.model);
       } catch (e) {
         if (!(e instanceof BudgetExhausted)) throw e;
         console.warn(`[batch] ${bp.provider} 끝: ${e.message}`);
-        p++;
+        exhausted.add(bp.provider);
       }
     }
     if (!record) {
@@ -320,6 +381,10 @@ async function main(): Promise<void> {
   console.log(`${mode}: 생성 ${g.pass + g.fail}(${line(g)}), 캐시 건너뜀 ${report.skippedCached}, 호출 ${JSON.stringify(report.calls)}, 재시도 ${JSON.stringify(report.providerRetries)}${report.stoppedBy ? `, 멈춤: ${report.stoppedBy}` : ""}`);
   for (const [k, v] of Object.entries(g.byKind)) console.log(`  ${k}: ${line(v)}`);
   for (const [k, v] of Object.entries(g.byProvider)) console.log(`  ${k}: ${line(v)}`);
+  for (const [k, u] of Object.entries(report.usage)) {
+    const per = (x: number) => (u.ok ? (x / u.ok).toFixed(1) : "-");
+    console.log(`  사용량 ${k}: 성공 ${u.ok}회 · 입력 ${u.prompt} · 출력 ${u.completion} 토큰(회당 ${per(u.prompt + u.completion)})${u.neurons ? ` · ${u.neurons.toFixed(1)} 뉴런(회당 ${per(u.neurons)})` : ""}`);
+  }
   for (const f of report.failures) console.log(`  FAIL ${f.label} ${f.provider} ${JSON.stringify(f.failure)}`);
 }
 

@@ -1,0 +1,25 @@
+$ node probe-wai.ts as-is   # 2026-10-31 07:49 UTC, dev 예산 1회, 요청 본문 = 배치 requestBody 그대로(model @cf/openai/gpt-oss-20b)
+subject LINE A-1001 1, variant as-is, prompt chars 4105, body keys model,messages,temperature,reasoning_effort,max_completion_tokens,response_format
+HTTP 200 in 2666ms, retry-after null
+model @cf/openai/gpt-oss-20b, finish_reason stop, usage {"prompt_tokens":2079,"completion_tokens":293,"total_tokens":2372,"prompt_tokens_details":{"cached_tokens":0},"neurons":45.790863300000005}
+message keys role,content,refusal,annotations,audio,function_call,tool_calls,reasoning_content
+content length 407
+content head: {
+  "text": "초년도 수수료가 945,000원으로 산출되었습니다. 계약은 2026년 8월 1일에 체결되었으며, 한도는 1,800,000원이고 이 라인 전기 누적은 945,000원, 소진율은 52.5%입니다.",
+  "citedFields": [
+    "line.amount",
+    "line.policyMasked",
+    "policySummary.contractDate",
+    "ledger.limitAmount",
+    "limitPosting.accumAfter",
+    "limitPosting.utilizationAfter"
+  ],
+  "numbersUsed": [
+    "945,000원",
+    "2026년 8월 1일",
+    "1,800,000원",
+    "52.5%"
+  ]
+}
+content parses as JSON
+G1 PASS · G4~G6 PASS g4=[] g5=[] g6=[]

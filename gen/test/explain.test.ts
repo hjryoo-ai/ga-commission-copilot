@@ -10,7 +10,9 @@ import { recheckExplanations } from "../explain/recheck.ts";
 import { ExplanationStore, recordProblems } from "../explain/store.ts";
 import { type D1Exec, loadExplanations, loadSlot, purgeInactive } from "../load/flow.ts";
 import { loadMigration } from "../load/sql.ts";
+import { parseContent, ProviderError } from "../providers/groq.ts";
 import { REPO_ROOT } from "../providers/prompt.ts";
+import { classifyError, rejectsResponseFormat } from "../explain/run.ts";
 
 // PHASES Phase 3 항목 2·3·4(설계서 v0.1.14 §4.1(b)·§5.4): 컨텍스트 빌더, 재생성 1회, 저장 G1, 적재(없는 키만), 적재 후 전수 재검증.
 // 행은 부록 A-1 정본 값(월납 150,000·한도 1,800,000·FY 945,000·시책 855,000 + 삭감 145,000·해약 환수 −720,000).
@@ -276,5 +278,35 @@ describe("라벨·토큰 도우미", () => {
   });
   it("검증기 토큰은 쉼표 금액을 정수로", () => {
     expect(extractTokens("855,000원").map((t) => t.value)).toEqual(["855000"]);
+  });
+});
+
+describe("배치 실호출 오류 분류(Workers AI 오류 코드 3036·3040, Groq json_validate_failed)", () => {
+  const err = (status: number, body: string, retryAfter: number | null = null, badContent = false) => new ProviderError(`workers-ai ${status}: ${body}`, status, retryAfter, badContent);
+  it("3036(하루 무료 뉴런 소진)은 retry-after 없어도 그 공급자 그날 끝", () => {
+    expect(classifyError(err(429, '{"errors":[{"message":"AiError: You have used up your daily free allocation of 10,000 neurons","code":3036}]}')).action).toBe("budget");
+  });
+  it("3040(용량 초과)·짧은 429는 기다렸다 같은 요청, 긴 retry-after(Groq TPD)는 그날 끝", () => {
+    expect(classifyError(err(429, '{"errors":[{"message":"Capacity temporarily exceeded","code":3040}]}'))).toEqual({ action: "wait", reason: "3040", waitS: 30 });
+    expect(classifyError(err(429, "rate limit", 7))).toEqual({ action: "wait", reason: "429", waitS: 7 });
+    expect(classifyError(err(429, "tokens per day", 900)).action).toBe("budget");
+  });
+  it("구조화 출력 실패(400 json_validate_failed·JSON Mode couldn't be met·빈/JSON 아닌 본문)는 json — 3회면 G1 실패로 넘긴다", () => {
+    expect(classifyError(err(400, '{"error":{"code":"json_validate_failed","failed_generation":""}}')).action).toBe("json");
+    expect(classifyError(err(400, "JSON Mode couldn't be met")).action).toBe("json");
+    expect(classifyError(err(502, "빈 응답", null, true))).toEqual({ action: "json", reason: "bad_content" });
+  });
+  it("5xx는 재시도, 401·그 밖 400은 멈춤 — response_format 거부 400만 폴백 대상", () => {
+    expect(classifyError(err(503, "upstream")).action).toBe("retry");
+    expect(classifyError(err(401, "Authentication error")).action).toBe("fatal");
+    expect(classifyError(new Error("x")).action).toBe("fatal");
+    expect(rejectsResponseFormat(err(400, "Unsupported parameter: response_format"))).toBe(true);
+    expect(rejectsResponseFormat(err(400, "json_validate_failed json_schema"))).toBe(false);
+    expect(rejectsResponseFormat(err(401, "response_format"))).toBe(false);
+  });
+  it("본문 파싱: 그대로 JSON 또는 코드 울타리 하나로 감싼 JSON(프롬프트 강제 JSON 모드)", () => {
+    expect(parseContent('{"text":"a"}')).toEqual({ text: "a" });
+    expect(parseContent('```json\n{"text":"a"}\n```')).toEqual({ text: "a" });
+    expect(() => parseContent("설명입니다")).toThrow();
   });
 });
