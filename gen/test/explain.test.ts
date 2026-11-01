@@ -323,10 +323,11 @@ describe("모델별 카세트·후보 버전(운영자 2026-10-31 — 관문은 
   it("Groq는 정본 카세트 explain, Workers AI는 모델 이름을 붙인 카세트", () => {
     expect(cassetteOf("groq")).toBe(GROQ_CASSETTE);
     expect(cassetteOf("workers-ai", "@cf/openai/gpt-oss-120b")).toEqual({ name: "explain.wai-gpt-oss-120b", provider: "workers-ai", model: "@cf/openai/gpt-oss-120b" });
-    expect(cassetteOf("workers-ai").model).toBe("@cf/openai/gpt-oss-20b");
+    expect(cassetteOf("workers-ai").model).toBe("@cf/openai/gpt-oss-120b");
   });
-  it("배치 Workers AI는 관문을 넘은 gpt-oss-120b(하루 110)", () => {
-    expect(BATCH_PROVIDERS.find((b) => b.provider === "workers-ai")).toMatchObject({ model: "@cf/openai/gpt-oss-120b", cap: 110 });
+  it("배치는 관문을 넘은 Workers AI gpt-oss-120b 단독(하루 85 — 약 800뉴런은 Phase 4 개발 몫)", () => {
+    expect(BATCH_PROVIDERS).toHaveLength(1);
+    expect(BATCH_PROVIDERS[0]).toMatchObject({ provider: "workers-ai", model: "@cf/openai/gpt-oss-120b", cap: 85 });
   });
   it("EXPLAIN_PROMPT_VERSION은 세 종류 모두의 버전을 바꾸고, vN이 아니면 멈춘다", () => {
     const before = process.env.EXPLAIN_PROMPT_VERSION;

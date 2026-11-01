@@ -8,6 +8,9 @@ import { pickStream, readMeta, viewsOf } from "../load/views.ts";
 import { openStub } from "../providers/cassette.ts";
 import type { ProviderName } from "../providers/groq.ts";
 import { mkdtempSync } from "node:fs";
+
+/** prompts/explain_limit/v6 결정 1(a)의 정해진 문장. */
+const DEFER_TIMING_SENTENCE = "이연분의 지급 시점은 데이터로는 확인되지 않습니다";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -82,8 +85,9 @@ describe.skipIf(!java)("커밋된 스트림의 설명 대상과 VCR 재생", () 
       const r = text("LIMIT", "1");
       expect(r.groundingStatus).toBe("PASS");
       expect(values(r.text), r.text).toContain("145000");
-      expect(r.text).toMatch(/이연|DEFER_AFTER_FY/);
-      expect(r.text).toMatch(/확인되지 않/);
+      expect(r.text).toMatch(/이연/);
+      // 결정 1(a): 정해진 문장 그대로(띄어쓰기 변형 "이 연분의"도 실패 — 운영자 2026-11-01)
+      expect(r.text, r.text).toContain(DEFER_TIMING_SENTENCE);
     });
 
     it("골든 A-03(원장 1): 누적 1,800,000 = 한도 1,800,000 · 소진율 100.0%", () => {

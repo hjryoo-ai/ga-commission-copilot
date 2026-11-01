@@ -4,7 +4,7 @@
 //                                  --provider workers-ai [--model @cf/…]는 카세트 explain.wai-<모델> + gen/out/explain-record/에만(관문은 모델별 — 운영자 2026-10-31).
 //   node explain/run.ts --batch    data/explain/<hash>/에 없는 subject를 LINE → LIMIT → MONTH_DIFF 순으로 생성.
 //                                  첫 호출은 Workers AI 구조화 출력 확인(첫 subject를 Workers AI로 — json_schema 거부면 프롬프트 강제 JSON + G1).
-//                                  그다음 Groq(batch:explain:groq 130/일) → Workers AI gpt-oss-120b(batch:explain:workers-ai 110/일), 소진되면 멈춘다.
+//                                  v6부터 Workers AI gpt-oss-120b 단독(batch:explain:workers-ai 85/일), 소진되면 멈춘다(DECISIONS 2026-11-01 — Groq 제외).
 //   공통: [--stream <sha256>] [--limit N] [--prompt-version vN](활성화 전 후보 버전) [--provider groq|workers-ai] [--model <id>](--stub·--record의 카세트)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -19,7 +19,7 @@ import { type Caller, gate, generateOne, labelOf, promptVersionOf, type Subject 
 import { DATA_EXPLAIN, type ExplanationRecord, ExplanationStore, OUT_EXPLAIN } from "./store.ts";
 
 export const VCR_NAME = "explain";
-const WAI_DEFAULT_MODEL = "@cf/openai/gpt-oss-20b";
+const WAI_DEFAULT_MODEL = "@cf/openai/gpt-oss-120b";
 
 /** 녹화 카세트(공급자·모델별). Groq = 정본 `explain`(모델은 프롬프트 model_hint), Workers AI = `explain.wai-<모델 이름>`. */
 export interface Cassette {
@@ -36,14 +36,13 @@ export function cassetteOf(provider: ProviderName, model?: string): Cassette {
 }
 
 /** 골든 시험(`test/explain-stream.test.ts`)이 재생하는 카세트 — 관문을 넘은 모델만 넣는다. */
-export const GATED_CASSETTES: readonly Cassette[] = [GROQ_CASSETTE];
-/** 배치 공급자 순서와 하루 상한(설계서 v0.1.14 §4.1(b)·§10.4). */
+// v6: Groq는 골든 원장 1에서 미달(2026-11-01) — 정본 카세트 `explain`은 v4 녹화로 남는다(이력).
+export const GATED_CASSETTES: readonly Cassette[] = [cassetteOf("workers-ai", "@cf/openai/gpt-oss-120b")];
+/** 배치 공급자 순서와 하루 상한(설계서 v0.1.16 §4.1(b)·§10.4). */
 export const BATCH_PROVIDERS: readonly { provider: ProviderName; scope: string; cap: number; model?: string; spacingMs: number }[] = [
-  // TPM 8K ÷ 호출당 약 3.0K(v5 녹화 실측 — 15초 간격에서 TPM 429 5회) ≈ 분당 2.6회
-  { provider: "groq", scope: "batch:explain:groq", cap: 130, spacingMs: 23_000 },
-  // 운영자 규칙(2026-10-31): 관문은 모델별 — v6 녹화에서 gpt-oss-20b 미달(골든 A-02·A-03) → gpt-oss-120b 통과, 하루 110.
-  // 실측 회당 약 107.5뉴런이라 10,000뉴런으로 하루 약 93회에서 3036(그날 끝)이 먼저 온다. 설계서 §4.1(b)·§10.4는 v0.1.16(배치 첫날 실측).
-  { provider: "workers-ai", scope: "batch:explain:workers-ai", cap: 110, model: "@cf/openai/gpt-oss-120b", spacingMs: 1_000 },
+  // 관문은 모델별(운영자 2026-10-31): gpt-oss-20b 미달 → gpt-oss-120b 통과. Groq는 v6 관문 미달로 제외(DECISIONS 2026-11-01).
+  // 실측 회당 약 107.5뉴런 × 85 ≈ 9,140뉴런 — 하루 10,000 중 약 800은 Phase 4 개발(bge-m3 임베딩·상태 확인)에 남긴다(운영자 2026-11-01).
+  { provider: "workers-ai", scope: "batch:explain:workers-ai", cap: 85, model: "@cf/openai/gpt-oss-120b", spacingMs: 1_000 },
 ];
 const RECORD_SPACING_MS = 23_000;
 /** 429의 retry-after가 이보다 길면 그 공급자는 그날 끝(TPD·RPD)으로 본다. */

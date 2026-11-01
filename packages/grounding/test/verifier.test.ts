@@ -12,6 +12,7 @@ import {
   GroundingVerifier,
   type Json,
   koreanAmount,
+  normalizeText,
   unknownCitedFields,
 } from "../src/index.ts";
 
@@ -105,6 +106,15 @@ describe("보이지 않는 문자·전각 숫자", () => {
   });
   it("전각 숫자는 반각으로", () => {
     expect(extractTokens("８５５，０００원")[0]).toMatchObject({ kind: "number", value: "855000" });
+  });  // 설명 본문은 normalizeText 결과를 저장한다 — 정해진 문장 정확 일치(골든 A-02)가 띄어쓰기 변형을 잡으려면 일반 공백은 그대로여야 한다
+  it("정규화(NFKC + 서식 문자 제거)는 일반 공백을 넣거나 빼지 않는다", () => {
+    const fixed = "이연분의 지급 시점은 데이터로는 확인되지 않습니다";
+    expect(normalizeText(fixed)).toBe(fixed);
+    expect(normalizeText("이 연분의 지급 시점은")).toBe("이 연분의 지급 시점은");
+    expect(normalizeText("이 연분의")).not.toContain("이연분의");
+    // 보이지 않는 문자는 지우고(U+200B — Cf), 특수 공백은 일반 공백 하나로(NBSP·U+3000 — NFKC)
+    expect(normalizeText("이\u200B연분의")).toBe("이연분의");
+    expect(normalizeText("시점은\u00A0데이터로는\u3000확인")).toBe("시점은 데이터로는 확인");
   });
 });
 
