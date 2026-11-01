@@ -1,0 +1,80 @@
+
+> @copilot/gen@ rulebook /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node rulebook/run.ts -- --record
+
+[record] rulebook:제1조 목적 PASS
+[record] rulebook:제2조 정의 PASS
+[record] rulebook:제3조 적용 범위 PASS
+[record] rulebook:제4조 명세와 규정의 관계 PASS
+[record] rulebook:제5조 수수료의 종류 PASS
+[record] rulebook:제6조 초년도 수수료 PASS
+[record] rulebook:제7조 유지 수수료 PASS
+[record] rulebook:제8조 시책 PASS
+[record] rulebook:제9조 상품별 요율표 PASS (재생성)
+[record] rulebook:제10조 등급별 지급률표 PASS
+[record] rulebook:제11조 시책표 PASS (재생성)
+[record] rulebook:제12조 수수료 한도의 산정 PASS
+[record] rulebook:제13조 한도의 적용 시기 PASS
+[record] rulebook:제14조 소진율과 경고 단계 PASS
+[record] rulebook:제15조 한도 초과분의 처리 PASS
+[record] rulebook:제16조 이연분의 지급 PASS
+[record] rulebook:제17조 한도의 재산정 PASS
+[record] rulebook:제18조 한도 원장 PASS
+[record] rulebook:제19조 분급의 적용 시기 PASS
+node:internal/errors:998
+  const err = new Error(message);
+              ^
+
+Error: Command failed: pnpm --dir /Users/hjr/Documents/workspace/ai/ga-commision-copilot/worker exec wrangler d1 execute copilot --remote --json --command INSERT OR IGNORE INTO budget_counter (scope, day, used) VALUES ('dev', '2026-11-01', 0); UPDATE budget_counter SET used = used + 1 WHERE scope = 'dev' AND day = '2026-11-01' AND used < 100;
+    at genericNodeError (node:internal/errors:998:15)
+    at wrappedFn (node:internal/errors:543:14)
+    at checkExecSyncError (node:child_process:925:11)
+    at execFileSync (node:child_process:961:15)
+    at reserveCall (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/providers/budget.ts:40:15)
+    at reserveDevCall (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/providers/budget.ts:21:3)
+    at file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/rulebook/run.ts:49:44
+    at liveCall (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/explain/run.ts:262:5)
+    at call (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/rulebook/run.ts:49:21)
+    at async generateArticle (file:///Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/rulebook/generate.ts:66:11) {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    '\n' +
+      '{\n' +
+      '  "error": {\n' +
+      '    "text": "A request to the Cloudflare API (/accounts/<account>/d1/database/f97c77d4-3afc-4ec3-ae17-d91bee6015dc/query) failed.",\n' +
+      '    "notes": [\n' +
+      '      {\n' +
+      '        "text": "The given account is not valid or is not authorized to access this service [code: 7403]"\n' +
+      '      }\n' +
+      '    ],\n' +
+      '    "kind": "error",\n' +
+      '    "name": "APIError",\n' +
+      '    "code": 7403,\n' +
+      '    "accountTag": "<account>"\n' +
+      '  }\n' +
+      '}\n',
+    ''
+  ],
+  pid: 98575,
+  stdout: '\n' +
+    '{\n' +
+    '  "error": {\n' +
+    '    "text": "A request to the Cloudflare API (/accounts/<account>/d1/database/f97c77d4-3afc-4ec3-ae17-d91bee6015dc/query) failed.",\n' +
+    '    "notes": [\n' +
+    '      {\n' +
+    '        "text": "The given account is not valid or is not authorized to access this service [code: 7403]"\n' +
+    '      }\n' +
+    '    ],\n' +
+    '    "kind": "error",\n' +
+    '    "name": "APIError",\n' +
+    '    "code": 7403,\n' +
+    '    "accountTag": "<account>"\n' +
+    '  }\n' +
+    '}\n',
+  stderr: ''
+}
+
+Node.js v25.5.0
+ ELIFECYCLE  Command failed with exit code 1.

@@ -44,7 +44,7 @@ export const BATCH_PROVIDERS: readonly { provider: ProviderName; scope: string; 
   // 실측 회당 약 107.5뉴런 × 85 ≈ 9,140뉴런 — 하루 10,000 중 약 800은 Phase 4 개발(bge-m3 임베딩·상태 확인)에 남긴다(운영자 2026-11-01).
   { provider: "workers-ai", scope: "batch:explain:workers-ai", cap: 85, model: "@cf/openai/gpt-oss-120b", spacingMs: 1_000 },
 ];
-const RECORD_SPACING_MS = 23_000;
+export const RECORD_SPACING_MS = 23_000;
 /** 429의 retry-after가 이보다 길면 그 공급자는 그날 끝(TPD·RPD)으로 본다. */
 const LONG_WAIT_S = 120;
 
@@ -171,7 +171,7 @@ export interface RunReport {
 
 const emptyTally = (): Tally => ({ pass: 0, fail: 0, firstPass: 0 });
 
-function newReport(mode: string, streamHash: string, subjects: number): RunReport {
+export function newReport(mode: string, streamHash: string, subjects: number): RunReport {
   return { mode, streamHash, subjects, skippedCached: 0, generated: { ...emptyTally(), byKind: {}, byProvider: {} }, calls: {}, providerRetries: {}, usage: {}, byModel: {}, failures: [] };
 }
 
@@ -251,7 +251,7 @@ export const rejectsResponseFormat = (e: unknown) => e instanceof ProviderError 
  * 실호출(시도마다 예산 차감 → 공급자 호출). 오류는 classifyError대로: budget이면 BudgetExhausted, wait·retry·json은 같은 요청을 다시(최대 3회).
  * 3회 모두 구조화 출력 실패면 json=null을 돌려준다 — 호출자의 G1이 실패로 판정해 재생성·FAIL 경로를 탄다(배치가 멈추지 않는다).
  */
-async function liveCall(provider: ProviderName, reserve: () => void, req: Parameters<typeof structured>[1], report: RunReport, responseFormat = true): Promise<{ json: unknown; model: string; usage: StructuredResponse["usage"] }> {
+export async function liveCall(provider: ProviderName, reserve: () => void, req: Parameters<typeof structured>[1], report: RunReport, responseFormat = true): Promise<{ json: unknown; model: string; usage: StructuredResponse["usage"] }> {
   const retry = (why: string) => {
     const k = `${provider}:${why}`;
     report.providerRetries[k] = (report.providerRetries[k] ?? 0) + 1;

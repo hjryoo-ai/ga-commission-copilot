@@ -6,7 +6,7 @@ const PROMPT_OF: Record<ExplanationKind, string> = { LINE: "explain_line", LIMIT
 const VERSION = /^v[1-9][0-9]*$/;
 
 /** "explain_line=v1,answer=v5" → {explain_line: "v1", …}. 형식이 다른 조각은 버린다. */
-export function promptVersions(env: Env): Record<string, string> {
+export function promptVersions(env: { PROMPT_VERSIONS?: string }): Record<string, string> {
   const out: Record<string, string> = {};
   for (const part of (env.PROMPT_VERSIONS ?? "").split(",")) {
     const [name, v] = part.split("=").map((x) => x.trim());

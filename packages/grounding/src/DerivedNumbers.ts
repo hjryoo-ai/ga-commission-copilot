@@ -57,6 +57,13 @@ export class DerivedNumbers {
     return out;
   }
 
+  /** 키별 금액 합(분급 예정월별 합계 등 — get_deferrals, 설계서 §4.3). 키 순서는 키 이름 순. */
+  static sumBy(items: readonly { key: string; amount: number }[]): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const x of [...items].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))) out[x.key] = won((out[x.key] ?? 0) + won(x.amount, "amount"), "sumBy");
+    return out;
+  }
+
   /** 라인 요청액 = amount + limit_cut_amt(설계서 §6.1 — 한도 삭감 전 금액, 상위 §4.2 CommissionCalculated). */
   static requested(amount: number, limitCutAmt: number): number {
     return won(won(amount, "amount") + won(limitCutAmt, "limitCutAmt"), "requested");

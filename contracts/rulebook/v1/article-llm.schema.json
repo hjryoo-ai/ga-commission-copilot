@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/copilot/contracts/rulebook/v1/article-llm.schema.json",
+  "title": "사규집 조항 본문 LLM 출력 v1(설계서 §4.1(c))",
+  "description": "prompts/rulebook/v1.md 구조화 출력. 조항 머리(제N조(제목))와 \"가상 규정 · 예시값\" 표기는 코드가 붙인다. numbersUsed는 모델의 자기 신고이고 검증기는 body에서 직접 추출한다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["body", "numbersUsed"],
+  "properties": {
+    "body": { "type": "string" },
+    "numbersUsed": { "type": "array", "items": { "type": "string" } }
+  }
+}

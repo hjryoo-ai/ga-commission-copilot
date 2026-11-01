@@ -18,6 +18,11 @@ describe("DerivedNumbers", () => {
     expect(Object.keys(DerivedNumbers.byType([L("Z", 1), L("A", 1)]))).toEqual(["A", "Z"]);
   });
 
+  it("sumBy: 키별 합, 키 이름 순(분급 예정월별 합계)", () => {
+    expect(DerivedNumbers.sumBy([{ key: "202803", amount: 93_600 }, { key: "202703", amount: 187_200 }, { key: "202803", amount: 6_400 }])).toEqual({ "202703": 187_200, "202803": 100_000 });
+    expect(Object.keys(DerivedNumbers.sumBy([{ key: "b", amount: 1 }, { key: "a", amount: 1 }]))).toEqual(["a", "b"]);
+  });
+
   it("remaining = limit − accum(음수 허용 — 단계가 FULL로 본다)", () => {
     expect(DerivedNumbers.remaining(1_800_000, 945_000)).toBe(855_000);
     expect(DerivedNumbers.remaining(1_000, 1_200)).toBe(-200);

@@ -3,6 +3,7 @@
 //   pnpm run load:d1 -- --local|--remote --rollback <sha256>      비활성 슬롯에 남은 이전 스트림으로 재적재 없이 되돌리기
 //   pnpm run load:d1 -- --local|--remote --purge-inactive         비활성 슬롯 비우기(§14.1-10: 전환 다음 날 00:00 UTC 이후)
 //   pnpm run load:d1 -- --local|--remote --explain [--stream <sha256>] [--dir <dir>]   설명 적재(v0.1.14 §4.1(b) — 기본 data/explain, 없는 키만)
+//   pnpm run load:d1 -- --local|--remote --rulebook [--rulebook-hash <sha256>]          사규집 청크 적재(§4.1(c) — rulebook_chunk, INSERT OR IGNORE)
 // 적재는 ① data/stream/<hash>.jsonl을 projection-java로 다시 리플레이해 뷰를 얻고 meta의 뷰 해시와 대조한 뒤 flow.loadSlot(②~⑦).
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -11,6 +12,7 @@ import { REPO_ROOT } from "../providers/prompt.ts";
 import { type D1Exec, type ExecMeta, type ExplanationInput, loadExplanations, loadSlot, purgeInactive, rollback } from "./flow.ts";
 import { loadMigration } from "./sql.ts";
 import { DATA_DIR, pickStream, readMeta, viewsOf } from "./views.ts";
+import { pickRulebook, readChunks, rulebookInserts } from "../rulebook/store.ts";
 
 const OUT_DIR = join(import.meta.dirname, "../out");
 /** --command 한 번에 넘길 SQL 길이 상한. 넘으면 --file. */
@@ -81,6 +83,19 @@ function main(): void {
     const report = loadExplanations(db, hash, records, log);
     writeReport(target, "explain", report);
     log(`   실측 rows written(wrangler): ${report.meta.reduce((a, x) => a + (x.rows_written ?? 0), 0)}`);
+    return;
+  }
+  if (args.includes("--rulebook")) {
+    const hash = pickRulebook(arg("--rulebook-hash"));
+    const chunks = readChunks(hash);
+    const version = hash.slice(0, 12);
+    const before = Number(db.query(`SELECT COUNT(*) AS n FROM rulebook_chunk WHERE version = '${version}'`)[0]?.n ?? 0);
+    const meta = db.apply(rulebookInserts(chunks), `rulebook-${version}`);
+    const after = Number(db.query(`SELECT COUNT(*) AS n FROM rulebook_chunk WHERE version = '${version}'`)[0]?.n ?? 0);
+    const report = { rulebook: hash, version, chunks: chunks.length, before, after, meta };
+    writeReport(target, "rulebook", report);
+    log(`rulebook_chunk ${version}: 청크 ${chunks.length}, 적재 전 ${before} → 뒤 ${after}`);
+    log(`   실측 rows written(wrangler): ${meta.reduce((a, x) => a + (x.rows_written ?? 0), 0)}`);
     return;
   }
   if (args.includes("--purge-inactive")) {

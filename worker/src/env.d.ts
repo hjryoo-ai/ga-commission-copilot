@@ -5,9 +5,18 @@ declare namespace Cloudflare {
     SESSION_SECRET?: string;
     /** 설계서 v0.1.12 §7 — policyKey HMAC */
     POLICY_KEY_SECRET?: string;
+    /** 설계서 §4.3·§10.2 — 런타임 답변 1순위 Groq(Phase 4: Groq만) */
+    GROQ_API_KEY?: string;
   }
+}
+
+// prompts/**/v*.md는 텍스트 모듈(wrangler rules Text · vitest 설정의 같은 변환 — llm/promptRegistry.ts)
+declare module "*.md" {
+  const text: string;
+  export default text;
 }
 interface Env {
   SESSION_SECRET?: string;
   POLICY_KEY_SECRET?: string;
+  GROQ_API_KEY?: string;
 }

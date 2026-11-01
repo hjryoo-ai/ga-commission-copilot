@@ -12,6 +12,8 @@ export const SCHEMA_IDS = {
   planLlm: "https://ga.example/copilot/contracts/plan/v1/plan-llm.schema.json",
   explainLlm: "https://ga.example/copilot/contracts/explain/v1/explanation-llm.schema.json",
   explanation: "https://ga.example/copilot/contracts/explain/v1/explanation.schema.json",
+  rulebookLlm: "https://ga.example/copilot/contracts/rulebook/v1/article-llm.schema.json",
+  rulebookChunk: "https://ga.example/copilot/contracts/rulebook/v1/chunk.schema.json",
 } as const;
 
 function schemaFiles(dir: string): string[] {

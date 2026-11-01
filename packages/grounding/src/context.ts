@@ -74,6 +74,37 @@ export function contextNumbers(ctx: Json, extra: readonly (number | string)[] = 
   return s;
 }
 
+/**
+ * 텍스트(검색된 가상 사규 청크 본문 등 — 설계서 §4.3·부록 A-08 "수치는 조항 본문에 있는 것만")의 숫자 토큰을 S에 더한 새 집합.
+ * 토큰 종류 그대로 넣는다(조항의 "30일"은 일(day), "2026년 7월 1일"은 날짜) — 그 텍스트에 있던 값만 허용된다.
+ */
+export function withTextTokens(s: ContextNumbers, texts: readonly string[]): ContextNumbers {
+  const out = {
+    numbers: new Set(s.numbers),
+    percents: new Set(s.percents),
+    dates: new Set(s.dates),
+    months: new Set(s.months),
+    monthDays: new Set(s.monthDays),
+    monthOfYears: new Set(s.monthOfYears),
+    years: new Set(s.years),
+    days: new Set(s.days),
+    policyTails: new Set(s.policyTails),
+  };
+  const sets: Record<TokenKind, Set<string>> = {
+    number: out.numbers,
+    percent: out.percents,
+    date: out.dates,
+    month: out.months,
+    monthDay: out.monthDays,
+    monthOfYear: out.monthOfYears,
+    year: out.years,
+    day: out.days,
+    policyTail: out.policyTails,
+  };
+  for (const t of texts) for (const k of extractTokens(t)) sets[k.kind].add(k.value);
+  return out;
+}
+
 /** 토큰 하나가 S 안에 있는가(설계서 §6.1 3 — 날짜는 월 단위 일치 허용). */
 export function grounded(kind: TokenKind, value: string, s: ContextNumbers): boolean {
   switch (kind) {

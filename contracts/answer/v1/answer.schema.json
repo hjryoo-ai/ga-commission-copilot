@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/copilot/contracts/answer/v1/answer.schema.json",
+  "title": "답변 LLM 출력 v1(설계서 §4.3, 부록 B.2)",
+  "description": "prompts/answer/v1.md 구조화 출력 — 1단계(툴 계획: toolCalls만 채우고 text 비움, 또는 바로 답/거부)와 2단계(툴 결과로 최종 답)에 같은 스키마. 공급자 strict 구조화 출력에 그대로 넘길 수 있게 type·enum·required·additionalProperties만 쓰고 모든 속성을 required로 둔다(부록 B.2 요지의 oneOf 인용은 kind로 가르는 한 모양으로 — 해당 없는 칸은 빈 문자열, toolCalls 인자도 해당 없는 칸은 null). numbersUsed는 모델의 자기 신고이고 검증기는 text에서 직접 추출한다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["refused", "reason", "text", "numbersUsed", "citations", "toolCalls"],
+  "properties": {
+    "refused": { "type": "boolean" },
+    "reason": { "type": ["string", "null"], "enum": ["OUT_OF_SCOPE", "NOT_GROUNDED", "OTHER_AGENT", "NEEDS_ENGINE", null] },
+    "text": { "type": "string", "maxLength": 800 },
+    "numbersUsed": { "type": "array", "items": { "type": "string" } },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "tool", "field", "article", "chunkId"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["tool", "rule"] },
+          "tool": { "type": "string" },
+          "field": { "type": "string" },
+          "article": { "type": "string" },
+          "chunkId": { "type": "string" }
+        }
+      }
+    },
+    "toolCalls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tool", "args"],
+        "properties": {
+          "tool": { "type": "string", "enum": ["get_statement", "get_limit", "get_deferrals", "get_policy_event_sim"] },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ym", "policyNo", "from", "to"],
+            "properties": {
+              "ym": { "type": ["string", "null"] },
+              "policyNo": { "type": ["string", "null"] },
+              "from": { "type": ["string", "null"] },
+              "to": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

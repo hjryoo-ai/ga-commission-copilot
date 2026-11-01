@@ -1,0 +1,1084 @@
+{
+  "kind": "vcr",
+  "name": "rulebook",
+  "entries": {
+    "rulebook:제1조": {
+      "requestHash": "30cec73a68e868ccad6da2d1aeeb3fadd2bb660e590b625728593637574e6861",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:48:02.709Z",
+      "usage": {
+        "queue_time": 0.353069399,
+        "prompt_tokens": 1053,
+        "prompt_time": 0.043298452,
+        "completion_tokens": 125,
+        "completion_time": 0.261417876,
+        "total_tokens": 1178,
+        "total_time": 0.304716328,
+        "completion_tokens_details": {
+          "reasoning_tokens": 32
+        }
+      },
+      "response": {
+        "body": "1. 이 규정은 데모GA가 소속 설계사에게 지급하는 수수료의 종류·산정·한도·분급·환수·지급 절차를 정한다.\n2. 이 규정은 데모용 가상 규정이고 값은 예시값이다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제2조": {
+      "requestHash": "04cc341764dfa4c3912700fdb36861d5cd4c4433d010e545af37cd84d3e3ec67",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:48:28.369Z",
+      "usage": {
+        "queue_time": 0.393646604,
+        "prompt_tokens": 1112,
+        "prompt_time": 0.045757302,
+        "completion_tokens": 324,
+        "completion_time": 0.675692837,
+        "total_tokens": 1436,
+        "total_time": 0.721450139,
+        "completion_tokens_details": {
+          "reasoning_tokens": 47
+        }
+      },
+      "response": {
+        "body": "1. 초년도 수수료는 설계사가 최초 계약을 체결하고 최초로 발생하는 수수료를 의미한다.\n2. 유지 수수료는 계약 유지 기간 동안 지속적으로 발생하는 수수료를 의미한다.\n3. 시책은 회사가 설계사에게 제공하는 정책적 지원 방안을 의미한다.\n4. 수수료 한도는 설계사가 받을 수 있는 수수료의 최대 금액을 의미한다.\n5. 소진율은 수수료 한도 대비 실제 사용된 비율을 의미한다.\n6. 분급은 수수료를 일정 기간에 걸쳐 나누어 지급하는 방식을 의미한다.\n7. 환수는 이미 지급된 수수료를 회수하는 절차를 의미한다.\n8. 환수 채권은 환수 대상이 되는 채권을 의미한다.\n9. 상계는 환수 채권과 다른 채권을 서로 상쇄하는 절차를 의미한다.\n10. 마감은 수수료 정산을 종료하는 시점을 의미한다.\n11. 지급일은 수수료가 실제로 지급되는 날짜를 의미한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제3조": {
+      "requestHash": "c196a85752869e3d71e1f8cafceac4137e9bf69936ac3ca7f88c82da1267c63f",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:48:53.287Z",
+      "usage": {
+        "queue_time": 0.051534519,
+        "prompt_tokens": 1039,
+        "prompt_time": 0.040913721,
+        "completion_tokens": 354,
+        "completion_time": 0.745654361,
+        "total_tokens": 1393,
+        "total_time": 0.786568082,
+        "completion_tokens_details": {
+          "reasoning_tokens": 261
+        }
+      },
+      "response": {
+        "body": "1. 2025년 7월 1일 이후 체결된 보험 계약에서 발생하는 수수료에 적용한다.\n2. 개별 조항에 따로 정한 적용 시기가 있으면 그 조항을 따른다.",
+        "numbersUsed": [
+          "2025년 7월 1일"
+        ]
+      }
+    },
+    "rulebook:제4조": {
+      "requestHash": "ff946a874f907fecf14157a22908224afc9ffbbe55c8aa0de270d1ba34b9d704",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:49:18.006Z",
+      "usage": {
+        "queue_time": 0.355255783,
+        "prompt_tokens": 1045,
+        "prompt_time": 0.045599559,
+        "completion_tokens": 126,
+        "completion_time": 0.26337666,
+        "total_tokens": 1171,
+        "total_time": 0.308976219,
+        "completion_tokens_details": {
+          "reasoning_tokens": 42
+        }
+      },
+      "response": {
+        "body": "1. 실제 금액은 정산 엔진이 계산한 수수료 명세가 기준이다.\n2. 이 규정은 명세 항목의 뜻을 설명하기 위한 것이며, 규정 문구만으로 개별 금액을 계산하지 않는다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제5조": {
+      "requestHash": "a8f0e93ce7d0405c6a7f7a559d01f1c0226c2373727bfb9151fb0f9956e341a4",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:49:43.530Z",
+      "usage": {
+        "queue_time": 0.360582024,
+        "prompt_tokens": 1092,
+        "prompt_time": 0.077406952,
+        "completion_tokens": 312,
+        "completion_time": 0.648726481,
+        "total_tokens": 1404,
+        "total_time": 0.726133433,
+        "completion_tokens_details": {
+          "reasoning_tokens": 46
+        }
+      },
+      "response": {
+        "body": "1. 초년도 수수료는 설계사가 최초 계약을 체결한 해에 지급받는 수수료이며, 계약 금액의 일정 비율을 기준으로 산정한다.\n2. 유지 수수료는 계약이 지속되는 동안 매년 지급되는 수수료이며, 계약 유지 기간에 따라 정해진 비율로 산정한다.\n3. 시책은 특정 정책이나 프로모션에 따라 추가로 지급되는 수수료이며, 해당 시책의 적용 기준에 따라 지급한다.\n4. 환수는 이미 지급된 수수료 중 계약 해지 등 사유가 발생했을 경우 회수되는 금액이며, 회수 기준에 따라 차감한다.\n5. 분급 지급분은 계약 금액을 여러 차례에 걸쳐 분할 지급하는 경우에 적용되는 수수료이며, 각 지급 시점에 정해진 비율로 산정한다.\n6. 마감 후 정정은 계약 마감 후 발생한 오류나 변경 사항을 반영하여 조정되는 수수료이며, 정정 기준에 따라 재산정한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제6조": {
+      "requestHash": "44654c9e31bdc4154a185d7b28c063258524b868105d3ecfe6035bbcd8ac8cac",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:50:08.358Z",
+      "usage": {
+        "queue_time": 0.349453904,
+        "prompt_tokens": 1075,
+        "prompt_time": 0.113340828,
+        "completion_tokens": 127,
+        "completion_time": 0.265333896,
+        "total_tokens": 1202,
+        "total_time": 0.378674724,
+        "completion_tokens_details": {
+          "reasoning_tokens": 42
+        }
+      },
+      "response": {
+        "body": "1. 초년도 수수료는 월납 보험료에 상품별 초년도 요율과 설계사 등급별 지급률을 적용하여 정산 엔진이 산정한다.\n2. 초년도 수수료는 수수료 한도의 적용 대상이다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제7조": {
+      "requestHash": "5c702a48b1fb37ff838bfb4a7cb950de11365d0481a1dcfdd9669f386ecd5e3c",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:50:33.287Z",
+      "usage": {
+        "queue_time": 0.214120795,
+        "prompt_tokens": 1058,
+        "prompt_time": 0.03193633,
+        "completion_tokens": 223,
+        "completion_time": 0.595684153,
+        "total_tokens": 1281,
+        "total_time": 0.627620483,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 130
+        }
+      },
+      "response": {
+        "body": "1. 계약이 유지되면 13회차부터 매월 유지 수수료를 지급한다.\n2. 유지 수수료 요율은 내부 요율표로 관리한다.\n3. 유지 수수료는 수수료 한도의 적용 대상이 아니다.",
+        "numbersUsed": [
+          "13회차"
+        ]
+      }
+    },
+    "rulebook:제8조": {
+      "requestHash": "5c8205c38004d4492ffb0ada188969eb0976da353116bdd575ebad2c4fa5ae99",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:50:58.082Z",
+      "usage": {
+        "queue_time": 0.052731397,
+        "prompt_tokens": 1059,
+        "prompt_time": 0.040740943,
+        "completion_tokens": 158,
+        "completion_time": 0.330348871,
+        "total_tokens": 1217,
+        "total_time": 0.371089814,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 54
+        }
+      },
+      "response": {
+        "body": "1. 회사가 정한 기간에 정한 상품을 체결하면 정액의 시책을 지급할 수 있다.\n2. 시책은 수수료 한도의 적용 대상이며, 한도를 넘는 부분은 제15조에 따라 처리한다.\n3. 시책 기간·대상 상품·금액은 내부 시책표로 관리한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제9조": {
+      "requestHash": "f1426380affce6a709b7688024011b389d331b9c45b0c6e6cae24dc60f37d92e",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:46:36.143Z",
+      "usage": {
+        "queue_time": 0.395781691,
+        "prompt_tokens": 1239,
+        "prompt_time": 0.063870691,
+        "completion_tokens": 504,
+        "completion_time": 1.054887301,
+        "total_tokens": 1743,
+        "total_time": 1.118757992,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 241
+        }
+      },
+      "response": {
+        "body": "1. 종신(20년납) 상품의 초년도 요율은 7 배이며, 유지 수수료 요율은 0.05 배이다.\n2. 정기(10년납) 상품의 초년도 요율은 5 배이며, 유지 수수료 요율은 0.03 배이다.\n3. 건강(100세 만기) 상품의 초년도 요율은 6 배이며, 유지 수수료 요율은 0.04 배이다.\n4. 연금(10년납) 상품의 초년도 요율은 3 배이며, 유지 수수료 요율은 0.02 배이다.\n5. 어린이(30년 만기) 상품의 초년도 요율은 6.5 배이며, 유지 수수료 요율은 0.04 배이다.",
+        "numbersUsed": [
+          "7",
+          "0.05",
+          "5",
+          "0.03",
+          "6",
+          "0.04",
+          "3",
+          "0.02",
+          "6.5",
+          "0.04"
+        ]
+      }
+    },
+    "rulebook:제9조#retry": {
+      "requestHash": "878deab85680e6e469a58a9306b443eae59e9572fd3fbbc15f1f415d42054a2f",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:47:01.330Z",
+      "usage": {
+        "queue_time": 0.392566082,
+        "prompt_tokens": 1624,
+        "prompt_time": 0.06341227,
+        "completion_tokens": 289,
+        "completion_time": 0.604700952,
+        "total_tokens": 1913,
+        "total_time": 0.668113222,
+        "completion_tokens_details": {
+          "reasoning_tokens": 86
+        }
+      },
+      "response": {
+        "body": "1. 종신 상품의 초년도 요율은 7 배이며, 유지 수수료 요율은 0.05 배이다.\n2. 정기 상품의 초년도 요율은 5 배이며, 유지 수수료 요율은 0.03 배이다.\n3. 건강 상품의 초년도 요율은 6 배이며, 유지 수수료 요율은 0.04 배이다.\n4. 연금 상품의 초년도 요율은 3 배이며, 유지 수수료 요율은 0.02 배이다.\n5. 어린이 상품의 초년도 요율은 6.5 배이며, 유지 수수료 요율은 0.04 배이다.",
+        "numbersUsed": [
+          "7",
+          "0.05",
+          "5",
+          "0.03",
+          "6",
+          "0.04",
+          "3",
+          "0.02",
+          "6.5",
+          "0.04"
+        ]
+      }
+    },
+    "rulebook:제10조": {
+      "requestHash": "962d816ec1efceef1719f423b47af972a7dd2042bb6824f53da9a9e82fd35394",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:51:23.354Z",
+      "usage": {
+        "queue_time": 0.396077686,
+        "prompt_tokens": 1101,
+        "prompt_time": 0.376695252,
+        "completion_tokens": 184,
+        "completion_time": 0.384524562,
+        "total_tokens": 1285,
+        "total_time": 0.761219814,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 87
+        }
+      },
+      "response": {
+        "body": "1. 선임 등급의 지급률은 0.9이다.\n2. 중견 등급의 지급률은 0.85이다.\n3. 신입 등급의 지급률은 0.8이다.",
+        "numbersUsed": [
+          "0.9",
+          "0.85",
+          "0.8"
+        ]
+      }
+    },
+    "rulebook:제11조": {
+      "requestHash": "7ffe9d147680203a2e8db80b88fef5b3647537c0c140ff1421c598b556667abc",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:51:48.608Z",
+      "usage": {
+        "queue_time": 0.052675521,
+        "prompt_tokens": 1126,
+        "prompt_time": 0.044772841,
+        "completion_tokens": 410,
+        "completion_time": 0.863341065,
+        "total_tokens": 1536,
+        "total_time": 0.908113906,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 231
+        }
+      },
+      "response": {
+        "body": "1. 2026년 8월에 종신(20년납) 상품에 대해 정액 1,000,000원으로 시책한다.\n2. 2026년 11월에 정기(10년납) 상품에 대해 정액 500,000원으로 시책한다.\n3. 2027년 3월에 건강(100세 만기) 상품에 대해 정액 800,000원으로 시책한다.",
+        "numbersUsed": [
+          "2026년 8월",
+          "1,000,000원",
+          "2026년 11월",
+          "500,000원",
+          "2027년 3월",
+          "800,000원"
+        ]
+      }
+    },
+    "rulebook:제11조#retry": {
+      "requestHash": "f21a3d3825b104f6789e47febd00c8ed82d93a5c9057702a83a73b90f8c80333",
+      "repairs": 1,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:52:13.949Z",
+      "usage": {
+        "queue_time": 0.39269856,
+        "prompt_tokens": 1409,
+        "prompt_time": 0.078261782,
+        "completion_tokens": 246,
+        "completion_time": 0.507937905,
+        "total_tokens": 1655,
+        "total_time": 0.586199687,
+        "completion_tokens_details": {
+          "reasoning_tokens": 108
+        }
+      },
+      "response": {
+        "body": "1. 2026년 8월에 종신 상품에 대해 정액 1,000,000원으로 시책한다.\n2. 2026년 11월에 정기 상품에 대해 정액 500,000원으로 시책한다.\n3. 2027년 3월에 건강 상품에 대해 정액 800,000원으로 시책한다.",
+        "numbersUsed": [
+          "2026년 8월",
+          "1,000,000원",
+          "2026년 11월",
+          "500,000원",
+          "2027년 3월",
+          "800,000원"
+        ]
+      }
+    },
+    "rulebook:제12조": {
+      "requestHash": "f9de7c9083d05999a04844e00837d92fbbcc1d89a20552f11c927850bb998e2b",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:47:26.341Z",
+      "usage": {
+        "queue_time": 0.179104286,
+        "prompt_tokens": 1063,
+        "prompt_time": 0.048253087,
+        "completion_tokens": 246,
+        "completion_time": 0.519560657,
+        "total_tokens": 1309,
+        "total_time": 0.567813744,
+        "completion_tokens_details": {
+          "reasoning_tokens": 146
+        }
+      },
+      "response": {
+        "body": "1. 계약별 수수료 한도는 월납 보험료에 12배를 곱한 금액으로 한다.\n2. 배수는 12배(1200%)로 표기한다.\n3. 각 계약의 한도는 한도 원장으로 관리한다.",
+        "numbersUsed": [
+          "12",
+          "1200%"
+        ]
+      }
+    },
+    "rulebook:제13조": {
+      "requestHash": "161ce4bb4220ae8d4acb7f7355d4f8bfe884cf5d3be15233f3f9855b2d3f33c4",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:52:38.966Z",
+      "usage": {
+        "queue_time": 0.281342859,
+        "prompt_tokens": 1037,
+        "prompt_time": 0.043072186,
+        "completion_tokens": 178,
+        "completion_time": 0.370144593,
+        "total_tokens": 1215,
+        "total_time": 0.413216779,
+        "completion_tokens_details": {
+          "reasoning_tokens": 93
+        }
+      },
+      "response": {
+        "body": "1. 수수료 한도는 2026년 7월 1일 이후 체결된 계약부터 적용한다.\n2. 그 이전에 체결된 계약에는 한도가 적용되지 않는다.",
+        "numbersUsed": [
+          "2026년 7월 1일"
+        ]
+      }
+    },
+    "rulebook:제14조": {
+      "requestHash": "4e839c936a1b9a4e2d0ace138772012e5f93323178e08443a467b0ef5d82728e",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:53:04.744Z",
+      "usage": {
+        "queue_time": 0.218402504,
+        "prompt_tokens": 1080,
+        "prompt_time": 0.101796092,
+        "completion_tokens": 495,
+        "completion_time": 1.03229256,
+        "total_tokens": 1575,
+        "total_time": 1.134088652,
+        "completion_tokens_details": {
+          "reasoning_tokens": 326
+        }
+      },
+      "response": {
+        "body": "1. 소진율은 한도 대비 누적 지급액의 비율로 산정한다.\n2. 소진율이 80% 미만이면 정상 단계로 간주한다.\n3. 소진율이 80% 이상 95% 미만이면 주의 단계로 구분한다.\n4. 소진율이 95% 이상 100% 미만이면 위험 단계로 구분한다.\n5. 소진율이 100%에 도달하면 소진 단계로 간주한다.\n6. 단계 표시는 안내용이며 지급액을 변경하지 않는다.",
+        "numbersUsed": [
+          "80%",
+          "95%",
+          "100%"
+        ]
+      }
+    },
+    "rulebook:제15조": {
+      "requestHash": "72f96d9a8f86cecd81be58f76ea648abf51ed67d631376ec814a326d67e5a24c",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:53:30.757Z",
+      "usage": {
+        "queue_time": 0.35632792,
+        "prompt_tokens": 1093,
+        "prompt_time": 0.163186242,
+        "completion_tokens": 272,
+        "completion_time": 1.049511645,
+        "total_tokens": 1365,
+        "total_time": 1.212697887,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 161
+        }
+      },
+      "response": {
+        "body": "1. 한도를 초과한 수수료는 상품에 정한 방식에 따라 삭감하거나 초년도 종료 후로 이연한다.\n2. 삭감과 이연 중 어느 방식인지는 수수료 명세의 한도 삭감 정책 항목에 표시한다.\n3. 한도를 초과한 부분을 제외한 금액만 해당 달에 지급한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제16조": {
+      "requestHash": "f7adf950d1745396530c12d6d4e4afc7b1da06b8f2c41ad134c856d099ab9b6d",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:53:55.699Z",
+      "usage": {
+        "queue_time": 0.331100126,
+        "prompt_tokens": 1068,
+        "prompt_time": 0.258363971,
+        "completion_tokens": 134,
+        "completion_time": 0.276714328,
+        "total_tokens": 1202,
+        "total_time": 0.535078299,
+        "completion_tokens_details": {
+          "reasoning_tokens": 24
+        }
+      },
+      "response": {
+        "body": "1. 초년도 종료 후 이연으로 처리된 금액의 지급 시점은 이 규정에서 정하지 않는다.\n2. 이연분의 지급 여부와 시점은 수수료 명세에 이연 항목으로 나타난 경우에만 확인할 수 있다.\n3. 명세에 이연 항목이 없으면 지급 시점은 데이터로 확인되지 않는다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제17조": {
+      "requestHash": "6848f8e5cf9e1c43aa59d19e734644991af2f200e5245205e21b7f72ddace843",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:54:20.452Z",
+      "usage": {
+        "queue_time": 0.306769783,
+        "prompt_tokens": 1064,
+        "prompt_time": 0.054001158,
+        "completion_tokens": 147,
+        "completion_time": 0.304862056,
+        "total_tokens": 1211,
+        "total_time": 0.358863214,
+        "completion_tokens_details": {
+          "reasoning_tokens": 40
+        }
+      },
+      "response": {
+        "body": "1. 감액 등으로 월납 보험료가 변경되는 경우 해당 일자에 한도를 다시 산정한다.\n2. 재산정 후 누적 지급액이 새 한도를 초과하더라도 이미 지급된 금액은 이 조항에 따라 회수하지 않는다.\n3. 재산정 내역은 한도 원장 이력에 기록한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제18조": {
+      "requestHash": "b1bf947ce3b26da5a4f01445900a994fd98d115bfa62e01cc67d2e9641b18213",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:54:45.286Z",
+      "usage": {
+        "queue_time": 0.052703934,
+        "prompt_tokens": 1053,
+        "prompt_time": 0.047918198,
+        "completion_tokens": 125,
+        "completion_time": 0.375100444,
+        "total_tokens": 1178,
+        "total_time": 0.423018642,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 36
+        }
+      },
+      "response": {
+        "body": "1. 한도 원장은 계약별 한도와 누적 지급액 및 소진율을 기록한다.\n2. 이력은 전기(수수료 반영), 재산정, 환수 반영의 종류와 각 이후의 누적 및 소진율을 담는다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제19조": {
+      "requestHash": "cfc7b3cdc5629f4086eb2ef7fbd4d8eece10d7f6f483e089545c46f9e440e1af",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:55:10.103Z",
+      "usage": {
+        "queue_time": 0.062404316,
+        "prompt_tokens": 1045,
+        "prompt_time": 0.290118304,
+        "completion_tokens": 187,
+        "completion_time": 0.393428359,
+        "total_tokens": 1232,
+        "total_time": 0.683546663,
+        "completion_tokens_details": {
+          "reasoning_tokens": 93
+        }
+      },
+      "response": {
+        "body": "1. 분급은 2027년 1월 1일 이후 체결된 계약의 초년도 수수료에 적용한다.\n2. 그 이전에 체결된 계약은 분급하지 않고 산정한 달에 지급한다.",
+        "numbersUsed": [
+          "2027년 1월 1일"
+        ]
+      }
+    },
+    "rulebook:제20조": {
+      "requestHash": "4640052bad143d3e28b7ba0f2f9fd0c51eaf78bcc31a229df62ca12f4283010a",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:56:26.694Z",
+      "usage": {
+        "queue_time": 0.05102688,
+        "prompt_tokens": 1108,
+        "prompt_time": 0.055621341,
+        "completion_tokens": 344,
+        "completion_time": 0.723450321,
+        "total_tokens": 1452,
+        "total_time": 0.779071662,
+        "completion_tokens_details": {
+          "reasoning_tokens": 240
+        }
+      },
+      "response": {
+        "body": "1. 초년도 수수료 중 40%를 산정된 달에 지급한다.\n2. 나머지 20%씩은 각각 12개월, 24개월, 36개월 후에 동일 비율로 지급한다.",
+        "numbersUsed": [
+          "40%",
+          "20%",
+          "12개월",
+          "24개월",
+          "36개월"
+        ]
+      }
+    },
+    "rulebook:제21조": {
+      "requestHash": "021c5c50a21e902407180b787e111251116ae439929e39e0aafa465970a18a7a",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:56:51.361Z",
+      "usage": {
+        "queue_time": 0.216265918,
+        "prompt_tokens": 1019,
+        "prompt_time": 0.045031124,
+        "completion_tokens": 133,
+        "completion_time": 0.278576512,
+        "total_tokens": 1152,
+        "total_time": 0.323607636,
+        "completion_tokens_details": {
+          "reasoning_tokens": 71
+        }
+      },
+      "response": {
+        "body": "1. 분급 예정분은 지급 예정월에 계약이 유지 중이어야 지급한다.\n2. 조건을 충족하면 예정분을 지급 처리한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제22조": {
+      "requestHash": "18201e51b1da39d2b0eb54122db4dea9eeffb8ab6385a96944d05044188d4c3f",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:57:16.021Z",
+      "usage": {
+        "queue_time": 0.214394723,
+        "prompt_tokens": 1025,
+        "prompt_time": 0.032218652,
+        "completion_tokens": 152,
+        "completion_time": 0.31497223,
+        "total_tokens": 1177,
+        "total_time": 0.347190882,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 84
+        }
+      },
+      "response": {
+        "body": "1. 지급 예정월에 계약이 유지 중이 아니면 그 예정분은 보류한다.\n2. 보류한 예정분은 계약 상태가 확인될 때까지 지급하지 않는다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제23조": {
+      "requestHash": "9c6ab3fe00bf981a43ac7a13ca82fa088aa6bee77bf32037bb66788d4befeb4b",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:57:40.619Z",
+      "usage": {
+        "queue_time": 0.051000275,
+        "prompt_tokens": 1050,
+        "prompt_time": 0.031620815,
+        "completion_tokens": 176,
+        "completion_time": 0.428001438,
+        "total_tokens": 1226,
+        "total_time": 0.459622253,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 89
+        }
+      },
+      "response": {
+        "body": "1. 계약이 해약되거나 원 계약 수수료가 취소되면 아직 지급하지 않은 분급 예정분과 보류분은 취소한다.\n2. 이미 지급한 분급분의 환수는 제24조부터 제28조까지에 따른다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제24조": {
+      "requestHash": "13f574865a5c4b00a43868ab62079efa66c40b4345cb3787568405a4591667a4",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:58:05.422Z",
+      "usage": {
+        "queue_time": 0.115130188,
+        "prompt_tokens": 1050,
+        "prompt_time": 0.17437097,
+        "completion_tokens": 121,
+        "completion_time": 0.249850735,
+        "total_tokens": 1171,
+        "total_time": 0.424221705,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 29
+        }
+      },
+      "response": {
+        "body": "1. 계약이 정해진 회차를 채우지 못하고 해약·실효되면 이미 지급한 초년도 수수료의 일부를 환수한다.\n2. 환수는 해약이 반영된 달의 수수료 명세에 환수 항목으로 표시한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제25조": {
+      "requestHash": "cd974d8ae5ac96f7c6e8b0ba1cd9d8b2d0c4ae50c84d6e71234216728d8264fc",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:58:31.177Z",
+      "usage": {
+        "queue_time": 0.32139085,
+        "prompt_tokens": 1112,
+        "prompt_time": 0.041715383,
+        "completion_tokens": 409,
+        "completion_time": 1.046768085,
+        "total_tokens": 1521,
+        "total_time": 1.088483468,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 294
+        }
+      },
+      "response": {
+        "body": "1. 1회차부터 6회차까지는 환수율이 70%이다.\n2. 7회차부터 12회차까지는 환수율이 40%이다.\n3. 13회차부터는 환수가 없다.",
+        "numbersUsed": [
+          "1",
+          "6",
+          "70%",
+          "7",
+          "12",
+          "40%",
+          "13"
+        ]
+      }
+    },
+    "rulebook:제26조": {
+      "requestHash": "e2320be06786c5f899b3587d78c2fc94a32eed9f0363c5a64850064108fc146d",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:58:55.877Z",
+      "usage": {
+        "queue_time": 0.179153913,
+        "prompt_tokens": 1044,
+        "prompt_time": 0.119320194,
+        "completion_tokens": 125,
+        "completion_time": 0.25976563,
+        "total_tokens": 1169,
+        "total_time": 0.379085824,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 39
+        }
+      },
+      "response": {
+        "body": "1. 환수 금액은 해당 계약에서 이미 지급한 초년도 수수료에 환수율을 적용해 정산 엔진이 산정한다.\n2. 산정한 환수 금액은 수수료 명세의 환수 항목으로 확인한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제27조": {
+      "requestHash": "4b2955894fd11aee708a4c8e301db7a1a40c40c24b4cb7e5a2ac6ca1cee40948",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:59:20.340Z",
+      "usage": {
+        "queue_time": 0.053657893,
+        "prompt_tokens": 1062,
+        "prompt_time": 0.036104525,
+        "completion_tokens": 141,
+        "completion_time": 0.29681761,
+        "total_tokens": 1203,
+        "total_time": 0.332922135,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 35
+        }
+      },
+      "response": {
+        "body": "1. 환수 금액은 먼저 그 달 지급할 수수료와 상계한다.\n2. 그 달 수수료로 다 상계하지 못한 금액은 환수 채권으로 이월한다.\n3. 이월된 환수 채권은 이후 달의 지급 수수료에서 먼저 생긴 채권부터 차례로 상계한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제28조": {
+      "requestHash": "77f10e766686dc417f40bb2637794300ff41d639419e7645e3aa667477a963ba",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T00:59:45.646Z",
+      "usage": {
+        "queue_time": 0.396028486,
+        "prompt_tokens": 1059,
+        "prompt_time": 0.035695517,
+        "completion_tokens": 110,
+        "completion_time": 0.347823972,
+        "total_tokens": 1169,
+        "total_time": 0.383519489,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 35
+        }
+      },
+      "response": {
+        "body": "1. 환수 채권은 미회수, 일부 상계, 회수 종료의 세 상태로 관리한다.\n2. 환수 채권의 잔액이 없어지면 회수 종료 상태로 변경한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제29조": {
+      "requestHash": "a2730cca5db0303d30a4946c04f05671b210fcc2d78f6d49f91c79c22e546c91",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:00:11.544Z",
+      "usage": {
+        "queue_time": 0.392816213,
+        "prompt_tokens": 1034,
+        "prompt_time": 0.496431433,
+        "completion_tokens": 237,
+        "completion_time": 0.922506869,
+        "total_tokens": 1271,
+        "total_time": 1.418938302,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 159
+        }
+      },
+      "response": {
+        "body": "1. 매월 수수료는 다음 달 5일에 마감한다.\n2. 마감 전에는 잠정 명세를, 마감 후에는 완료된 명세를 보여 준다.",
+        "numbersUsed": [
+          "5일"
+        ]
+      }
+    },
+    "rulebook:제30조": {
+      "requestHash": "66db560e1c13b9da50feb72a17f1931ea12c613e6d80885a911e0cf3193e43c5",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:00:36.231Z",
+      "usage": {
+        "queue_time": 0.052433045,
+        "prompt_tokens": 1028,
+        "prompt_time": 0.040204505,
+        "completion_tokens": 117,
+        "completion_time": 0.245459468,
+        "total_tokens": 1145,
+        "total_time": 0.285663973,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 46
+        }
+      },
+      "response": {
+        "body": "1. 마감한 달의 수수료는 다음 달 10일에 지급한다.\n2. 지급일이 휴일인 경우 회사가 별도로 정한다.",
+        "numbersUsed": [
+          "10일"
+        ]
+      }
+    },
+    "rulebook:제31조": {
+      "requestHash": "9e206a0b0e168e0d9d7178d3b267bdd6ad4ce150d826686d2e2bc8e826c151f7",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:01:00.879Z",
+      "usage": {
+        "queue_time": 0.010917327,
+        "prompt_tokens": 1031,
+        "prompt_time": 0.047060699,
+        "completion_tokens": 217,
+        "completion_time": 0.451373571,
+        "total_tokens": 1248,
+        "total_time": 0.49843427,
+        "completion_tokens_details": {
+          "reasoning_tokens": 141
+        }
+      },
+      "response": {
+        "body": "1. 지급할 수수료에서 원천세를 공제한 금액을 실지급액으로 한다.\n2. 원천세율은 3.3%로 한다.",
+        "numbersUsed": [
+          "3.3%"
+        ]
+      }
+    },
+    "rulebook:제32조": {
+      "requestHash": "1d43b032fdc40373e42872197edd5aafda0f8087782a34f19d5dc0f5746c1992",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:01:25.896Z",
+      "usage": {
+        "queue_time": 0.27793998,
+        "prompt_tokens": 1024,
+        "prompt_time": 0.392889755,
+        "completion_tokens": 95,
+        "completion_time": 0.197858917,
+        "total_tokens": 1119,
+        "total_time": 0.590748672,
+        "completion_tokens_details": {
+          "reasoning_tokens": 29
+        }
+      },
+      "response": {
+        "body": "1. 마감 전 명세는 잠정 명세이며 마감 때까지 변경될 수 있다.\n2. 잠정 명세의 금액은 예상값으로 표시한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제33조": {
+      "requestHash": "daba3abb7d9162590e2317097bbc08a74fafa0138b743c2dd83956e87225025c",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:01:51.599Z",
+      "usage": {
+        "queue_time": 0.356342668,
+        "prompt_tokens": 1034,
+        "prompt_time": 0.036633124,
+        "completion_tokens": 169,
+        "completion_time": 0.347809952,
+        "total_tokens": 1203,
+        "total_time": 0.384443076,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 97
+        }
+      },
+      "response": {
+        "body": "1. 마감한 달의 명세 항목과 합계는 변경하지 않는다.\n2. 마감 후 바로잡을 내용은 다음 달 이후 명세에 정정 항목으로 반영한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제34조": {
+      "requestHash": "79bd35db80c4ae3d909442bd9b029e7e6f951760229d03e691e78aa6d4cb2699",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:02:16.136Z",
+      "usage": {
+        "queue_time": 0.010435749,
+        "prompt_tokens": 1031,
+        "prompt_time": 0.039115705,
+        "completion_tokens": 176,
+        "completion_time": 0.36585666,
+        "total_tokens": 1207,
+        "total_time": 0.404972365,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 104
+        }
+      },
+      "response": {
+        "body": "1. 요율 정정 등 마감 후 정정 사유가 생기면 정정 항목을 만든다.\n2. 정정 항목에는 사유와 원 항목을 함께 표시한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제35조": {
+      "requestHash": "874d5583acc39ce16bbeeb73043f8cd9fa1b9e3465d4bc9c520cac8356abc9d9",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:02:40.649Z",
+      "usage": {
+        "queue_time": 0.011232332,
+        "prompt_tokens": 1031,
+        "prompt_time": 0.032760264,
+        "completion_tokens": 109,
+        "completion_time": 0.271804692,
+        "total_tokens": 1140,
+        "total_time": 0.304564956,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 34
+        }
+      },
+      "response": {
+        "body": "1. 설계사는 본인의 수수료 명세에서 각 항목의 금액과 산정 근거를 확인할 수 있다.\n2. 설계사는 다른 설계사의 명세를 조회할 수 없다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제36조": {
+      "requestHash": "e1d2eec0a4a6fee3d1494f1c6a63623d9cbecef103aad49773be82a889e46ce4",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:03:05.428Z",
+      "usage": {
+        "queue_time": 0.052462271,
+        "prompt_tokens": 1042,
+        "prompt_time": 0.034943019,
+        "completion_tokens": 130,
+        "completion_time": 0.272462422,
+        "total_tokens": 1172,
+        "total_time": 0.307405441,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 51
+        }
+      },
+      "response": {
+        "body": "1. 명세 내용에 이의가 있을 경우 지급일로부터 30일 이내에 이의를 제기할 수 있다.\n2. 이의제기 시 해당 명세 월과 항목을 명시한다.",
+        "numbersUsed": [
+          "30일"
+        ]
+      }
+    },
+    "rulebook:제37조": {
+      "requestHash": "348f12024468bfd1a36000a9eb8ef96e7d8275c7cf0ba3835854ae1fa52fd21b",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:03:30.108Z",
+      "usage": {
+        "queue_time": 0.05393724,
+        "prompt_tokens": 1049,
+        "prompt_time": 0.035061118,
+        "completion_tokens": 181,
+        "completion_time": 0.380212541,
+        "total_tokens": 1230,
+        "total_time": 0.415273659,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 97
+        }
+      },
+      "response": {
+        "body": "1. 회사는 이의제기를 받은 날부터 14일 이내에 처리 결과를 통보한다.\n2. 이의가 받아들여지면 다음 달 이후 명세에 정정 항목으로 반영한다.",
+        "numbersUsed": [
+          "14일"
+        ]
+      }
+    },
+    "rulebook:제38조": {
+      "requestHash": "d9fcc582b18f9ff2b7e97d617d7fa22ba5265083a6c331dfb38df20bf0e94461",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:03:54.829Z",
+      "usage": {
+        "queue_time": 0.22293538,
+        "prompt_tokens": 1022,
+        "prompt_time": 0.151959062,
+        "completion_tokens": 120,
+        "completion_time": 0.250729878,
+        "total_tokens": 1142,
+        "total_time": 0.40268894,
+        "completion_tokens_details": {
+          "reasoning_tokens": 64
+        }
+      },
+      "response": {
+        "body": "1. 수수료 명세와 산정 근거 자료를 5년 동안 보존한다.",
+        "numbersUsed": [
+          "5년"
+        ]
+      }
+    },
+    "rulebook:제39조": {
+      "requestHash": "92a855f2a726b71eabfc50ebc87523ae397cd98e16e7af25b7908d5086e75eba",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:04:19.543Z",
+      "usage": {
+        "queue_time": 0.010361434,
+        "prompt_tokens": 1025,
+        "prompt_time": 0.036319553,
+        "completion_tokens": 138,
+        "completion_time": 0.28850278,
+        "total_tokens": 1163,
+        "total_time": 0.324822333,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 74
+        }
+      },
+      "response": {
+        "body": "1. 설계사는 본인 데이터만 조회할 수 있다.\n2. 계약 식별 정보는 증권번호 등 뒷자리만 가려서 표시한다.",
+        "numbersUsed": []
+      }
+    },
+    "rulebook:제40조": {
+      "requestHash": "98eaebef9725eb0bb18df04f869b09cab52904ec0811eb187abe973e79872172",
+      "repairs": 0,
+      "model": "openai/gpt-oss-120b",
+      "recordedAt": "2026-11-01T01:05:13.146Z",
+      "usage": {
+        "queue_time": 0.319864409,
+        "prompt_tokens": 1091,
+        "prompt_time": 0.047327474,
+        "completion_tokens": 392,
+        "completion_time": 0.82851533,
+        "total_tokens": 1483,
+        "total_time": 0.875842804,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 231
+        }
+      },
+      "response": {
+        "body": "1. 이 규정은 2025년 7월 1일부터 시행한다.\n2. 수수료 한도 조항은 제12조부터 제18조까지이며, 2026년 7월 1일 이후 체결된 계약에 적용한다.\n3. 분급 조항은 제19조부터 제23조까지이며, 2027년 1월 1일 이후 체결된 계약에 적용한다.",
+        "numbersUsed": [
+          "2025년 7월 1일",
+          "2026년 7월 1일",
+          "2027년 1월 1일"
+        ]
+      }
+    }
+  }
+}

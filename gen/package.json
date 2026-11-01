@@ -11,11 +11,14 @@
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "explain": "node explain/run.ts",
-    "verify:explain": "node explain/verify-explanations.ts"
+    "verify:explain": "node explain/verify-explanations.ts",
+    "rulebook": "node rulebook/run.ts",
+    "rulebook:embed": "node rulebook/embed.ts"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
     "ajv": "8.20.0",
+    "gpt-tokenizer": "4.0.0",
     "typescript": "5.9.3",
     "vitest": "4.1.12"
   },

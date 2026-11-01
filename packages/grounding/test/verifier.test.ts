@@ -14,6 +14,7 @@ import {
   koreanAmount,
   normalizeText,
   unknownCitedFields,
+  withTextTokens,
 } from "../src/index.ts";
 
 const A1: Json = {
@@ -220,6 +221,21 @@ describe("numbersUsed 자기 신고도 S 안이어야 한다(§5.4 두 번째 �
   });
   it("extra 허용값은 S에 더해진다", () => {
     expect(GroundingVerifier.verify("10일에 지급", A1, { extra: ["2026-09-10"] }).status).toBe("PASS");
+  });
+});
+
+describe("withTextTokens: 규정 청크 본문의 숫자를 S에(부록 A-08)", () => {
+  const rules = ["제25조(환수율) — 가상 규정 · 예시값\n1. 1회차부터 6회차까지 해약하면 70%를 환수한다.\n2. 13회차부터는 환수하지 않는다.", "제36조(이의제기)\n1. 지급일부터 30일 이내에 이의를 제기할 수 있다."];
+  it("청크에 있는 값은 통과, 없는 값은 G4 실패 — 조항 번호(제25조)는 숫자가 아니다", () => {
+    const s = withTextTokens(contextNumbers({}), rules);
+    expect(GroundingVerifier.verify("6회차까지 해약하면 70%를 환수합니다(가상 사규 제25조).", s).status).toBe("PASS");
+    expect(GroundingVerifier.verify("지급일부터 30일 이내입니다.", s).status).toBe("PASS");
+    expect(GroundingVerifier.verify("7회차부터 12회차까지는 40%입니다.", s).missing).toEqual(["7", "12", "40%"]);
+  });
+  it("원래 S는 바꾸지 않는다", () => {
+    const base = contextNumbers({ a: 1 });
+    withTextTokens(base, rules);
+    expect(base.percents.has("70")).toBe(false);
   });
 });
 

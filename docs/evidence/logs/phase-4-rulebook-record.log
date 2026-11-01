@@ -1,0 +1,49 @@
+
+> @copilot/gen@ rulebook /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node rulebook/run.ts -- --record
+
+[record] rulebook:제1조 목적 PASS
+[record] rulebook:제2조 정의 PASS
+[record] rulebook:제3조 적용 범위 PASS
+[record] rulebook:제4조 명세와 규정의 관계 PASS
+[record] rulebook:제5조 수수료의 종류 PASS
+[record] rulebook:제6조 초년도 수수료 PASS
+[record] rulebook:제7조 유지 수수료 PASS
+[record] rulebook:제8조 시책 PASS
+[record] rulebook:제9조 상품별 요율표 PASS (재생성)
+[record] rulebook:제10조 등급별 지급률표 PASS
+[record] rulebook:제11조 시책표 PASS (재생성)
+[record] rulebook:제12조 수수료 한도의 산정 PASS
+[record] rulebook:제13조 한도의 적용 시기 PASS
+[record] rulebook:제14조 소진율과 경고 단계 PASS
+[record] rulebook:제15조 한도 초과분의 처리 PASS
+[record] rulebook:제16조 이연분의 지급 PASS
+[record] rulebook:제17조 한도의 재산정 PASS
+[record] rulebook:제18조 한도 원장 PASS
+[record] rulebook:제19조 분급의 적용 시기 PASS
+[record] rulebook:제20조 분급 비율과 시기 PASS
+[record] rulebook:제21조 분급의 지급 조건 PASS
+[record] rulebook:제22조 분급의 보류 PASS
+[record] rulebook:제23조 해약 시 분급의 취소 PASS
+[record] rulebook:제24조 환수 사유 PASS
+[record] rulebook:제25조 환수율 PASS
+[record] rulebook:제26조 환수 금액 PASS
+[record] rulebook:제27조 상계 순서 PASS
+[record] rulebook:제28조 환수 채권의 상태 PASS
+[record] rulebook:제29조 마감 PASS
+[record] rulebook:제30조 지급일 PASS
+[record] rulebook:제31조 원천징수 PASS
+[record] rulebook:제32조 잠정 명세 PASS
+[record] rulebook:제33조 마감월의 불변 PASS
+[record] rulebook:제34조 마감 후 정정 PASS
+[record] rulebook:제35조 명세의 확인 PASS
+[record] rulebook:제36조 이의제기 PASS
+[record] rulebook:제37조 이의제기의 처리 PASS
+[record] rulebook:제38조 자료의 보존 PASS
+[record] rulebook:제39조 정보의 보호 PASS
+[record] rulebook:제40조 시행일 PASS
+record: 조항 40 — PASS 40 · FAIL 0, 첫 시도 38/40, 호출 {"groq":21}, 재시도 {}
+  사용량 groq: 성공 21회 · 입력 21932 · 출력 3739 토큰(회당 1222.4)
+rulebook ab3f503f558c: 조항 40, 청크 40(agent 37 · internal 3), 토큰 합 3477 · 최소 41 · 최대 257 · 300 미만 40 → /Users/hjr/Documents/workspace/ai/ga-commision-copilot/data/rulebook/ab3f503f558c01ae03e04e24945a251053d28e238933137b77cd92b47a13bcbb
+
+[제40조 재녹화 2026-11-01] 다룰 내용을 한도·분급 적용일로 나눔 — 1회 호출, 나머지 39조는 카세트 재생

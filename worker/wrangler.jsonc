@@ -5,6 +5,9 @@
   "compatibility_date": "2026-10-23",
   "compatibility_flags": ["nodejs_compat"],
 
+  // 설계서 §6.3: prompts/<name>/v<N>.md는 텍스트 모듈로 묶는다(llm/promptRegistry.ts). 시험은 vitest.config.ts의 같은 변환.
+  "rules": [{ "type": "Text", "globs": ["**/*.md"], "fallthrough": true }],
+
   // 설계서 §11: 정적 자산은 Assets 바인딩. /api/* 만 Worker가 먼저 받는다(정적 요청은 Worker 호출로 집계되지 않게).
   "assets": {
     "directory": "../web/dist",

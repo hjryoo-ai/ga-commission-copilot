@@ -53,6 +53,39 @@ export interface ExplanationRow {
   model: string;
 }
 
+/** answer_log 행(설계서 §5.1 — JSON 열은 문자열로). */
+export interface AnswerLogRow {
+  answerId: string;
+  question: string;
+  normalizedQuestion: string;
+  promptVersion: string;
+  provider: string;
+  model: string;
+  fallbackDepth: number;
+  retrievedChunks: string;
+  toolCalls: string;
+  answer: string | null;
+  numbersUsed: string | null;
+  citations: string | null;
+  refused: boolean;
+  refuseReason: string | null;
+  groundingStatus: "PASS" | "FAIL" | "NONE";
+  latencyMs: number;
+  cacheHit: boolean;
+  createdAt: string;
+}
+
+export const SIM_STUB_KINDS = ["POLICY_EVENT"] as const;
+export type SimStubKind = (typeof SIM_STUB_KINDS)[number];
+
+/** sim_stub 표 행(설계서 §5.1 — response는 상위 §4.3 policy-event 응답 JSON 문자열). */
+export interface SimStubRow {
+  policy_no: string;
+  kind: SimStubKind;
+  response: string;
+  rule_snapshot_id: string;
+}
+
 const IDENT = /^[a-z][a-z0-9_]*$/;
 type Scalar = string | number;
 type Value = Scalar | null;
@@ -204,6 +237,58 @@ export class ScopedQuery {
       .first<ExplanationRow>();
   }
 
+  /**
+   * 데모 시뮬레이션 고정 응답(설계서 §4.3·§5.1 sim_stub — get_policy_event_sim). 이 설계사·그 증권번호 행만. 없으면 null(→ NEEDS_ENGINE).
+   * 증권번호는 호출자가 이 설계사의 원장·라인에서 찾은 원문이다(LLM 인자를 그대로 넣지 않는다).
+   */
+  async simStub(policyNo: string, kind: SimStubKind): Promise<SimStubRow | null> {
+    if (!SIM_STUB_KINDS.includes(kind)) throw new Error("invalid sim_stub kind");
+    return this.db
+      .prepare("SELECT policy_no, kind, response, rule_snapshot_id FROM sim_stub WHERE tenant_id = ? AND agent_id = ? AND policy_no = ? AND kind = ?")
+      .bind(this.tenantId, this.agentId, policyNo, kind)
+      .first<SimStubRow>();
+  }
+
+  /**
+   * 답변 로그 한 행(설계서 §4.3·§5.1 answer_log — 거부 포함 전건). tenant_id·agent_id·stream_hash는 생성자 값.
+   * 툴(worker/src/tools)이 아니라 답변 파이프라인(llm/answer.ts)만 부른다(규약 4 — 툴은 읽기 전용).
+   */
+  async insertAnswerLog(row: AnswerLogRow): Promise<void> {
+    await this.db
+      .prepare(
+        "INSERT INTO answer_log (answer_id, tenant_id, agent_id, question, normalized_question, stream_hash, prompt_version, provider, model, fallback_depth, retrieved_chunks, tool_calls, answer, numbers_used, citations, refused, refuse_reason, grounding_status, latency_ms, cache_hit, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .bind(
+        row.answerId,
+        this.tenantId,
+        this.agentId,
+        row.question,
+        row.normalizedQuestion,
+        this.stream.streamHash,
+        row.promptVersion,
+        row.provider,
+        row.model,
+        row.fallbackDepth,
+        row.retrievedChunks,
+        row.toolCalls,
+        row.answer,
+        row.numbersUsed,
+        row.citations,
+        row.refused ? 1 : 0,
+        row.refuseReason,
+        row.groundingStatus,
+        row.latencyMs,
+        row.cacheHit ? 1 : 0,
+        row.createdAt,
+      )
+      .run();
+  }
+
+  /** 답변 로그 한 행(GET /answers/{id} — 이 설계사 행만). */
+  async answerLog(answerId: string): Promise<Record<string, unknown> | null> {
+    return this.db.prepare("SELECT * FROM answer_log WHERE tenant_id = ? AND agent_id = ? AND answer_id = ?").bind(this.tenantId, this.agentId, answerId).first<Record<string, unknown>>();
+  }
+
   /** 행 수(라인 목록 total). 금액이 아니라 행을 센다. */
   async count(table: ReadModelTable, opts: WhereOptions = {}): Promise<number> {
     const { from, params } = this.from(table, opts);
@@ -250,6 +335,29 @@ export async function demoAgent(db: D1Database, tenantId: string, stream: Active
     .prepare(`SELECT ${DEMO_COLUMNS} FROM demo_agents WHERE tenant_id = ? AND stream_hash = ? AND demo_no = ?`)
     .bind(tenantId, stream.streamHash, demoNo)
     .first<DemoAgentRow>();
+}
+
+export interface RulebookChunkRow {
+  chunk_id: string;
+  article: string;
+  title: string;
+  body: string;
+  visibility: string;
+  version: string;
+}
+
+/**
+ * 검색된 사규 청크 본문(설계서 §4.1(c)·§4.3 — rulebook_chunk는 테넌트 열이 없는 전역 표, Vectorize에는 벡터·메타만).
+ * visibility=agent 행만 — Vectorize 필터와 별개로 한 번 더 막는다(internal 요율표 조항은 런타임에 나가지 않는다, §2.3).
+ */
+export async function rulebookChunks(db: D1Database, chunkIds: readonly string[]): Promise<RulebookChunkRow[]> {
+  if (chunkIds.length === 0) return [];
+  if (chunkIds.length > IN_MAX) throw new Error(`chunk id ${chunkIds.length}개`);
+  const r = await db
+    .prepare(`SELECT chunk_id, article, title, body, visibility, version FROM rulebook_chunk WHERE visibility = 'agent' AND chunk_id IN (${chunkIds.map(() => "?").join(", ")})`)
+    .bind(...chunkIds)
+    .all<RulebookChunkRow>();
+  return r.results;
 }
 
 const perStream = new Map<string, unknown>();
