@@ -1,0 +1,23 @@
+dist/assets/index-DHHYIm7p.css    4.65 kB │ gzip:  1.58 kB
+dist/assets/index-C3vEdt1X.js   244.81 kB │ gzip: 76.19 kB
+
+✓ built in 53ms
+ ⛅️ wrangler 4.153.0 (update available 4.156.0)
+───────────────────────────────────────────────
+🌀 Building list of assets...
+✨ Read 4 files from the assets directory /Users/hjr/Documents/workspace/ai/ga-commision-copilot/web/dist
+🌀 Starting asset upload...
+No updated asset files to upload. Proceeding with deployment...
+Total Upload: 97.69 KiB / gzip: 26.19 KiB
+Worker Startup Time: 3 ms
+Your Worker has access to the following bindings:
+Binding                                                               Resource                  
+env.DB (copilot)                                                      D1 Database               
+env.VECTORIZE (rulebook-v1)                                           Vectorize Index           
+env.AI                                                                AI                        
+env.ASSETS                                                            Assets                    
+env.PROMPT_VERSIONS ("explain_line=v6,explain_limit=v6,expl...")      Environment Variable      
+Uploaded ga-commission-copilot (4.11 sec)
+Deployed ga-commission-copilot triggers (0.61 sec)
+  https://ga-commission-copilot.ga-copilot-demo.workers.dev
+Current Version ID: 8c23cefb-6d8a-4b86-9777-f796acb8e198

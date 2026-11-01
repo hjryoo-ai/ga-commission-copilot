@@ -232,11 +232,14 @@ v6을 만든다면(운영자 결정 뒤): INCENTIVE 행에 "'인센티브'라고
 | 2026-10-31 05:18 | `d1 info` | **49,836**(= 24,960 + 적재 24,824 + 설명 32 + 0004·budget_counter 약 20) | — |
 | 2026-10-31 08:20 | 푸시(운영자 요청) → CI·deploy 성공 — Phase 3 Worker 배포. `/api/v1/health` 새 해시, 데모 1 라인 2 `explanation` = `explain_line/v4` PASS, `/me.promptVersions` 전부 v4 | — | — |
 | 2026-11-01 00:07 | 슬롯 a 퍼지 `load:d1 -- --remote --purge-inactive`(구 스트림 e2e435e7…, 설명 0행) — 8개 표 7,010행 삭제 | —(퍼지 전 미조회) | **7,014**(`logs/phase-3-purge-slot-a.log`) |
+| 2026-11-01 00:2x | v6 활성(운영자 2026-11-01 — 선택 1: Workers AI 120b 단독) → v6 16행(Workers AI 120b 녹화) 적재 → `verify:explain --remote` 32행(v4 16 + v6 16) PASS 32·위반 0. v4 행은 이력으로 남김 | — | **32**(wrangler 실측 — 새 16행 × 2) |
+| 2026-11-01 00:31 | web build → `wrangler deploy`(로컬 OAuth, 버전 `8c23cefb`) — `PROMPT_VERSIONS` v6. 코드 푸시는 운영자 | — | — |
+| 2026-11-01 00:32 | 외부 확인: 데모 세션(`demoAgent` 1) → `/api/v1/me` `promptVersions` = explain_line·limit·month **v6**, 라인 2 `explanation` = `explain_line/v6` PASS(1,000,000·145,000·855,000·1,800,000·100.0%), 원장 1 = `explain_limit/v6` PASS·정해진 문장 그대로, `/health` `fca1971c…`·5200 | — | — |
 
 - 실측/추정: 스트림 적재 24,824 / 24,826, 설명 32 / 32 — 10% 이내라 설계서 §5.3 계산은 그대로 둔다. `d1 info`의 `rows_written_24h`는 직전 24시간 누적이라(05:18 값에 전날 24,960이 들어 있다) 무료 한도(UTC 하루 10만)와 맞출 때는 적재기 실측 합을 쓴다 — 10-31 UTC 쓰기 약 24,876. 05:16 조회의 0은 집계 지연으로 보인다(2분 뒤 49,836).
 - 로그: `logs/phase-3-load-remote-slot-b.log`, `logs/phase-3-remote-0004.log`, `logs/phase-3-load-explain-remote.log`. 배포된 Worker는 아직 Phase 2 코드(`f87c551c`)라 설명 API는 푸시·CI 배포 뒤에 원격에서 보인다.
 
-## 설명 배치(미실행 — 운영자 판정 대기)
+## 설명 배치(2026-11-01 시작 — Workers AI `@cf/openai/gpt-oss-120b` 단독 85/일)
 
 ### Workers AI 사전 확인(2026-10-31 07:49 UTC, dev 예산 1회 — 결정·편차 14)
 
@@ -253,11 +256,18 @@ v6을 만든다면(운영자 결정 뒤): INCENTIVE 행에 "'인센티브'라고
 
 운영자 규칙(2026-10-31): 하루 Groq 130 + Workers AI 200, LINE → LIMIT → MONTH_DIFF. 첫날 첫 호출로 Workers AI `gpt-oss-20b`의 `json_schema` 구조화 출력을 확인하고, 미지원이면 프롬프트 강제 JSON + G1로 폴백하고 여기에 적는다. 날마다 `data/explain/<hash>/`에 커밋하고 통과율(첫 시도·재생성 후)·공급자별 호출 수·FAIL 목록을 아래 표에. 최종 라인 통과율이 §12 기준 95% 미만이면 FAIL분을 모아 보고하고 재생성은 운영자가 정한다. 행의 `model`은 유지(/evals 모델별 통과율).
 
-| 날짜(UTC) | 공급자별 호출(HTTP) | 생성 | 첫 시도 통과 | 재생성 후 통과 | FAIL 목록 | rows written |
-|---|---|---|---|---|---|---|
-| — | — | — | — | — | — | — |
+운영자 결정(2026-11-01, DECISIONS): v6 Groq 미달 → **Workers AI `@cf/openai/gpt-oss-120b` 단독, 하루 85회**(`batch:explain:workers-ai` — HTTP 호출 수, 재생성·재시도 포함. 약 9,140뉴런, 약 800뉴런은 Phase 4 개발 몫). 날마다 `data/explain` 커밋 + 아래 표.
 
-명령(승인 뒤): `cd gen && pnpm run explain -- --batch` → `git add data/explain` 커밋 → `pnpm run load:d1 -- --remote --explain` → `pnpm run verify:explain -- --remote`. 남은 대상 575건(591 − 녹화 16). 배치 첫 호출은 첫 대상(LINE)을 Workers AI로 만든다(`RunReport.probe` — 결과는 위 표에 날짜와 함께), 그다음 Groq → Workers AI.
+| 날짜(UTC) | 호출(HTTP) | 생성 | 첫 시도 통과 | 재생성 | 재생성 후 통과 | FAIL | 뉴런(성공 호출) | 모델별 평균 문장·출력 토큰 | rows written | 정규식 점검(참고 — 게이트 아님) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-01 00:33~00:5x | Workers AI **85**(성공 82 + 빈 본문 재시도 3, 429·3036 없음 — 상한 85에서 멈춤) | **72** LINE(A-1001) | **62/72 = 86.1%** | 10 | **72/72 = 100%** | 0 | **8,088**(회당 **98.6**, 입력 195,141 + 출력 27,558 토큰 — 회당 2,716) | 2.7문장 · 336토큰 | **144**(72행 × 2) | 88건(녹화 16 + 배치 72) 중 "회계연도" 1(LINE `c-A1001-05-10` "이번 회계연도 한도"), "현재 소진율" 1(녹화 #13 — 한도 derived, 허용) |
+
+- 첫 호출(Workers AI 확인): `c-A1001-01-1`, `json_schema` 그대로 G1 PASS·PASS(attempts 1).
+- 진행: 591 중 88(녹화 16 + 72), 남은 503. 하루 생성 수는 상한(호출) 85에서 재생성·재시도분을 뺀 약 72 → **남은 7일, 전체 약 8일**(운영자 추정 "약 7일"은 호출 = 생성 가정 — 차이 보고).
+- 원격: 적재 72 → 104행(v4 16 + v6 88), `verify:explain --remote` PASS 104·위반 0.
+- 로그: `logs/phase-3-explain-batch-2026-11-01.log`, 점검 `logs/phase-3-explain-batch-2026-11-01-scan.log`, 적재 `logs/phase-3-load-explain-remote-2026-11-01.log`.
+
+명령: `cd gen && pnpm run explain -- --batch` → `git add data/explain` 커밋 → `pnpm run load:d1 -- --remote --explain` → `pnpm run verify:explain -- --remote`. 배치 첫 호출은 첫 대상을 Workers AI로 만든다(`RunReport.probe`).
 
 ## 사람 작업
 

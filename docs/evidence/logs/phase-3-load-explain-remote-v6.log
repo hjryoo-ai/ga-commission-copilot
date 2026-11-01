@@ -1,0 +1,15 @@
+
+> @copilot/gen@ load:d1 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node load/d1.ts -- --remote --explain
+
+explanation fca1971cdbce: 레코드 32, 이미 있음 16, 새로 16 → D1 32행
+   실측 rows written(wrangler): 32
+
+
+> @copilot/gen@ verify:explain /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node explain/verify-explanations.ts -- --remote
+
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 32 — PASS 32 · FAIL 0, PASS 행 위반 0
+  LIMIT: PASS 6 · FAIL 0
+  LINE: PASS 20 · FAIL 0
+  MONTH_DIFF: PASS 6 · FAIL 0

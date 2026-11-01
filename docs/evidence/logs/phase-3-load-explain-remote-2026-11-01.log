@@ -1,0 +1,6 @@
+explanation fca1971cdbce: 레코드 104, 이미 있음 32, 새로 72 → D1 104행
+   실측 rows written(wrangler): 144
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 104 — PASS 104 · FAIL 0, PASS 행 위반 0
+  LIMIT: PASS 6 · FAIL 0
+  LINE: PASS 92 · FAIL 0
+  MONTH_DIFF: PASS 6 · FAIL 0
