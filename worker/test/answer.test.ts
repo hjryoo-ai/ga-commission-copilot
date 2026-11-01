@@ -178,3 +178,31 @@ describe("Groq 공급자(fetch 가짜)", () => {
     await expect(groq({}).structured(req)).rejects.toBeInstanceOf(ProviderError);
   });
 });
+
+describe("답변 카세트 재생(운영자 2026-11-01 — LLM_TRACE 녹화 → worker/test/vcr/answer.json)", () => {
+  it("요청 해시로 찾고, 없으면 실패(녹화 때와 프롬프트·컨텍스트가 다르다)", async () => {
+    const { vcrProvider } = await import("./vcr");
+    const { requestHash } = await import("../src/llm/providers");
+    const req: StructuredRequest = { model: "openai/gpt-oss-120b", messages: [{ role: "user", content: "질문" }], schemaName: "answer", schema: {}, maxCompletionTokens: 10 };
+    const h = await requestHash(req);
+    const p = vcrProvider({ [h]: { provider: "groq", model: "openai/gpt-oss-120b", recordedAt: "2026-11-02T00:00:00Z", request: {}, response: { json: { a: 1 }, model: "openai/gpt-oss-120b", usage: null } } });
+    expect(await p.structured(req)).toMatchObject({ json: { a: 1 }, provider: "groq" });
+    await expect(p.structured({ ...req, messages: [{ role: "user", content: "다른 질문" }] })).rejects.toThrow(/녹화 없음/);
+    // 해시는 속성 순서에 흔들리지 않는다
+    expect(await requestHash({ maxCompletionTokens: 10, schema: {}, schemaName: "answer", messages: [{ content: "질문", role: "user" }], model: "openai/gpt-oss-120b" })).toBe(h);
+  });
+
+  it("LLM_TRACE=1이면 llm_trace에 원문을, 아니면 아무것도 쓰지 않는다", async () => {
+    const { traced } = await import("../src/llm/providers");
+    await env.DB.prepare("DELETE FROM llm_trace").run();
+    const inner = { name: "groq" as const, structured: async () => ({ json: { ok: true }, provider: "groq" as const, model: "m", usage: null }) };
+    const req: StructuredRequest = { model: "m", messages: [{ role: "user", content: "q" }], schemaName: "answer", schema: {}, maxCompletionTokens: 10 };
+    await traced(inner, {}, env.DB).structured(req);
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM llm_trace").first("n")).toBe(0);
+    await traced(inner, { LLM_TRACE: "1" }, env.DB).structured(req);
+    const row = await env.DB.prepare("SELECT provider, model, request, response FROM llm_trace").first<{ provider: string; model: string; request: string; response: string }>();
+    expect(row).toMatchObject({ provider: "groq", model: "m" });
+    expect(JSON.parse(row!.request)).toMatchObject({ model: "m", response_format: { type: "json_schema" } });
+    expect(JSON.parse(row!.response)).toEqual({ json: { ok: true }, model: "m", usage: null });
+  });
+});

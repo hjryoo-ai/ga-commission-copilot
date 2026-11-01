@@ -7,10 +7,11 @@ import { DerivedNumbers, type LimitStage } from "../domain/DerivedNumbers";
 import { activePromptVersion, explanationOf, promptVersions } from "./explain";
 import { type AppEnv, compact, invalidRequest, notFound, ok, YM } from "./http";
 import { policyKeys, policyMasked } from "./policy";
+import { postAsk } from "./ask";
 import { requireSession } from "./session";
+import { DEMO_TENANT_CONFIG } from "./tenant";
 
-/** 데모 테넌트 표시 값(설계서 v0.1.12 §7 — 상위 §5 tenant 예시값, 테넌트 표가 없어 상수). */
-export const DEMO_TENANT_CONFIG = { name: "데모GA", payoutDayRule: "NEXT_MONTH_D10", limitWarnBp: 8000, limitCritBp: 9500 } as const;
+export { DEMO_TENANT_CONFIG };
 
 const RANGE_MAX = 36;
 const PAGE_MAX = 1_000_000;
@@ -244,6 +245,9 @@ const parseJson = (s: string): Record<string, unknown> => {
 
 export const me = new Hono<AppEnv>();
 me.use("*", requireSession);
+
+/** 자유 질문(설계서 §4.3 — api/ask.ts). */
+me.post("/ask", postAsk);
 
 me.get("/", async (c) => {
   const { q, agentId } = c.get("scope");

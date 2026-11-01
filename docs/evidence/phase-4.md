@@ -1,9 +1,9 @@
 # Phase 4 — 사규집·RAG·툴·자유 질문 증거(진행 중)
 
 - 수행일: 2026-11-01(UTC) — 항목 1·2·3 착수(운영자 지시: 설명 배치와 병행, PHASES Phase 4 항목 1·2·3부터)
-- 기준 문서: 설계서 v0.1.16 §4.1(c)·§4.2·§4.3·§4.4·§5.1·§5.2·§6.3·§6.5·§10, 부록 A·B.1·B.2, PHASES.md Phase 4
+- 기준 문서: 설계서 v0.1.18 §4.1(c)·§4.2·§4.3·§4.4·§5.1·§5.2·§6.3·§6.5·§10, 부록 A·B.1·B.2, PHASES.md Phase 4
 - 도구 버전: node 25.5.0, pnpm 10.28.2, wrangler 4.153.0, vitest 4.1.12, `gpt-tokenizer` 4.0.0(gen devDependency — 2026-08-16 배포판으로 고정, o200k 토큰 수), LLM: Groq `openai/gpt-oss-120b`(사규집 녹화), 임베딩 `@cf/baai/bge-m3`
-- 상태: **항목 1 — 사규집 생성·청킹·D1 적재 완료, 임베딩·Vectorize 업서트는 Workers AI 당일 뉴런 소진(4006)으로 2026-11-02 00:01 UTC 예약.** 항목 2·3 — 코드·시험 완료(가짜 공급자·로컬 D1). 항목 4~6과 완료 기준(부록 A 12건 VCR·실호출 캡처·answer_log 12행)은 아직.
+- 상태: **항목 1 — 사규집 생성·청킹·D1 적재 완료, 임베딩·Vectorize 업서트는 Workers AI 당일 뉴런 소진(4006)으로 2026-11-02 00:01 UTC 예약.** 항목 2·3 수용(2026-11-01, 편차 6건 수용). 항목 4 — `/me/ask`·`/answers/{id}`·개발 상한·LLM_TRACE 녹화 경로·`sim_stub` 적재 완료(LLM 없는 경로 시험). 부록 A 12건 녹화(카세트)·항목 5·6과 완료 기준은 아직.
 
 운영자 조건(2026-11-01): 사규집 40조항 생성과 답변 프롬프트 녹화는 Groq, 임베딩만 Workers AI. `/me/ask`는 활성 설명 배치와 D1 쓰기 예산을 공유하므로 answer_log 적재 시험은 로컬 D1에서만. 푸시는 운영자.
 
@@ -37,10 +37,26 @@
 - 프롬프트 `prompts/answer/v1.md`(부록 B.1 규칙 1~6 + 단계·툴 설명·거부 조건·인용 규칙), 스키마 `contracts/answer/v1/answer.schema.json`.
 - 시험: `worker/test/answer.test.ts` 9건(가짜 공급자·임베딩·검색, 로컬 D1) — A-01형 PASS와 answer_log 열(retrieved_chunks·tool_calls·grounding_status), internal 청크 미투입, A-12형 오답 유도 → NOT_GROUNDED, 규정 숫자는 검색 청크에 있으면 통과·검색 안 된 청크 인용은 G5, OTHER_AGENT·NEEDS_ENGINE 고정 문구, 남의 증권번호 툴 인자, 출력 모양 오류, Groq 본문·429.
 
+## 운영자 결정(2026-11-01, 항목 1~3 수용 때)
+
+- Workers AI 배치 상한 **70/일**, 뉴런 소진 3036·4006 둘 다 그날 끝, 개발용 Workers AI 호출(임베딩)은 배치보다 먼저 — `DECISIONS.md`, 설계서 v0.1.17, 커밋 `e6b9d30`.
+- §14.1-5 확정: 조항 단위 1청크, 상한 600(실측 41~257), 벡터 40(검색 대상 37) — 설계서 v0.1.17 `a0c40b2`.
+- 원격 `GROQ_API_KEY`: `grep '^GROQ_API_KEY=' gen/.dev.vars | cut -d= -f2- | (cd worker && pnpm wrangler secret put GROQ_API_KEY)` — "Success! Uploaded secret GROQ_API_KEY", `wrangler secret list` 이름 3개(GROQ_API_KEY·POLICY_KEY_SECRET·SESSION_SECRET). 값은 출력·기록하지 않았다.
+- 답변 VCR 방식·`sim_stub` 경로·Vectorize 로컬 시험은 아래 항목 4·남은 이슈.
+
+## 항목 4 — `/me/ask`·`/answers/{id}`(진행 중)
+
+- `POST /api/v1/me/ask {question}`(`worker/src/api/ask.ts`, me 라우터 — 세션 필수): 질문 1~500자·다른 키 거부(400). 개발 하드 상한 `ASK_DAILY_CAP`(기본 20, `budget_counter` scope `ask:dev`, `reserveBudget` — INSERT OR IGNORE + 단일 UPDATE `WHERE used < ?`). 닿으면 LLM 없이 **429** `{refused, reason: "BUDGET", text: 고정 문구, retryAfterSeconds}`(§7 저하 모드 응답 모양) + answer_log(provider·model `none`). 통과하면 `answerQuestion`(Groq — LLM_TRACE면 `traced`), 응답 `{answerId, text, citations, toolCalls, refused, reason, provider, model, promptVersion, groundingStatus, cacheHit: false, latencyMs}` + 공통 필드·고정 문구, `Cache-Control: no-store`. 공급자 오류는 503(폴백은 Phase 5).
+- `GET /api/v1/answers/{answerId}`: 이 설계사의 answer_log 한 행(검색 청크 id·점수, 툴 호출·결과 해시, 거부·검증 상태). 남의 답변·형식 틀린 id는 404.
+- `PROMPT_VERSIONS`에 `answer=v1`(운영자: 항목 4 배포 때 — 코드에 넣었고 배포는 아직).
+- **답변 VCR(운영자 결정)**: 마이그레이션 `0005_llm_trace.sql`, `providers.ts traced()` — `env.LLM_TRACE === "1"` 분기 안에서만 `insertLlmTrace`. 아키텍처 시험 4건(분기 밖 호출 없음·INSERT는 ScopedQuery 한 곳·호출처는 providers.ts·`wrangler.jsonc`에 `LLM_TRACE` 없음). 추출 `gen/scripts/answer-cassette.ts`(로컬 D1 `llm_trace` → `worker/test/vcr/answer.json`, 지금은 빈 카세트), 재생 `worker/test/vcr.ts`(`requestHash` — 정렬 JSON SHA-256). 녹화는 사규집 벡터 업서트(11-02) 뒤.
+- **`sim_stub`**: 상위 `ga-agent-portal@8b05465`의 `event-cancel-7.{request,response}.json`을 `contracts/sim/v1/samples/`에 복사(UPSTREAM·CHECKSUMS), `load:d1 -- --local|--remote --sim-stub` — 활성 스트림 데모 설계사 확인 뒤 INSERT OR IGNORE. 로컬·원격 1행(A-1001·`POL-2026-0001`·`RS-2407ecd6…`, 원격 rows written 2) — `logs/phase-4-sim-stub-load.log`.
+- 시험: `worker/test/ask.test.ts` 5건(401·400·상한 429와 answer_log·retryAfterSeconds·재현 소유 404), `answer.test.ts` +2(카세트 재생·해시, LLM_TRACE 쓰기 유무), `schema.test.ts` 표 26·인덱스 +1.
+
 ## 시험
 
 ```
-pnpm -r test   → grounding 66 · web 35 · worker 276 · gen 188 통과
+pnpm -r test   → grounding 66 · web 35 · worker 320 · gen 189 통과(항목 4까지)
 pnpm run lint  → 오류 0
 tsc --noEmit   → gen·worker 오류 0
 ```
@@ -56,13 +72,17 @@ tsc --noEmit   → gen·worker 오류 0
 
 ## 사람 작업
 
-- [ ] §14.1-5 판단 — 조항당 1청크(41~257토큰)로 둘지, 조항 분량을 늘려 300~600에 맞출지(위 편차 2)
-- [ ] Workers AI 하루 상한 재판단 — 아래 남은 이슈 1
-- [ ] 원격 `GROQ_API_KEY`(wrangler secret)와 `PROMPT_VERSIONS`에 `answer=v1` — 항목 4(`/me/ask`) 배포 때. 키 값은 운영자 것이라 넣는 방법을 묻는다
+- [x] §14.1-5 — 조항 단위 1청크 확정(v0.1.17)
+- [x] Workers AI 하루 상한 — 70(운영자), 대시보드 뉴런 실측을 주면 보정
+- [x] 원격 `GROQ_API_KEY` — 운영자 지정 파이프로 넣음
+- [ ] 커밋 푸시(자동 모드 권한 정책이 `git push`를 막았다 — 운영자가 푸시. 푸시하면 CI가 배포한다: `/me/ask`가 원격에서 열리고 `answer=v1`이 `/me.promptVersions`에 보인다)
+- [ ] 원격 마이그레이션 0005(`llm_trace` — 원격에서는 쓰지 않지만 스키마 일치용) 적용 승인
+- [ ] Vectorize 로컬 시험 방식 결정 — 아래 남은 이슈 4
+- [ ] (선택) Workers AI 대시보드 뉴런 실측 — 상한 보정용
 
 ## 남은 이슈
 
-1. **Workers AI 뉴런 실측이 `usage` 합보다 크다**: 2026-11-01 설명 배치 85회의 응답 `usage` 뉴런 합은 8,088(회당 98.6)인데, 같은 날 다른 Workers AI 호출 없이 bge-m3 임베딩 1회가 **4006(10,000 소진)**으로 거부됐다 — 계정 집계로는 85회가 10,000 이상, 회당 **117.6뉴런 이상**이다. 운영자 지시의 "85회 ≈ 9,140뉴런, 약 800 남김"이 성립하지 않는다. 배치 상한을 낮출지(예: 75회 ≈ 8,820 — 117.6 기준) 운영자 판단 필요. 그 전까지는 매일 00:01 UTC 임베딩 같은 개발 호출을 배치(00:07 UTC)보다 먼저 둔다.
-2. `sim_stub` 데이터(부록 A-07 — A-1 해약 `event-cancel-7`)를 만드는 경로가 아직 없다(gen 적재 단계) — 항목 4~6에서.
-3. 답변 VCR: 런타임 파이프라인은 Worker 안에서 돌아 gen 카세트 방식(파일 쓰기)을 그대로 못 쓴다 — 부록 A 12건 녹화·재생 방식은 항목 6 전에 정한다.
-4. Vectorize 로컬 바인딩 시험(항목 6 "internal 청크가 어떤 질의에도 반환되지 않음")은 아직 — 지금은 D1 재필터 시험만.
+1. **Workers AI 뉴런 실측이 `usage` 합보다 크다**(운영자: 상한 70, 원인 미상으로 DECISIONS에 기록): 2026-11-01 설명 배치 85회의 응답 `usage` 뉴런 합은 8,088(회당 98.6)인데, 같은 날 다른 Workers AI 호출 없이 bge-m3 임베딩 1회가 **4006(10,000 소진)**으로 거부됐다 — 계정 집계로는 85회가 10,000 이상, 회당 **117.6뉴런 이상**이다. 운영자 지시의 "85회 ≈ 9,140뉴런, 약 800 남김"이 성립하지 않는다. 배치 상한을 낮출지(예: 75회 ≈ 8,820 — 117.6 기준) 운영자 판단 필요. 그 전까지는 매일 00:01 UTC 임베딩 같은 개발 호출을 배치(00:07 UTC)보다 먼저 둔다.
+2. ~~`sim_stub` 데이터~~ — `load:d1 --sim-stub`(위 항목 4).
+3. 답변 VCR — 운영자 결정 방식으로 경로 완료(위 항목 4). **재생 시험의 데이터 문제**: 녹화는 로컬 D1의 실제 스트림(데모 1 A-1001)으로 하므로 요청에는 실제 툴 결과가 들어간다. 시험 픽스처(`worker/test/fixture.ts`)는 작은 가짜 세계라 같은 질문의 툴 결과가 달라 요청 해시가 맞지 않는다 → 재생 시험은 실제 스트림의 데모 설계사 행을 로컬 D1 시험 DB에 넣어야 한다(gen이 뷰에서 시험용 SQL 픽스처를 만드는 안). 검색 청크도 녹화 요청의 `<rules>`에서 id를 읽어 가짜 검색이 같은 순서로 돌려준다. 녹화 전에 정한다.
+4. **Vectorize 로컬 바인딩이 없다**: Miniflare(wrangler 4.153)의 Vectorize 플러그인은 원격 프록시만 있고 로컬 시뮬레이션이 없다(`VECTORIZE_REMOTE_SERVICE_NAME` — 확인). vitest는 `remoteBindings: false`라 `env.VECTORIZE`를 쓸 수 없다. 항목 6 "internal 청크가 어떤 질의에도 반환되지 않음(Vectorize 로컬 바인딩)"의 선택지: (a) 시험에서만 원격 바인딩(실제 인덱스 질의 — 무료 질의 차원 소모, CI에 계정 토큰 필요), (b) 원격 인덱스에 대한 별도 점검 스크립트(질의 N개 × filter visibility=agent → internal id 0건)를 Phase 종료 증거로 + 단위 시험은 D1 재필터, (c) 메타데이터 필터를 흉내 내는 메모리 가짜(필터 동작 자체는 검증 못 함). 권고 (b). 운영자 판단.

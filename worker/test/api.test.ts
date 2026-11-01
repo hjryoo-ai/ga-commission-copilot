@@ -211,7 +211,7 @@ describe("응답(상위 §7 구조 + 덧씌우기)", () => {
       agentName: "허구설계사01",
       tenant: { name: "데모GA", payoutDayRule: "NEXT_MONTH_D10", limitWarnBp: 8000, limitCritBp: 9500 },
       months: { from: "202608", to: "202609" },
-      promptVersions: { explain_line: "v6", explain_limit: "v6", explain_month: "v6" },
+      promptVersions: { explain_line: "v6", explain_limit: "v6", explain_month: "v6", answer: "v1" },
     });
   });
 

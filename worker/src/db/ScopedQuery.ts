@@ -360,6 +360,40 @@ export async function rulebookChunks(db: D1Database, chunkIds: readonly string[]
   return r.results;
 }
 
+export interface LlmTraceRow {
+  traceId: string;
+  requestHash: string;
+  provider: string;
+  model: string;
+  request: string;
+  response: string;
+  createdAt: string;
+}
+
+/**
+ * 로컬 녹화 전용 LLM 원문(마이그레이션 0005 llm_trace). llm/providers.ts traced()의 LLM_TRACE === "1" 분기에서만 부른다(아키텍처 시험).
+ * 원격에는 LLM_TRACE env가 없다.
+ */
+export async function insertLlmTrace(db: D1Database, row: LlmTraceRow): Promise<void> {
+  await db
+    .prepare("INSERT INTO llm_trace (trace_id, request_hash, provider, model, request, response, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .bind(row.traceId, row.requestHash, row.provider, row.model, row.request, row.response, row.createdAt)
+    .run();
+}
+
+/**
+ * 하루 상한 차감 1회(CLAUDE.md 규약 5 — 갱신은 `UPDATE … SET used = used + 1 WHERE used < ?` 한 문장, 행이 없을 때만 INSERT OR IGNORE로 0을 만든다).
+ * 차감했으면 true, 상한에 닿았으면 false. budget_counter는 테넌트 열이 없는 전역 표(§5.1).
+ */
+export async function reserveBudget(db: D1Database, scope: string, day: string, cap: number): Promise<boolean> {
+  if (!/^[a-z][a-z0-9:_-]{0,63}$/.test(scope) || !/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isSafeInteger(cap) || cap < 0) throw new Error("invalid budget scope·day·cap");
+  const [, upd] = await db.batch([
+    db.prepare("INSERT OR IGNORE INTO budget_counter (scope, day, used) VALUES (?, ?, 0)").bind(scope, day),
+    db.prepare("UPDATE budget_counter SET used = used + 1 WHERE scope = ? AND day = ? AND used < ?").bind(scope, day, cap),
+  ]);
+  return (upd?.meta.changes ?? 0) === 1;
+}
+
 const perStream = new Map<string, unknown>();
 
 /** isolate 단위 캐시: 같은 스트림이면 한 번만 계산한다. 키에 stream_hash가 들어가므로 전환되면 새로 계산된다. */

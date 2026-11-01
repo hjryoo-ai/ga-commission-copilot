@@ -184,3 +184,52 @@ describe("스캐너 자체 검사", () => {
     expect(extractStringLiterals("/* SELECT * FROM x */ const b = `y`;")).toEqual(["y"]);
   });
 });
+
+// 운영자 2026-11-01(답변 VCR): llm_trace는 로컬 녹화 전용 — LLM_TRACE === "1" 분기 안에서만 쓴다. 원격 vars에는 LLM_TRACE가 없다.
+import wranglerConfig from "../wrangler.jsonc?raw";
+
+/** code[open]의 "{"와 짝인 "}" 위치(code = 주석을 지우고 문자열을 비운 사본 — 그 안 괄호는 세지 않는다). */
+function blockEnd(code: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < code.length; i++) {
+    if (code[i] === "{") depth++;
+    else if (code[i] === "}" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/** insertLlmTrace( 호출 중 `if (env.LLM_TRACE === "1") {` 블록 밖에 있는 것의 위치. */
+export function traceWritesOutsideGuard(text: string): number[] {
+  const code = stripCommentsAndStrings(text);
+  const guard = /if\s*\(\s*env\.LLM_TRACE\s*===\s*\S+\s*\)\s*\{/g;
+  const blocks: [number, number][] = [];
+  // 문자열은 비운 사본("1" → "")에서 찾는다 — 위치를 호출 검색과 같은 좌표로
+  for (const m of code.matchAll(guard)) {
+    const open = m.index + m[0].length - 1;
+    blocks.push([open, blockEnd(code, open)]);
+  }
+  const out: number[] = [];
+  for (const m of code.matchAll(/\binsertLlmTrace\s*\(/g)) if (!blocks.some(([a, b]) => m.index > a && m.index < b)) out.push(m.index);
+  return out;
+}
+
+describe("아키텍처: llm_trace 쓰기는 LLM_TRACE 분기 안에서만(운영자 2026-11-01)", () => {
+  it.each(files.filter((f) => f.path !== D1_ACCESS_FILE))("$path", ({ text }) => {
+    expect(traceWritesOutsideGuard(text)).toEqual([]);
+  });
+
+  it("llm_trace에 쓰는 SQL은 ScopedQuery.ts의 insertLlmTrace 한 곳", () => {
+    const writes = files.flatMap((f) => extractStringLiterals(f.text).filter((s) => /\bINSERT\s+INTO\s+llm_trace\b/i.test(s)).map(() => f.path));
+    expect(writes).toEqual([D1_ACCESS_FILE]);
+  });
+
+  it("insertLlmTrace를 부르는 곳이 있고(providers.ts), 원격 vars에 LLM_TRACE가 없다", () => {
+    expect(files.filter((f) => /\binsertLlmTrace\s*\(/.test(stripCommentsAndStrings(f.text)) && f.path !== D1_ACCESS_FILE).map((f) => f.path)).toEqual(["src/llm/providers.ts"]);
+    expect(wranglerConfig).not.toMatch(/"LLM_TRACE"/);
+  });
+
+  it("검사기: 분기 밖 호출은 잡고 안은 통과", () => {
+    expect(traceWritesOutsideGuard('function a(env){ insertLlmTrace(db, r); }')).toHaveLength(1);
+    expect(traceWritesOutsideGuard('function a(env){ if (env.LLM_TRACE === "1") { const x = { y: 1 }; insertLlmTrace(db, r); } }')).toEqual([]);
+  });
+});

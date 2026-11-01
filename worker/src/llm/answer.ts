@@ -220,25 +220,54 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     violations,
     latencyMs: deps.now().getTime() - started,
   };
+  await logAnswer(deps, q, qText, result);
+  return result;
+}
+
+/** answer_log 한 행(거부 포함 전건 — §4.4). */
+async function logAnswer(deps: Pick<AnswerDeps, "now">, q: ScopedQuery, question: string, r: AnswerResult): Promise<void> {
   await q.insertAnswerLog({
-    answerId: result.answerId,
-    question: qText,
-    normalizedQuestion: normalizeQuestion(qText),
-    promptVersion,
-    provider: result.provider,
-    model: result.model,
+    answerId: r.answerId,
+    question,
+    normalizedQuestion: normalizeQuestion(question),
+    promptVersion: r.promptVersion,
+    provider: r.provider,
+    model: r.model,
     fallbackDepth: 0,
-    retrievedChunks: JSON.stringify(retrievedChunks.map((c) => [c.chunkId, c.score])),
-    toolCalls: JSON.stringify(toolCalls),
-    answer: text,
-    numbersUsed: JSON.stringify(result.numbersUsed),
-    citations: JSON.stringify(result.citations),
-    refused,
-    refuseReason: reason,
-    groundingStatus,
-    latencyMs: result.latencyMs,
+    retrievedChunks: JSON.stringify(r.retrievedChunks.map((c) => [c.chunkId, c.score])),
+    toolCalls: JSON.stringify(r.toolCalls),
+    answer: r.text,
+    numbersUsed: JSON.stringify(r.numbersUsed),
+    citations: JSON.stringify(r.citations),
+    refused: r.refused,
+    refuseReason: r.reason,
+    groundingStatus: r.groundingStatus,
+    latencyMs: r.latencyMs,
     cacheHit: false,
     createdAt: deps.now().toISOString(),
   });
-  return result;
+}
+
+/** LLM을 부르지 않는 거부(예산 소진 BUDGET — §4.4·§6.2). 고정 문구, provider·model "none", answer_log에 남긴다. */
+export async function refuseWithoutLlm(deps: Pick<AnswerDeps, "now" | "newId">, q: ScopedQuery, env: { PROMPT_VERSIONS?: string }, question: string, reason: RefuseReason): Promise<AnswerResult> {
+  const qText = normalizeText(question).slice(0, QUESTION_MAX);
+  const prompt = activePrompt(env, "answer");
+  const r: AnswerResult = {
+    answerId: deps.newId(),
+    refused: true,
+    reason,
+    text: REFUSAL_TEXT[reason],
+    numbersUsed: [],
+    citations: [],
+    promptVersion: `${prompt.name}/${prompt.version}`,
+    provider: "none",
+    model: "none",
+    groundingStatus: "NONE",
+    retrievedChunks: [],
+    toolCalls: [],
+    violations: [],
+    latencyMs: 0,
+  };
+  await logAnswer(deps, q, qText, r);
+  return r;
 }

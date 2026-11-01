@@ -2,7 +2,7 @@
 // 잔여·소진율·단계는 DerivedNumbers. 끝 4자리가 같은 계약이 여럿이면 후보만 돌려준다(어느 것인지 고르지 않는다).
 import { policyMasked } from "../api/policy";
 import { compact } from "../api/http";
-import { DEMO_TENANT_CONFIG } from "../api/me";
+import { DEMO_TENANT_CONFIG } from "../api/tenant";
 import { DerivedNumbers } from "../domain/DerivedNumbers";
 import { fitList, matchPolicies, type ToolContext, type ToolData } from "./result";
 
