@@ -285,6 +285,9 @@ describe("배치 실호출 오류 분류(Workers AI 오류 코드 3036·3040, Gr
   const err = (status: number, body: string, retryAfter: number | null = null, badContent = false) => new ProviderError(`workers-ai ${status}: ${body}`, status, retryAfter, badContent);
   it("3036(하루 무료 뉴런 소진)은 retry-after 없어도 그 공급자 그날 끝", () => {
     expect(classifyError(err(429, '{"errors":[{"message":"AiError: You have used up your daily free allocation of 10,000 neurons","code":3036}]}')).action).toBe("budget");
+    // 실제 응답 코드 4006(2026-11-01 bge-m3) — 같은 처리
+    expect(classifyError(err(429, '[{"message":"AiError: AiError: you have used up your daily free allocation of 10,000 neurons","code":4006}]')).action).toBe("budget");
+    expect(classifyError(err(429, '{"errors":[{"code":4006}]}')).action).toBe("budget");
   });
   it("3040(용량 초과)·짧은 429는 기다렸다 같은 요청, 긴 retry-after(Groq TPD)는 그날 끝", () => {
     expect(classifyError(err(429, '{"errors":[{"message":"Capacity temporarily exceeded","code":3040}]}'))).toEqual({ action: "wait", reason: "3040", waitS: 30 });
@@ -325,9 +328,9 @@ describe("모델별 카세트·후보 버전(운영자 2026-10-31 — 관문은 
     expect(cassetteOf("workers-ai", "@cf/openai/gpt-oss-120b")).toEqual({ name: "explain.wai-gpt-oss-120b", provider: "workers-ai", model: "@cf/openai/gpt-oss-120b" });
     expect(cassetteOf("workers-ai").model).toBe("@cf/openai/gpt-oss-120b");
   });
-  it("배치는 관문을 넘은 Workers AI gpt-oss-120b 단독(하루 85 — 약 800뉴런은 Phase 4 개발 몫)", () => {
+  it("배치는 관문을 넘은 Workers AI gpt-oss-120b 단독(하루 70 — 운영자 2026-11-01)", () => {
     expect(BATCH_PROVIDERS).toHaveLength(1);
-    expect(BATCH_PROVIDERS[0]).toMatchObject({ provider: "workers-ai", model: "@cf/openai/gpt-oss-120b", cap: 85 });
+    expect(BATCH_PROVIDERS[0]).toMatchObject({ provider: "workers-ai", model: "@cf/openai/gpt-oss-120b", cap: 70 });
   });
   it("EXPLAIN_PROMPT_VERSION은 세 종류 모두의 버전을 바꾸고, vN이 아니면 멈춘다", () => {
     const before = process.env.EXPLAIN_PROMPT_VERSION;

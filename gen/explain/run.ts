@@ -4,7 +4,7 @@
 //                                  --provider workers-ai [--model @cf/…]는 카세트 explain.wai-<모델> + gen/out/explain-record/에만(관문은 모델별 — 운영자 2026-10-31).
 //   node explain/run.ts --batch    data/explain/<hash>/에 없는 subject를 LINE → LIMIT → MONTH_DIFF 순으로 생성.
 //                                  첫 호출은 Workers AI 구조화 출력 확인(첫 subject를 Workers AI로 — json_schema 거부면 프롬프트 강제 JSON + G1).
-//                                  v6부터 Workers AI gpt-oss-120b 단독(batch:explain:workers-ai 85/일), 소진되면 멈춘다(DECISIONS 2026-11-01 — Groq 제외).
+//                                  v6부터 Workers AI gpt-oss-120b 단독(batch:explain:workers-ai 70/일), 소진되면 멈춘다(DECISIONS 2026-11-01 — Groq 제외).
 //   공통: [--stream <sha256>] [--limit N] [--prompt-version vN](활성화 전 후보 버전) [--provider groq|workers-ai] [--model <id>](--stub·--record의 카세트)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -41,8 +41,9 @@ export const GATED_CASSETTES: readonly Cassette[] = [cassetteOf("workers-ai", "@
 /** 배치 공급자 순서와 하루 상한(설계서 v0.1.16 §4.1(b)·§10.4). */
 export const BATCH_PROVIDERS: readonly { provider: ProviderName; scope: string; cap: number; model?: string; spacingMs: number }[] = [
   // 관문은 모델별(운영자 2026-10-31): gpt-oss-20b 미달 → gpt-oss-120b 통과. Groq는 v6 관문 미달로 제외(DECISIONS 2026-11-01).
-  // 실측 회당 약 107.5뉴런 × 85 ≈ 9,140뉴런 — 하루 10,000 중 약 800은 Phase 4 개발(bge-m3 임베딩·상태 확인)에 남긴다(운영자 2026-11-01).
-  { provider: "workers-ai", scope: "batch:explain:workers-ai", cap: 85, model: "@cf/openai/gpt-oss-120b", spacingMs: 1_000 },
+  // 하루 70(운영자 2026-11-01, DECISIONS): usage 합은 회당 98.6뉴런인데 85회로 계정 10,000이 소진됐다(회당 ≥ 117.6 — 원인 미상) → 70 × 117.6 ≈ 8,240,
+  // 남는 몫은 Phase 4 개발 임베딩·상태 확인. 대시보드 실측을 받으면 보정한다.
+  { provider: "workers-ai", scope: "batch:explain:workers-ai", cap: 70, model: "@cf/openai/gpt-oss-120b", spacingMs: 1_000 },
 ];
 export const RECORD_SPACING_MS = 23_000;
 /** 429의 retry-after가 이보다 길면 그 공급자는 그날 끝(TPD·RPD)으로 본다. */
@@ -233,7 +234,8 @@ export type ErrorAction =
 export function classifyError(e: unknown): ErrorAction {
   if (!(e instanceof ProviderError)) return { action: "fatal", reason: "other" };
   if (e.status === 429) {
-    if (/\b3036\b|daily free allocation/i.test(e.message)) return { action: "budget", reason: "3036 하루 무료 뉴런 소진" };
+    // 하루 무료 뉴런 소진: 공식 오류 표는 3036, 실제 응답은 4006도 온다(2026-11-01 임베딩) — 둘 다 그날 끝(운영자 2026-11-01)
+    if (/\b(?:3036|4006)\b|daily free allocation/i.test(e.message)) return { action: "budget", reason: "하루 무료 뉴런 소진(3036·4006)" };
     const waitS = e.retryAfterSeconds ?? 30;
     if (waitS > LONG_WAIT_S) return { action: "budget", reason: `429 retry-after ${waitS}s` };
     return { action: "wait", reason: /\b3040\b/.test(e.message) ? "3040" : "429", waitS };
