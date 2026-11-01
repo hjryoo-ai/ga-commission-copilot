@@ -1,0 +1,5 @@
+
+> @copilot/gen@ load:d1 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node load/d1.ts -- --remote --purge-inactive
+
+purge slot a: {"agent_profile":30,"earnings_line":5200,"earnings_month":962,"policy_limit":182,"policy_limit_history":215,"deferral_item":210,"clawback_item":30,"policy_flag":181} → rows_written 7014

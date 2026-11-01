@@ -1,0 +1,26 @@
+
+ RUN  v4.1.12 /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+
+ ❯ test/explain-stream.test.ts (7 tests | 1 failed) 3044ms
+       × 골든 A-03(원장 1): 누적 1,800,000 = 한도 1,800,000 · 소진율 100.0% 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/explain-stream.test.ts > 커밋된 스트림의 설명 대상과 VCR 재생 > VCR 재생(--stub) — 'explain' > 골든 A-03(원장 1): 누적 1,800,000 = 한도 1,800,000 · 소진율 100.0%
+AssertionError: 증권번호 *********0001의 초년도 수수료가 2026년 8월 마감분으로 945,000원 산출되었습니다. 같은 달 시책이 855,000원이며 한도 초과분 145,000원으로 한도 초과가 발생하여 이 연분이 이연되었습니다. 이 연분의 지급 시점은 데이터로는 확인되지 않습니다. 2027년 2월 마감분에 환수가 720,000원 발생하여 이 전기 뒤 누적이 1,080,000원, 이 전기 뒤 소진율이 60.0%가 되었습니다. 현재 남은 금액은 720,000원이며 소진율은 60.0%로 정상 단계입니다.: expected [ '0001', '202608', '945000', …(6) ] to include '1800000'
+ ❯ test/explain-stream.test.ts:91:38
+     89|     it("골든 A-03(원장 1): 누적 1,800,000 = 한도 1,800,000 · 소진율 100.0%", () =…
+     90|       const r = text("LIMIT", "1");
+     91|       expect(values(r.text), r.text).toContain("1800000");
+       |                                      ^
+     92|       expect(extractTokens(r.text).some((t) => t.kind === "percent" &&…
+     93|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  09:14:02
+   Duration  3.25s (transform 51ms, setup 0ms, import 107ms, tests 3.04s, environment 0ms)
+
