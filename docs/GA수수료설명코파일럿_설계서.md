@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.15)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.16)
 
 > 변경 이력
+> - v0.1.16 (2026-11-01, Phase 3 설명 배치 1일차 실측): §4.1(b) 설명 배치는 Workers AI `@cf/openai/gpt-oss-120b` 단독 하루 85회(`batch:explain:workers-ai`, 재생성·재시도 포함 — 하루 약 72건, 약 8일) — 프롬프트 `explain_*/v6` 관문(모델별)에서 `gpt-oss-20b`는 미달(정해진 문장 누락·시점 단정), Groq는 골든 원장 1에서 한도 도달 전기 누락·정해진 문장 변형으로 설명 배치에서 제외(런타임 답변 1순위는 유지 — `docs/DECISIONS.md` 2026-11-01) · Groq 호출당 실측 3,186토큰 → 하루 약 62회 · §10.1 표에 `gpt-oss-120b` 실측 뉴런(v6 녹화 107.5, 배치 1일차 98.6) · §10.4 설명 배치 행 교체, Phase 4 개발 중 Workers AI는 임베딩만·LLM 녹화는 Groq.
 > - v0.1.15 (2026-10-31, Phase 3): §5.1 `explanation` PK에 `agent_id`를 넣는다 — `(tenant_id, agent_id, kind, subject_id, stream_hash, prompt_version)`. MONTH_DIFF의 subject는 `close_ym`이라 데모 설계사 3명의 같은 달이 v0.1 PK에서 충돌한다. 새 PK가 `(tenant_id, agent_id, kind)`로 시작하므로 `ix_expl_agent`는 지운다(적재 쓰기 행 × 2 — 약 1,200). 마이그레이션 0004(표가 비어 있을 때 다시 만든다).
 > - v0.1.14 (2026-10-31, Phase 3 전): §4.1(b) 설명 사전 생성 대상을 활성 스트림의 `demo_agents` 3명으로 한정(로그인이 없어 나머지 27명의 설명은 어느 화면에서도 열리지 않는다 · Groq TPD 200K 역산 하루 약 130건) — LINE 482·LIMIT 21·MONTH_DIFF 88 ≈ 600건, 순서 LINE → LIMIT → MONTH_DIFF, 날짜별로 나눠 `budget_counter`(scope `batch:explain:groq` 130·`batch:explain:workers-ai` 200)에 집계, 캐시 키 `streamHash + promptVersion + subject`, 산출 `data/explain/<streamHash>/`(커밋)·적재 `load:d1 -- --explain`, 시험용 VCR 16건과 통과율 80% 관문 · §3.3·§6.1 `packages/grounding`(검증기·`DerivedNumbers`·금지어 목록을 gen·worker가 공유, 파생 허용값에 전월 대비 차이) · §5.3 explanation 약 600 · §7 explanation 응답 모양 · §10.4 설명 배치 행 · §14.1-6·-10 수치.
 > - v0.1.13 (2026-10-30, Phase 2 수용): §4.1(a) 생성 ID에서 증권번호 제거 — 원장·라인·스케줄·채권·조정 ID는 (설계사, 설계사 내 계약 순번, 종류별 일련)에서 결정론으로(예 `l-A1003-07`·`c-A1003-07-2`), A-1 예약 ID는 그대로 · 데모 카드 1·3 문구("한도 100% 소진 후 해약·환수 계약 보유", "재산정으로 한도 초과·환수 상계 계약 보유" — 선정 규칙은 그대로: 이력상 누적 = 한도 도달) · §12 Phase 8에 Playwright CI 계획.
@@ -188,7 +189,7 @@ ga-commission-copilot/
 
    ¹ 분급 커브는 상위 엔진 샘플을 따른다 — 초년도 40%, 이후 12·24·36개월에 20%씩(연 40/20/20/20%). 상위 설계서 A-2 본문의 "타임라인에 48개월 예정" 표현과 다르다(v0.1.10).
 
-**(b) 설명 사전 생성** (Q1~Q3) — **대상은 활성 스트림의 `demo_agents` 3명뿐이다(v0.1.14)**: 로그인이 없어 세션은 늘 3명 중 하나이고, 나머지 27명의 설명은 어느 화면에서도 열리지 않는다. 그 3명의 라인 전부(LINE), 원장 전부(LIMIT), 첫 달을 뺀 모든 달(MONTH_DIFF — 전월 행이 없는 8개 달은 "전월 명세 없음"과 비교) — 스트림 `fca1971c…` 기준 482 + 21 + 88 ≈ **600건**. subject마다 컨텍스트(라인 `{line, basis, policySummary, ledger?, limitPosting?, deferrals[], receivable?, derived}`, 한도 `{ledger, history[], deferrals[], derived}`, 월비교 `{month, previous, byType, derived}` — 증권번호는 마스킹 값만, 파생값은 `DerivedNumbers`)를 넣고 한국어 설명 3~5문장을 구조화 출력으로 받는다: `{text, citedFields[], numbersUsed[]}`. G4(텍스트의 숫자 토큰과 `numbersUsed` ⊆ 컨텍스트 숫자 집합)·G5·G6(§4.2) 실패는 위반 목록을 붙여 재생성 1회, 재실패는 `grounding_status=FAIL`로 저장하고 화면에는 "설명 없음"만 보인다. 생성 순서는 LINE → LIMIT → MONTH_DIFF. 하루 상한은 Groq 130(TPD 200K ÷ 호출당 약 1.5K 토큰)·Workers AI `@cf/openai/gpt-oss-20b` 200(§10.1 단가로 약 7.6K 뉴런)이고 날짜별로 나눠(약 3일) 돌린다 — 호출 전에 `budget_counter`(scope `batch:explain:groq`·`batch:explain:workers-ai`, 규약 5의 단일 UPDATE)를 차감하고, 영향 행 0이면 그 공급자는 그날 끝이다. 캐시 키 = `streamHash + promptVersion + subject`(subject = kind + subjectId) — 결과는 `data/explain/<streamHash>/<kind>.jsonl`에 커밋하고 같은 키가 있으면 호출하지 않는다. 적재는 스트림과 같은 경로(`load:d1 -- --explain`, D1에 없는 키만 INSERT). 시험용 VCR은 데모 3명에서 LINE 10·LIMIT 3·MONTH_DIFF 3 = 16건만 녹화하고(`--stub`은 이것만 재생), 나머지는 위 데이터 배치다. 배치 전에 녹화 16건의 G4~G6 통과율을 보고, 80% 미만이면 프롬프트 새 버전(`explain_*/v2`)을 만들어 16건을 다시 녹화한다 — 낮은 통과율로 600건을 태우지 않는다.
+**(b) 설명 사전 생성** (Q1~Q3) — **대상은 활성 스트림의 `demo_agents` 3명뿐이다(v0.1.14)**: 로그인이 없어 세션은 늘 3명 중 하나이고, 나머지 27명의 설명은 어느 화면에서도 열리지 않는다. 그 3명의 라인 전부(LINE), 원장 전부(LIMIT), 첫 달을 뺀 모든 달(MONTH_DIFF — 전월 행이 없는 8개 달은 "전월 명세 없음"과 비교) — 스트림 `fca1971c…` 기준 482 + 21 + 88 ≈ **600건**. subject마다 컨텍스트(라인 `{line, basis, policySummary, ledger?, limitPosting?, deferrals[], receivable?, derived}`, 한도 `{ledger, history[], deferrals[], derived}`, 월비교 `{month, previous, byType, derived}` — 증권번호는 마스킹 값만, 파생값은 `DerivedNumbers`)를 넣고 한국어 설명 3~5문장을 구조화 출력으로 받는다: `{text, citedFields[], numbersUsed[]}`. G4(텍스트의 숫자 토큰과 `numbersUsed` ⊆ 컨텍스트 숫자 집합)·G5·G6(§4.2) 실패는 위반 목록을 붙여 재생성 1회, 재실패는 `grounding_status=FAIL`로 저장하고 화면에는 "설명 없음"만 보인다. 생성 순서는 LINE → LIMIT → MONTH_DIFF. **공급자(v0.1.16)**: Workers AI `@cf/openai/gpt-oss-120b` 단독, 하루 85회(HTTP 호출 — 재생성·빈 본문 재시도 포함, 실측 회당 약 98.6~107.5뉴런 → 약 9,140뉴런, 하루 10,000 중 약 800은 개발용 임베딩·상태 확인에 남긴다). 1일차 실측 85회로 72건(첫 시도 86.1%, 재생성 후 100%)이라 약 600건은 **약 8일**이다. 프롬프트 `explain_*/v6`의 관문은 모델별(녹화 16건 첫 시도 ≥ 90%·골든 A-01~A-03·뜻 오류 4종 0건)이고, `gpt-oss-20b`는 관문 미달(정해진 문장 누락·시점 단정)로 배치에서 제외했다. Groq `openai/gpt-oss-120b`는 v6 관문에서 골든 원장 1의 한도 도달 전기 누락·정해진 문장 변형으로 설명 배치에서 제외했고(런타임 답변 1순위는 유지 — 별도 관문·Phase 6 평가), 실측 호출당 3,186토큰이라 Groq로 돌렸다면 하루 약 62회(TPD 200K)였다. 호출 전에 `budget_counter`(scope `batch:explain:workers-ai`, 규약 5의 단일 UPDATE)를 차감하고, 영향 행 0이면 그날 끝이다(뉴런 소진 3036도 그날 끝). 캐시 키 = `streamHash + promptVersion + subject`(subject = kind + subjectId) — 결과는 `data/explain/<streamHash>/<kind>.jsonl`에 커밋하고 같은 키가 있으면 호출하지 않는다. 적재는 스트림과 같은 경로(`load:d1 -- --explain`, D1에 없는 키만 INSERT). 시험용 VCR은 데모 3명에서 LINE 10·LIMIT 3·MONTH_DIFF 3 = 16건만 녹화하고(`--stub`은 이것만 재생), 나머지는 위 데이터 배치다. 배치 전에 녹화 16건의 G4~G6 통과율을 보고, 80% 미만이면 프롬프트 새 버전(`explain_*/v2`)을 만들어 16건을 다시 녹화한다 — 낮은 통과율로 600건을 태우지 않는다.
 
 **(c) 가상 사규집** — "데모GA 수수료 규정" 약 40개 조항을 LLM이 생성(요율표·한도 산식·분급 커브·환수율·상계 순서·지급일 규칙·이의제기 절차). 각 조항 머리에 "가상 규정 · 예시값" 표기. 조항 단위로 청킹(300~600토큰), `bge-m3`로 임베딩, Vectorize에 메타데이터 `{article, visibility: agent|internal, version}`로 업서트. 요율표 조항은 `visibility=internal`로 두어 런타임 검색에서 제외한다(§2.3).
 
@@ -525,7 +526,7 @@ CREATE TABLE eval_case_result (
 
 | 모델 | 입력 | 출력 | 호출당 뉴런 (입력 2,000 + 출력 400 토큰 가정) | 하루 가능 호출 (10,000뉴런) |
 |---|---|---|---|---|
-| `@cf/openai/gpt-oss-120b` | 31,818 | 68,182 | 약 91 | **약 110회** |
+| `@cf/openai/gpt-oss-120b` | 31,818 | 68,182 | 약 91 — **실측 107.5**(v6 녹화 17회, 입력 약 2.5K)·98.6(설명 배치 1일차 82회, 입력 2,380 + 출력 336 토큰 평균) | **약 110회** — 실측으로 약 93~101회 |
 | `@cf/openai/gpt-oss-20b` | 18,182 | 27,273 | 약 47 | 약 210회 |
 | `@cf/qwen/qwen3-30b-a3b-fp8` | 4,625 | 30,475 | 약 21 | 약 470회 |
 | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | 26,668 | 204,805 | 약 135 | 약 74회 |
@@ -560,7 +561,7 @@ CREATE TABLE eval_case_result (
 | D1 | 읽기 약 1M행, 쓰기 약 500행 | 20% / 0.5% |
 | Vectorize | 150질의 × 1,024 = 154K 차원 | 월 4.6M, 16% |
 | Workers 요청 | API 약 5,000 + 정적 무제한 | 5% |
-| 설명 배치(v0.1.14, 약 3일 — §4.1(b)) | Groq 130/일(약 195K 토큰) + Workers AI `gpt-oss-20b` 200/일(약 7.6K 뉴런), D1 적재 약 1,200 rows written | Groq TPD 98% · 뉴런 76% — 배치 날은 런타임 Groq·Workers AI 예산과 겹치지 않게 한다(Phase 3에는 런타임 호출이 없다) |
+| 설명 배치(v0.1.16, 약 8일 — §4.1(b)) | Workers AI `@cf/openai/gpt-oss-120b` 85회/일(약 9,140뉴런, 실측 회당 98.6~107.5), D1 적재 하루 약 150 rows written | 뉴런 약 91% — 남는 약 800뉴런은 개발용 임베딩·상태 확인. 배치 날은 런타임 Workers AI 폴백과 겹치지 않게 한다. **Phase 4 개발 중 Workers AI는 임베딩만, LLM 녹화는 Groq**(호출당 실측 3,186토큰 — 하루 약 62회) |
 
 **결론**: 전역 예산 150회는 Groq 55회 + Workers AI 80회 + OpenRouter 15회로 **공급자별 상한의 합**으로 정의한다. Groq TPD가 먼저 소진되면 자동으로 Workers AI 순서가 된다.
 
