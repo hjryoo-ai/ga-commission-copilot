@@ -1,0 +1,4 @@
+sim_stub: 샘플 1 → 표 1행 [{"agent_id":"A-1001","policy_no":"POL-2026-0001","kind":"POLICY_EVENT","rule_snapshot_id":"RS-2407ecd6e8eb13c11a657eea992bcbf9"}]
+   실측 rows written(wrangler): 0
+sim_stub: 샘플 1 → 표 1행 [{"agent_id":"A-1001","policy_no":"POL-2026-0001","kind":"POLICY_EVENT","rule_snapshot_id":"RS-2407ecd6e8eb13c11a657eea992bcbf9"}]
+   실측 rows written(wrangler): 2

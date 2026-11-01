@@ -1,0 +1,2 @@
+hjryoo-ai/ga-agent-portal@8b05465e5d03908adae96b88c6b8f855ef163f9f
+contracts/shared/ga-commission-engine/samples/simulations/event-cancel-7.{request,response}.json → contracts/sim/v1/samples/ (설계서 §4.3·§5.1 sim_stub, 부록 A-07 — 데모 모드 해약 시뮬레이션 고정 응답)

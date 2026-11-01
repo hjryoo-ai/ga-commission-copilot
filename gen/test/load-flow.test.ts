@@ -168,3 +168,20 @@ describe("되돌리기(v0.1.10 §5.4): 같은 해시·같은 슬롯 행을 새 r
     expect(activeHash(db)).toBe("Y");
   });
 });
+
+describe("sim_stub 적재(설계서 §4.3, 부록 A-07)", () => {
+  it("contracts/sim 상위 샘플(CHECKSUMS 대조) → A-1001·POL-2026-0001 해약 7회차 한 행", async () => {
+    const { simStubInserts, simStubRows } = await import("../load/simStub.ts");
+    const rows = simStubRows();
+    expect(rows).toEqual([
+      {
+        agentId: "A-1001",
+        policyNo: "POL-2026-0001",
+        kind: "POLICY_EVENT",
+        response: '{"clawbackAmount":-720000,"offsetAgainstMonth":{"closeYm":"202702","before":0,"after":-720000},"receivableRemaining":720000,"cancelledDeferrals":[],"ruleSnapshotId":"RS-2407ecd6e8eb13c11a657eea992bcbf9"}',
+        ruleSnapshotId: "RS-2407ecd6e8eb13c11a657eea992bcbf9",
+      },
+    ]);
+    expect(simStubInserts(rows, "T1")[0]).toMatch(/^INSERT OR IGNORE INTO sim_stub \(tenant_id, agent_id, policy_no, kind, response, rule_snapshot_id\) VALUES\n\('T1', 'A-1001', 'POL-2026-0001', 'POLICY_EVENT', '\{/);
+  });
+});

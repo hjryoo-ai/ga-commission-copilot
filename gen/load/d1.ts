@@ -4,15 +4,18 @@
 //   pnpm run load:d1 -- --local|--remote --purge-inactive         비활성 슬롯 비우기(§14.1-10: 전환 다음 날 00:00 UTC 이후)
 //   pnpm run load:d1 -- --local|--remote --explain [--stream <sha256>] [--dir <dir>]   설명 적재(v0.1.14 §4.1(b) — 기본 data/explain, 없는 키만)
 //   pnpm run load:d1 -- --local|--remote --rulebook [--rulebook-hash <sha256>]          사규집 청크 적재(§4.1(c) — rulebook_chunk, INSERT OR IGNORE)
+//   pnpm run load:d1 -- --local|--remote --sim-stub                                     시뮬레이션 스텁 적재(§4.3 — contracts/sim 상위 샘플, A-07)
 // 적재는 ① data/stream/<hash>.jsonl을 projection-java로 다시 리플레이해 뷰를 얻고 meta의 뷰 해시와 대조한 뒤 flow.loadSlot(②~⑦).
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT } from "../providers/prompt.ts";
 import { type D1Exec, type ExecMeta, type ExplanationInput, loadExplanations, loadSlot, purgeInactive, rollback } from "./flow.ts";
-import { loadMigration } from "./sql.ts";
+import { loadMigration, sqlValue } from "./sql.ts";
 import { DATA_DIR, pickStream, readMeta, viewsOf } from "./views.ts";
 import { pickRulebook, readChunks, rulebookInserts } from "../rulebook/store.ts";
+import { TENANT } from "../world/rules/tables.ts";
+import { simStubInserts, simStubRows } from "./simStub.ts";
 
 const OUT_DIR = join(import.meta.dirname, "../out");
 /** --command 한 번에 넘길 SQL 길이 상한. 넘으면 --file. */
@@ -95,6 +98,20 @@ function main(): void {
     const report = { rulebook: hash, version, chunks: chunks.length, before, after, meta };
     writeReport(target, "rulebook", report);
     log(`rulebook_chunk ${version}: 청크 ${chunks.length}, 적재 전 ${before} → 뒤 ${after}`);
+    log(`   실측 rows written(wrangler): ${meta.reduce((a, x) => a + (x.rows_written ?? 0), 0)}`);
+    return;
+  }
+  if (args.includes("--sim-stub")) {
+    const rows = simStubRows();
+    // 스텁 설계사·증권번호가 활성 스트림에 있어야 한다(get_policy_event_sim은 그 설계사의 원장·라인에서 증권번호를 찾는다)
+    for (const r of rows) {
+      const n = Number(db.query(`SELECT COUNT(*) AS n FROM demo_agents WHERE tenant_id = '${TENANT}' AND agent_id = ${sqlValue(r.agentId)} AND stream_hash = (SELECT stream_hash FROM stream_meta WHERE active = 1)`)[0]?.n ?? 0);
+      if (n !== 1) throw new Error(`sim_stub ${r.agentId}: 활성 스트림 데모 설계사 아님`);
+    }
+    const meta = db.apply(simStubInserts(rows, TENANT), "sim-stub");
+    const after = db.query(`SELECT agent_id, policy_no, kind, rule_snapshot_id FROM sim_stub WHERE tenant_id = '${TENANT}' ORDER BY policy_no`);
+    writeReport(target, "sim-stub", { rows: rows.length, after, meta });
+    log(`sim_stub: 샘플 ${rows.length} → 표 ${after.length}행 ${JSON.stringify(after)}`);
     log(`   실측 rows written(wrangler): ${meta.reduce((a, x) => a + (x.rows_written ?? 0), 0)}`);
     return;
   }
