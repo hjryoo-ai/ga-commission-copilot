@@ -111,6 +111,13 @@ describe("답변 파이프라인", () => {
     expect(await logRow(r.answerId)).toMatchObject({ refused: 1, refuse_reason: "NOT_GROUNDED", grounding_status: "FAIL", answer: REFUSAL_TEXT.NOT_GROUNDED });
   });
 
+  it("데이터 코드 이름(G6 codes — 운영자 2026-11-02)을 쓰면 NOT_GROUNDED", async () => {
+    const d = deps(out({ toolCalls: [tc("get_statement", { ym: "202608" })] }), () => out({ text: "이 시책은 한도 초과분이 DEFER_AFTER_FY 정책으로 처리되었습니다." }));
+    const r = await answerQuestion(d, q(), ENV, "8월 시책은 왜 덜 나왔어요?");
+    expect(r).toMatchObject({ refused: true, reason: "NOT_GROUNDED", text: REFUSAL_TEXT.NOT_GROUNDED, groundingStatus: "FAIL" });
+    expect(r.violations).toEqual(["G6 CODE:DEFER_AFTER_FY"]);
+  });
+
   it("규정 숫자는 검색된 청크 본문에 있으면 통과(A-08형), 인용한 청크가 검색되지 않았으면 G5", async () => {
     const ok = await answerQuestion(
       deps(out({ text: "1회차부터 6회차까지 해약하면 70%를 환수합니다(가상 사규 제25조).", citations: [{ kind: "rule", tool: "", field: "", article: "제25조", chunkId: "rb-0123456789ab-a25-1" }] })),

@@ -16,7 +16,8 @@
     "rulebook": "node rulebook/run.ts",
     "rulebook:embed": "node rulebook/embed.ts",
     "rulebook:vectorize-check": "node rulebook/vectorize-check.ts",
-    "fixture:answer": "node scripts/answer-fixture.ts"
+    "fixture:answer": "node scripts/answer-fixture.ts",
+    "forbidden:codes": "node scripts/forbidden-codes.ts"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

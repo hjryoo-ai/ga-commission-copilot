@@ -1,0 +1,6 @@
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 188 — PASS 188 · FAIL 0, PASS 행 위반 1
+  LIMIT: PASS 6 · FAIL 0
+  LINE: PASS 176 · FAIL 0
+  MONTH_DIFF: PASS 6 · FAIL 0
+  위반 LINE A-1002 c-A1002-15-1 explain_line/v6: G6 CODE:RELEASED | G6 CODE:SCHEDULED
+ ELIFECYCLE  Command failed with exit code 1.

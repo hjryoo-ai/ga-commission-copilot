@@ -395,18 +395,27 @@ describe("단건 재생성(explain --regenerate — 운영자 2026-11-02)", () =
   const subjects = [subject];
   const seed = async () => {
     const store = new ExplanationStore(mkdtempSync(join(tmpdir(), "regen-")), HASH);
-    store.put(await generateOne(subject, HASH, lineContext(A1, "2")!, fake([{ ...good, text: `${good.text} 각각 CURVE 사유입니다.` }]).call, undefined, () => now));
+    store.put(await generateOne(subject, HASH, lineContext(A1, "2")!, fake([{ ...good, text: `${good.text} 지급일은 정해져 있습니다.` }]).call, undefined, () => now));
     return store;
   };
   const key = { ...subject, promptVersion: promptVersionOf("LINE") };
 
-  it("PASS여도 ①②③ 적중이면 받지 않고 다시, 깨끗한 결과로 바꾼다", async () => {
+  it("PASS여도 ①②③ 적중(G6 밖 — 예: ② 지급일)이면 받지 않고 다시, 깨끗한 결과로 바꾼다", async () => {
+    const store = await seed();
+    const f = fake([{ ...good, text: `${good.text} 지급일은 정해져 있습니다.` }, good]);
+    const r = await runRegenerate(HASH, byAgent, subjects, store, [labelOf(subject)], eventCodes("v6"), 3, f.call);
+    expect(r.regenerated).toEqual([{ label: "explain:LINE:A-1001:2", tries: 2, replaced: true, rejected: [expect.stringMatching(/^#1 본문 점검 ② 지급일/)] }]);
+    expect(store.get(key)!.text).toBe(good.text);
+    expect(store.get(key)!.createdAt).not.toBe(now);
+  });
+
+  it("코드 이름은 이제 G6(운영자 2026-11-02) — 생성 안의 재생성 1회가 고치면 한 번의 시도로 바뀐다", async () => {
     const store = await seed();
     const f = fake([{ ...good, text: `${good.text} 분급 사유는 CURVE입니다.` }, good]);
     const r = await runRegenerate(HASH, byAgent, subjects, store, [labelOf(subject)], eventCodes("v6"), 3, f.call);
-    expect(r.regenerated).toEqual([{ label: "explain:LINE:A-1001:2", tries: 2, replaced: true, rejected: [expect.stringMatching(/^#1 본문 점검 ③ 영문 알파벳/)] }]);
-    expect(store.get(key)!.text).toBe(good.text);
-    expect(store.get(key)!.createdAt).not.toBe(now);
+    expect(r.regenerated).toEqual([{ label: "explain:LINE:A-1001:2", tries: 1, replaced: true, rejected: [] }]);
+    expect(store.get(key)).toMatchObject({ text: good.text, attempts: 2 });
+    expect(f.labels).toEqual(["explain:LINE:A-1001:2", "explain:LINE:A-1001:2#retry"]);
   });
 
   it("세 번 다 못 넘으면 옛 행 그대로, 없는 행·다른 스트림 라벨은 멈춘다", async () => {

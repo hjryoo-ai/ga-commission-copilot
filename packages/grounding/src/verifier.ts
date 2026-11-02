@@ -47,11 +47,24 @@ export interface ForbiddenOptions {
   ownAgentId?: string;
 }
 
-/** G6: 금지 표현·실존 보험사명·타 설계사 ID·증권번호 원문. 위반 목록("PHRASE:확정" 꼴). */
+/**
+ * 데이터 코드 이름(forbidden.json codes — 운영자 2026-11-02). 영문 낱말 단위: 앞뒤가 [A-Za-z0-9_]가 아니어야 맞는다
+ * (한글·괄호·공백 옆은 맞고, "OKAY"·"CUTOFF" 안의 OK·CUT은 아니다). 긴 코드부터 — DEFER_AFTER_FY가 통째로 잡힌다.
+ */
+const CODE_RE = new RegExp(
+  `(?<![A-Za-z0-9_])(?:${[...forbidden.codes]
+    .sort((a, b) => b.length - a.length)
+    .map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|")})(?![A-Za-z0-9_])`,
+  "g",
+);
+
+/** G6: 금지 표현·실존 보험사명·데이터 코드 이름·타 설계사 ID·증권번호 원문. 위반 목록("PHRASE:확정"·"CODE:CURVE" 꼴). */
 export function forbiddenViolations(text: string, options: ForbiddenOptions = {}): string[] {
   const out: string[] = [];
   for (const p of forbidden.phrases) if (text.includes(p)) out.push(`PHRASE:${p}`);
   for (const p of forbidden.insurers) if (text.includes(p)) out.push(`INSURER:${p}`);
+  for (const m of text.matchAll(CODE_RE)) out.push(`CODE:${m[0]}`);
   for (const p of forbidden.patterns) {
     for (const m of text.matchAll(new RegExp(`\\b${p.regex}\\b`, "g"))) {
       if (p.allowOwn && m[0] === options.ownAgentId) continue;

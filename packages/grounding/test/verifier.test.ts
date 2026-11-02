@@ -269,6 +269,14 @@ describe("G6 금지어·식별자", () => {
   it("실존 보험사명은 위반", () => {
     expect(forbiddenViolations("삼성생명 상품")).toEqual(["INSURER:삼성생명"]);
   });
+
+  it("데이터 코드 이름(codes — 운영자 2026-11-02): 영문 낱말 단위, 한글·괄호 옆도 잡고 긴 코드는 통째로", () => {
+    expect(forbiddenViolations("각각 CURVE 사유에 따라 처리됩니다.")).toEqual(["CODE:CURVE"]);
+    expect(forbiddenViolations("지급됨( RELEASED) 상태, 지급 예정(SCHEDULED)")).toEqual(["CODE:RELEASED", "CODE:SCHEDULED"]);
+    expect(forbiddenViolations("정책은 DEFER_AFTER_FY이고 삭감은 CUT입니다")).toEqual(["CODE:DEFER_AFTER_FY", "CODE:CUT"]);
+    expect(forbiddenViolations("OKAY CUTOFF curve 분급 일정 POL")).toEqual([]);
+    expect(forbiddenViolations("WHOLE-LIFE-20Y 상품")).toEqual([]);
+  });
 });
 
 describe("gateExplanation: G4·G5·G6 합본", () => {
