@@ -1,0 +1,80 @@
+
+> @copilot/gen@ explain /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node explain/run.ts -- --batch
+
+프롬프트 explain_line/v6·explain_limit/v6·explain_month/v6, 카세트 explain
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+[batch] Workers AI 확인: {"label":"explain:LINE:A-1001:c-A1001-08-5","responseFormat":"json_schema","firstG1":"PASS","status":"PASS(attempts 1)","model":"@cf/openai/gpt-oss-120b"}
+[batch] explain:LINE:A-1001:c-A1001-09-3 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-01-15 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-02-14 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-03-13 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-04-12 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-05-11 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-07-9 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-08-6 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-09-4 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-01-16 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-02-15 PASS workers-ai (재생성)
+[batch] explain:LINE:A-1001:c-A1001-03-14 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-04-13 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-05-12 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-07-10 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-08-7 PASS workers-ai
+[live] workers-ai bad_content, 5s 뒤 같은 요청
+[batch] explain:LINE:A-1001:c-A1001-09-5 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-01-17 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-02-16 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-03-15 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-04-14 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-05-13 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-07-11 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-08-8 PASS workers-ai
+[batch] explain:LINE:A-1001:c-A1001-09-6 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-04-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-05-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-06-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-07-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-08-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-3 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-09-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-4 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-2 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-5 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-3 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-10-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-6 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-4 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-2 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-7 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-5 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-3 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-11-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-12-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-8 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-6 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-4 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-13-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-9 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-7 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-5 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-14-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-10 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-8 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-6 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-05-2 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-11 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-9 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-7 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-05-3 PASS workers-ai (재생성)
+[batch] explain:LINE:A-1002:c-A1002-01-12 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-10 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-8 PASS workers-ai
+[batch] workers-ai 끝: 예산 소진(scope=batch:explain:workers-ai, day=2026-11-02, cap=70) — 실호출 중단
+batch: 생성 67(PASS 67 · FAIL 0 — 첫 시도 65/67(97.0%) · 재생성 후 100.0%), 캐시 건너뜀 88, 호출 {"workers-ai":70}, 재시도 {"workers-ai:bad_content":1}, 멈춤: 모든 공급자 예산 소진(오늘)
+  LINE: PASS 67 · FAIL 0 — 첫 시도 65/67(97.0%) · 재생성 후 100.0%
+  workers-ai: PASS 67 · FAIL 0 — 첫 시도 65/67(97.0%) · 재생성 후 100.0%
+  모델 @cf/openai/gpt-oss-120b: 본문 67건 평균 2.6문장 · 성공 호출 69회 평균 출력 333토큰(추론 포함)
+  사용량 workers-ai: 성공 69회 · 입력 162883 · 출력 22957 토큰(회당 2693.3) · 6747.9 뉴런(회당 97.8)
