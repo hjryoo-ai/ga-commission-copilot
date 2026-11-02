@@ -262,6 +262,8 @@ export interface ExplanationLoadReport {
   records: number;
   alreadyLoaded: number;
   inserted: number;
+  /** 같은 키인데 createdAt이 바뀐 행(단건 재생성 — 운영자 2026-11-02): 지우고 다시 넣는다. inserted에 들어 있다. */
+  replaced: number;
   totalAfter: number;
   meta: ExecMeta[];
 }
@@ -269,18 +271,27 @@ export interface ExplanationLoadReport {
 /**
  * 설명 적재(설계서 v0.1.14 §4.1(b) — load:d1과 같은 실행기). 그 스트림이 stream_meta에 있어야 하고(활성·비활성 무관),
  * D1에 이미 있는 키(agent_id, kind, subject_id, prompt_version — v0.1.15 PK)는 다시 쓰지 않는다 — rows written을 새 행만큼만 쓴다.
+ * 단 같은 키의 created_at이 다르면(explain --regenerate로 바뀐 행) 그 행만 지우고 다시 넣는다(설명은 마감월 라인이 아니다 — 규약 9 밖).
  */
 export function loadExplanations(db: D1Exec, hash: string, records: readonly ExplanationInput[], log: Log, tenant = TENANT): ExplanationLoadReport {
   if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error(`hash ${hash}: 형식 아님`);
   if (!metaRows(db).rows.some((r) => r.stream_hash === hash)) throw new Error(`stream_meta에 ${hash.slice(0, 12)} 없음 — 스트림을 먼저 적재(load:d1)`);
   for (const r of records) if (r.streamHash !== hash) throw new Error(`다른 스트림의 설명 ${r.streamHash.slice(0, 12)}`);
   const key = (a: string, k: string, s: string, p: string) => `${a}\u001f${k}\u001f${s}\u001f${p}`;
-  const existing = new Set(
+  const existing = new Map(
     db
-      .query(`SELECT agent_id, kind, subject_id, prompt_version FROM explanation WHERE tenant_id = ${sqlValue(tenant)} AND stream_hash = ${sqlValue(hash)}`)
-      .map((r) => key(String(r.agent_id), String(r.kind), String(r.subject_id), String(r.prompt_version))),
+      .query(`SELECT agent_id, kind, subject_id, prompt_version, created_at FROM explanation WHERE tenant_id = ${sqlValue(tenant)} AND stream_hash = ${sqlValue(hash)}`)
+      .map((r) => [key(String(r.agent_id), String(r.kind), String(r.subject_id), String(r.prompt_version)), String(r.created_at)] as const),
   );
-  const fresh = records.filter((r) => !existing.has(key(r.agentId, r.kind, r.subjectId, r.promptVersion)));
+  const changed = records.filter((r) => {
+    const at = existing.get(key(r.agentId, r.kind, r.subjectId, r.promptVersion));
+    return at !== undefined && at !== r.createdAt;
+  });
+  const fresh = records.filter((r) => !existing.has(key(r.agentId, r.kind, r.subjectId, r.promptVersion)) || changed.includes(r));
+  const deletes = changed.map(
+    (r) =>
+      `DELETE FROM explanation WHERE tenant_id = ${sqlValue(tenant)} AND agent_id = ${sqlValue(r.agentId)} AND kind = ${sqlValue(r.kind)} AND subject_id = ${sqlValue(r.subjectId)} AND stream_hash = ${sqlValue(hash)} AND prompt_version = ${sqlValue(r.promptVersion)}`,
+  );
   const rows: Row[] = fresh.map((r) => ({
     agent_id: r.agentId,
     kind: r.kind,
@@ -294,8 +305,8 @@ export function loadExplanations(db: D1Exec, hash: string, records: readonly Exp
     grounding_status: r.groundingStatus,
     created_at: r.createdAt,
   }));
-  const meta = rows.length ? db.apply(insertInto("explanation", tenant, rows), `explain-${hash.slice(0, 12)}`) : [];
+  const meta = rows.length ? db.apply([...deletes, ...insertInto("explanation", tenant, rows)], `explain-${hash.slice(0, 12)}`) : [];
   const total = Number(db.query(`SELECT COUNT(*) AS n FROM explanation WHERE tenant_id = ${sqlValue(tenant)} AND stream_hash = ${sqlValue(hash)}`)[0]?.n ?? 0);
-  log(`explanation ${hash.slice(0, 12)}: 레코드 ${records.length}, 이미 있음 ${records.length - fresh.length}, 새로 ${fresh.length} → D1 ${total}행`);
-  return { streamHash: hash, records: records.length, alreadyLoaded: records.length - fresh.length, inserted: fresh.length, totalAfter: total, meta };
+  log(`explanation ${hash.slice(0, 12)}: 레코드 ${records.length}, 이미 있음 ${records.length - fresh.length}, 새로 ${fresh.length - changed.length}${changed.length ? `, 바뀐 행 ${changed.length}(재생성 — 지우고 다시)` : ""} → D1 ${total}행`);
+  return { streamHash: hash, records: records.length, alreadyLoaded: records.length - fresh.length, inserted: fresh.length, replaced: changed.length, totalAfter: total, meta };
 }

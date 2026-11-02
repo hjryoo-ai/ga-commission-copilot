@@ -4,7 +4,9 @@
 //                                  --provider workers-ai [--model @cf/…]는 카세트 explain.wai-<모델> + gen/out/explain-record/에만(관문은 모델별 — 운영자 2026-10-31).
 //   node explain/run.ts --batch    data/explain/<hash>/에 없는 subject를 LINE → LIMIT → MONTH_DIFF 순으로 생성.
 //                                  첫 호출은 Workers AI 구조화 출력 확인(첫 subject를 Workers AI로 — json_schema 거부면 프롬프트 강제 JSON + G1).
-//                                  v6부터 Workers AI gpt-oss-120b 단독(batch:explain:workers-ai 70/일), 소진되면 멈춘다(DECISIONS 2026-11-01 — Groq 제외).
+//                                  v6부터 Workers AI gpt-oss-120b 단독(batch:explain:workers-ai 90/일), 소진되면 멈춘다(DECISIONS 2026-11-01 — Groq 제외, 2026-11-02 — 90).
+//   node explain/run.ts --regenerate <label>[,<label>…]   이미 있는 subject 단건 재생성(라벨 explain:KIND:agent:subject — 본문 점검 ③ 등 G4~G6 밖 사유, 운영자 2026-11-02).
+//                                  배치 공급자·예산으로 최대 3회, PASS이고 본문 점검 ①②③ 적중이 없을 때만 바꾼다(createdAt이 바뀌어 load:d1 --explain이 원격 행을 바꾼다).
 //   공통: [--stream <sha256>] [--limit N] [--prompt-version vN](활성화 전 후보 버전) [--provider groq|workers-ai] [--model <id>](--stub·--record의 카세트)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,6 +18,7 @@ import { pickStream, readMeta, viewsOf } from "../load/views.ts";
 import { TENANT } from "../world/rules/tables.ts";
 import { type AgentRows, contextOf, type Kind, type Row, subjectsOf } from "./context.ts";
 import { type Caller, gate, generateOne, labelOf, promptVersionOf, type Subject } from "./generate.ts";
+import { eventCodes, hardHits } from "./check-bodies.ts";
 import { DATA_EXPLAIN, type ExplanationRecord, ExplanationStore, OUT_EXPLAIN } from "./store.ts";
 
 export const VCR_NAME = "explain";
@@ -41,9 +44,9 @@ export const GATED_CASSETTES: readonly Cassette[] = [cassetteOf("workers-ai", "@
 /** 배치 공급자 순서와 하루 상한(설계서 v0.1.16 §4.1(b)·§10.4). */
 export const BATCH_PROVIDERS: readonly { provider: ProviderName; scope: string; cap: number; model?: string; spacingMs: number }[] = [
   // 관문은 모델별(운영자 2026-10-31): gpt-oss-20b 미달 → gpt-oss-120b 통과. Groq는 v6 관문 미달로 제외(DECISIONS 2026-11-01).
-  // 하루 70(운영자 2026-11-01, DECISIONS): usage 합은 회당 98.6뉴런인데 85회로 계정 10,000이 소진됐다(회당 ≥ 117.6 — 원인 미상) → 70 × 117.6 ≈ 8,240,
-  // 남는 몫은 Phase 4 개발 임베딩·상태 확인. 대시보드 실측을 받으면 보정한다.
-  { provider: "workers-ai", scope: "batch:explain:workers-ai", cap: 70, model: "@cf/openai/gpt-oss-120b", spacingMs: 1_000 },
+  // 하루 90(운영자 2026-11-02, DECISIONS): 대시보드 실측 70회 = 6,870뉴런(회당 98 — 응답 usage와 일치) → 90 × 98 ≈ 8,820,
+  // 남는 약 1,100은 Phase 4 개발 임베딩·상태 확인. (2026-11-01의 85회 뒤 4006은 10-31 관문 녹화가 같은 날에 집계된 것으로 추정 — 확인 불가)
+  { provider: "workers-ai", scope: "batch:explain:workers-ai", cap: 90, model: "@cf/openai/gpt-oss-120b", spacingMs: 1_000 },
 ];
 export const RECORD_SPACING_MS = 23_000;
 /** 429의 retry-after가 이보다 길면 그 공급자는 그날 끝(TPD·RPD)으로 본다. */
@@ -167,6 +170,8 @@ export interface RunReport {
   /** 배치 첫 호출 = Workers AI 구조화 출력 확인(운영자 규칙 2026-10-31). */
   probe?: { label: string; responseFormat: "json_schema" | "prompt"; firstG1: "PASS" | "FAIL" | "-"; status: string; model: string; note?: string };
   stoppedBy?: string;
+  /** --regenerate 결과(라벨별 시도·교체 여부·받지 않은 사유). */
+  regenerated?: { label: string; tries: number; replaced: boolean; rejected: string[] }[];
   failures: { label: string; provider: string; failure: ExplanationRecord["failure"] }[];
 }
 
@@ -403,12 +408,60 @@ export async function runBatch(hash: string, byAgent: Map<string, AgentRows>, su
   return report;
 }
 
+/**
+ * --regenerate: 이미 저장된 subject를 다시 만든다(운영자 2026-11-02 — CURVE 노출 1건, ③). 배치 공급자 순서·하루 상한(batch scope)을 쓰고,
+ * 최대 tries회 — 결과가 PASS이고 본문 점검 ①②③(영문·코드 이름·부호·지급일 등) 적중이 없을 때만 저장소의 행을 바꾼다. 아니면 옛 행을 그대로 둔다.
+ */
+export async function runRegenerate(hash: string, byAgent: Map<string, AgentRows>, subjects: Subject[], store: ExplanationStore, labels: readonly string[], codes: readonly string[], tries = 3, caller?: Caller): Promise<RunReport> {
+  const report = newReport("regenerate", hash, labels.length);
+  report.regenerated = [];
+  const bp = BATCH_PROVIDERS[0]!;
+  const call: Caller =
+    caller ??
+    (async ({ req }) => {
+      const r = await liveCall(bp.provider, () => reserveCall(bp.scope, bp.cap), req, report, true);
+      await sleep(bp.spacingMs);
+      return { json: r.json, provider: bp.provider, model: r.model };
+    });
+  for (const label of labels) {
+    const s = subjects.find((x) => labelOf(x) === label);
+    if (!s) throw new Error(`${label}: 이 스트림의 subject 아님`);
+    const key = { ...s, promptVersion: promptVersionOf(s.kind) };
+    if (!store.has(key)) throw new Error(`${label}: ${key.promptVersion} 행 없음 — 재생성은 이미 있는 행만(새 행은 --batch)`);
+    const out = { label, tries: 0, replaced: false, rejected: [] as string[] };
+    report.regenerated.push(out);
+    for (let i = 0; i < tries && !out.replaced; i++) {
+      out.tries++;
+      let r: ExplanationRecord;
+      try {
+        r = await generateOne(s, hash, contextFor(byAgent, s), call, bp.model);
+      } catch (e) {
+        if (!(e instanceof BudgetExhausted)) throw e;
+        report.stoppedBy = e.message;
+        out.rejected.push(`예산: ${e.message}`);
+        return report;
+      }
+      const hits = r.groundingStatus === "PASS" ? hardHits(r.text, codes) : [];
+      if (r.groundingStatus !== "PASS") out.rejected.push(`#${out.tries} ${r.groundingStatus} ${JSON.stringify(r.failure)}`);
+      else if (hits.length) out.rejected.push(`#${out.tries} 본문 점검 ${hits.join(" / ")}`);
+      else {
+        store.put(r);
+        tally(report, r);
+        out.replaced = true;
+        console.log(`[regenerate] ${label} 바꿈(#${out.tries}): ${r.text}`);
+      }
+    }
+    if (!out.replaced) console.warn(`[regenerate] ${label} 못 바꿈 — 옛 행 유지: ${out.rejected.join(" | ")}`);
+  }
+  return report;
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const arg = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
-  const mode = args.includes("--stub") ? "stub" : args.includes("--record") ? "record" : args.includes("--batch") ? "batch" : null;
+  const mode = args.includes("--stub") ? "stub" : args.includes("--record") ? "record" : args.includes("--batch") ? "batch" : args.includes("--regenerate") ? "regenerate" : null;
   if (!mode) {
-    console.error("usage: explain -- --stub|--record|--batch [--stream <sha256>] [--limit N] [--prompt-version vN] [--provider groq|workers-ai] [--model <id>]");
+    console.error("usage: explain -- --stub|--record|--batch|--regenerate <label,…> [--stream <sha256>] [--limit N] [--prompt-version vN] [--provider groq|workers-ai] [--model <id>]");
     process.exit(2);
   }
   const pv = arg("--prompt-version");
@@ -427,7 +480,11 @@ async function main(): Promise<void> {
   const outDir = join(import.meta.dirname, "../out");
   if (mode === "stub") report = await runStub(hash, byAgent, vcr, new ExplanationStore(canonical ? OUT_EXPLAIN : join(outDir, "explain-stub", cassette.name), hash), cassette);
   else if (mode === "record") report = await runRecord(hash, byAgent, vcr, new ExplanationStore(canonical ? DATA_EXPLAIN : join(outDir, "explain-record", cassette.name), hash), cassette);
-  else report = await runBatch(hash, byAgent, all, new ExplanationStore(DATA_EXPLAIN, hash), limit);
+  else if (mode === "regenerate") {
+    const labels = (arg("--regenerate") ?? "").split(",").filter(Boolean);
+    if (!labels.length) throw new Error("--regenerate <explain:KIND:agent:subject>[,…]");
+    report = await runRegenerate(hash, byAgent, all, new ExplanationStore(DATA_EXPLAIN, hash), labels, eventCodes(promptVersionOf("LINE").split("/")[1]!));
+  } else report = await runBatch(hash, byAgent, all, new ExplanationStore(DATA_EXPLAIN, hash), limit);
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, `explain.${mode}${canonical ? "" : `.${cassette.name}`}.report.json`), `${JSON.stringify(report, null, 2)}\n`);
   const g = report.generated;
@@ -444,6 +501,7 @@ async function main(): Promise<void> {
     console.log(`  사용량 ${k}: 성공 ${u.ok}회 · 입력 ${u.prompt} · 출력 ${u.completion} 토큰(회당 ${per(u.prompt + u.completion)})${u.neurons ? ` · ${u.neurons.toFixed(1)} 뉴런(회당 ${per(u.neurons)})` : ""}`);
   }
   for (const f of report.failures) console.log(`  FAIL ${f.label} ${f.provider} ${JSON.stringify(f.failure)}`);
+  for (const x of report.regenerated ?? []) console.log(`  재생성 ${x.label}: ${x.replaced ? "바꿈" : "못 바꿈(옛 행 유지)"} — 시도 ${x.tries}${x.rejected.length ? `, 받지 않음 ${x.rejected.join(" | ")}` : ""}`);
 }
 
 if (import.meta.main) await main();

@@ -12,6 +12,7 @@
     "test": "vitest run",
     "explain": "node explain/run.ts",
     "verify:explain": "node explain/verify-explanations.ts",
+    "explain:check": "node explain/check-bodies.ts",
     "rulebook": "node rulebook/run.ts",
     "rulebook:embed": "node rulebook/embed.ts"
   },

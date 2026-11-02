@@ -7,12 +7,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { type AgentRows, limitContext, lineContext, monthDiffContext, type Row, subjectsOf } from "../explain/context.ts";
 import { type Caller, generateOne, labelOf, promptVersionOf, type Subject } from "../explain/generate.ts";
 import { recheckExplanations } from "../explain/recheck.ts";
-import { ExplanationStore, recordProblems } from "../explain/store.ts";
+import { type ExplanationRecord, ExplanationStore, recordProblems } from "../explain/store.ts";
 import { type D1Exec, loadExplanations, loadSlot, purgeInactive } from "../load/flow.ts";
 import { loadMigration } from "../load/sql.ts";
 import { parseContent, ProviderError } from "../providers/groq.ts";
 import { REPO_ROOT } from "../providers/prompt.ts";
-import { BATCH_PROVIDERS, cassetteOf, classifyError, GROQ_CASSETTE, rejectsResponseFormat, sentenceCount } from "../explain/run.ts";
+import { BATCH_PROVIDERS, cassetteOf, classifyError, GROQ_CASSETTE, rejectsResponseFormat, runRegenerate, sentenceCount } from "../explain/run.ts";
+import { codeRegex, contractEnumCodes, eventCodes, FIXED_DEFER_SENTENCE, glossaryCodes, hardHits, report as checkReport } from "../explain/check-bodies.ts";
 
 // PHASES Phase 3 항목 2·3·4(설계서 v0.1.14 §4.1(b)·§5.4): 컨텍스트 빌더, 재생성 1회, 저장 G1, 적재(없는 키만), 적재 후 전수 재검증.
 // 행은 부록 A-1 정본 값(월납 150,000·한도 1,800,000·FY 945,000·시책 855,000 + 삭감 145,000·해약 환수 −720,000).
@@ -240,6 +241,15 @@ describe("적재(load:d1 --explain)와 적재 후 전수 재검증(설계서 §5
     expect(() => loadExplanations(db, "b".repeat(64), [], () => {})).toThrow(/stream_meta/);
   });
 
+  it("같은 키인데 createdAt이 바뀐 행(단건 재생성)만 지우고 다시 넣는다", async () => {
+    const rs = await records();
+    loadExplanations(db, HASH, rs, () => {});
+    const again = [{ ...rs[0]!, text: "이 라인의 지급액은 855,000원입니다.", createdAt: "2026-11-02T11:30:00.000Z" }, rs[1]!, rs[2]!];
+    expect(loadExplanations(db, HASH, again, () => {})).toMatchObject({ alreadyLoaded: 2, inserted: 1, replaced: 1, totalAfter: 3 });
+    expect(db.query("SELECT text, created_at FROM explanation WHERE subject_id = '2'")).toEqual([{ text: "이 라인의 지급액은 855,000원입니다.", created_at: "2026-11-02T11:30:00.000Z" }]);
+    expect(loadExplanations(db, HASH, again, () => {})).toMatchObject({ alreadyLoaded: 3, inserted: 0, replaced: 0 });
+  });
+
   it("같은 달 MONTH_DIFF를 설계사마다 둘 수 있다(PK에 agent_id — 설계서 v0.1.15)", async () => {
     const [, month] = await records();
     loadExplanations(db, HASH, [month!, { ...month!, agentId: "A-1002" }], () => {});
@@ -328,9 +338,9 @@ describe("모델별 카세트·후보 버전(운영자 2026-10-31 — 관문은 
     expect(cassetteOf("workers-ai", "@cf/openai/gpt-oss-120b")).toEqual({ name: "explain.wai-gpt-oss-120b", provider: "workers-ai", model: "@cf/openai/gpt-oss-120b" });
     expect(cassetteOf("workers-ai").model).toBe("@cf/openai/gpt-oss-120b");
   });
-  it("배치는 관문을 넘은 Workers AI gpt-oss-120b 단독(하루 70 — 운영자 2026-11-01)", () => {
+  it("배치는 관문을 넘은 Workers AI gpt-oss-120b 단독(하루 90 — 운영자 2026-11-02, 대시보드 회당 98)", () => {
     expect(BATCH_PROVIDERS).toHaveLength(1);
-    expect(BATCH_PROVIDERS[0]).toMatchObject({ provider: "workers-ai", model: "@cf/openai/gpt-oss-120b", cap: 70 });
+    expect(BATCH_PROVIDERS[0]).toMatchObject({ provider: "workers-ai", model: "@cf/openai/gpt-oss-120b", cap: 90 });
   });
   it("EXPLAIN_PROMPT_VERSION은 세 종류 모두의 버전을 바꾸고, vN이 아니면 멈춘다", () => {
     const before = process.env.EXPLAIN_PROMPT_VERSION;
@@ -343,5 +353,71 @@ describe("모델별 카세트·후보 버전(운영자 2026-10-31 — 관문은 
       if (before === undefined) delete process.env.EXPLAIN_PROMPT_VERSION;
       else process.env.EXPLAIN_PROMPT_VERSION = before;
     }
+  });
+});
+
+describe("본문 점검(explain:check — 운영자 2026-11-02, 게이트 아님)", () => {
+  it("③ 코드 이름은 용어 표 코드 열에서 자동으로 + 계약 enum(용어 표에 없는 LIMIT_DEFER)", () => {
+    const table = readFileSync(join(REPO_ROOT, "prompts/explain_line/v6.md"), "utf8");
+    expect(glossaryCodes(table)).toEqual(expect.arrayContaining(["CURVE", "CUT", "DEFER_AFTER_FY", "FY_COMM", "SCHEDULED", "REBASE", "PREMIUM_REDUCED"]));
+    expect(glossaryCodes(table)).not.toContain("LIMIT_DEFER");
+    expect(glossaryCodes("| policyMasked | 증권번호 |\n| basis.rate | 요율 |")).toEqual([]);
+    expect(contractEnumCodes()).toEqual(expect.arrayContaining(["LIMIT_DEFER", "CURVE", "WRITTEN_OFF"]));
+    expect(eventCodes("v6")).toEqual(expect.arrayContaining(["CURVE", "LIMIT_DEFER", "DEFER_AFTER_FY", "CUT"]));
+  });
+
+  it("코드는 낱말 단위로 — DEFER_AFTER_FY는 통째로, OKAY·CUTOFF 안의 OK·CUT은 아니다", () => {
+    const re = codeRegex(eventCodes("v6"));
+    expect("각각 CURVE 사유, DEFER_AFTER_FY 정책, 삭감(CUT)".match(re)).toEqual(["CURVE", "DEFER_AFTER_FY", "CUT"]);
+    expect("OKAY CUTOFF".match(re)).toBeNull();
+  });
+
+  it("①②③ 적중은 정해진 문장을 빼고 본다 — 재생성 합격 판정", () => {
+    const codes = eventCodes("v6");
+    expect(hardHits(`145,000원이 이연되었습니다. ${FIXED_DEFER_SENTENCE}.`, codes)).toEqual([]);
+    expect(hardHits("각각 CURVE 사유에 따라 처리됩니다.", codes).map((x) => x.split(":")[0])).toEqual(["③ 영문 알파벳", "③ 코드 이름(용어 표·계약 enum)"]);
+    expect(hardHits("지급일은 3월입니다.", codes)).toHaveLength(1);
+  });
+
+  it("보고 모양은 scan_bodies.py와 같고 끝에 코드 목록", () => {
+    const row: ExplanationRecord = { tenantId: "T1", agentId: "A-1002", kind: "LINE", subjectId: "c-A1002-13-1", streamHash: HASH, promptVersion: "explain_line/v6", provider: "workers-ai", model: "m", text: "분급은 각각 CURVE 사유에 따라 처리됩니다. 둘째 문장입니다.", citedFields: [], numbersUsed: [], groundingStatus: "PASS", attempts: 1, createdAt: "x" };
+    const out = checkReport([row], "v6", ["CURVE"]).split("\n");
+    expect(out[0]).toBe("=== 정규식 요약(v6, 1건) ===");
+    expect(out).toContain("③ 코드 이름(용어 표·계약 enum): 1");
+    expect(out).toContain("=== 문장 수: 평균 2.0, 최소 2, 최대 2, 3문장 미만 1건");
+    expect(out.at(-1)).toBe("CURVE");
+  });
+});
+
+describe("단건 재생성(explain --regenerate — 운영자 2026-11-02)", () => {
+  const now = "2026-10-31T00:00:00.000Z";
+  const byAgent = new Map([["A-1001", A1]]);
+  const subjects = [subject];
+  const seed = async () => {
+    const store = new ExplanationStore(mkdtempSync(join(tmpdir(), "regen-")), HASH);
+    store.put(await generateOne(subject, HASH, lineContext(A1, "2")!, fake([{ ...good, text: `${good.text} 각각 CURVE 사유입니다.` }]).call, undefined, () => now));
+    return store;
+  };
+  const key = { ...subject, promptVersion: promptVersionOf("LINE") };
+
+  it("PASS여도 ①②③ 적중이면 받지 않고 다시, 깨끗한 결과로 바꾼다", async () => {
+    const store = await seed();
+    const f = fake([{ ...good, text: `${good.text} 분급 사유는 CURVE입니다.` }, good]);
+    const r = await runRegenerate(HASH, byAgent, subjects, store, [labelOf(subject)], eventCodes("v6"), 3, f.call);
+    expect(r.regenerated).toEqual([{ label: "explain:LINE:A-1001:2", tries: 2, replaced: true, rejected: [expect.stringMatching(/^#1 본문 점검 ③ 영문 알파벳/)] }]);
+    expect(store.get(key)!.text).toBe(good.text);
+    expect(store.get(key)!.createdAt).not.toBe(now);
+  });
+
+  it("세 번 다 못 넘으면 옛 행 그대로, 없는 행·다른 스트림 라벨은 멈춘다", async () => {
+    const store = await seed();
+    const old = store.get(key);
+    const curve = { ...good, text: `${good.text} CURVE.` };
+    const r = await runRegenerate(HASH, byAgent, subjects, store, [labelOf(subject)], eventCodes("v6"), 3, fake([curve, curve, curve]).call);
+    expect(r.regenerated![0]).toMatchObject({ tries: 3, replaced: false });
+    expect(store.get(key)).toEqual(old);
+    await expect(runRegenerate(HASH, byAgent, subjects, store, ["explain:LINE:A-1001:9"], [], 1, fake([]).call)).rejects.toThrow(/subject 아님/);
+    const empty = new ExplanationStore(mkdtempSync(join(tmpdir(), "regen-")), HASH);
+    await expect(runRegenerate(HASH, byAgent, subjects, empty, [labelOf(subject)], [], 1, fake([]).call)).rejects.toThrow(/행 없음/);
   });
 });
