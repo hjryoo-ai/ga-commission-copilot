@@ -77,6 +77,16 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 ```
 전체 로그: `logs/phase-4-vectorize-check-2026-11-02.log`(같은 날 손으로 한 첫 점검: `logs/phase-4-vectorize-filter-2026-11-02.log`).
 
+## 답변 녹화 준비(운영자 2026-11-02 — 녹화는 11-03 00:00 UTC 리셋 뒤 배치 앞)
+
+**재생 픽스처**(남은 이슈 3 해소): `gen/scripts/answer-fixture.ts`(`cd gen && pnpm run fixture:answer`)가 활성 스트림(`pickStream` — data/stream의 `fca1971c…`)의 `meta.demoAgents` 3명 행을 projection-java 리플레이 뷰에서 뽑아(`demoViews` — agent_id, `policy_limit_history`는 그 설계사들의 원장) 적재기와 같은 SQL(`insertPlan` 슬롯 a + `rulebookInserts` 40청크 + `simStubInserts` 1행 + stream_meta 활성화)로 `worker/test/fixtures/demo-stream.json`(243KB, 문장 15)에 쓴다. 손 복사 없음. 행: agent_profile 3 · earnings_line 482 · earnings_month 91 · policy_limit 21 · history 25 · deferral 24 · clawback 3 · flag 19.
+- 신선도: `gen/test/answer-fixture.test.ts` — 커밋된 픽스처가 지금 data로 만든 것과 바이트 단위로 같아야 한다(스트림 해시가 바뀌면 실패 → 스크립트 다시). 결정론(verified_at = 스트림 generatedAt).
+- worker: `test/demo-stream.ts`의 `seedDemoStream()`(시험 D1을 비우고 문장 실행), `test/demo-stream.test.ts` 2건 — `/health` streamHash = 픽스처·라인 482, A-1001 `get_limit("0001")` = 원장 1·한도 1,800,000, 사규집 40·sim_stub 1행. 툴은 시크릿을 쓰지 않으므로 녹화(로컬 `.dev.vars.record`)와 시험의 툴 결과가 같다.
+
+**녹화 설정 `env.record`**(`worker/wrangler.jsonc`): 평소 설정과 같은 D1·vars + **Vectorize만 `remote: true`**(AI는 원래 늘 원격 — 질문 임베딩 bge-m3, `remote: true`는 경고를 없애려고 적었을 뿐). 평소 `wrangler dev`·vitest(`remoteBindings: false`, 최상위 설정)·배포는 env를 고르지 않으므로 섞이지 않는다. `test/arch.test.ts` 2건 — env는 record 하나, 최상위에 remote 없음, record의 D1·vars = 최상위, Vectorize·AI만 remote.
+- **편차(확인)**: 지시의 "`wrangler dev --local` + Vectorize remote"는 wrangler 4.153에서 안 된다 — `--local`이면 원격 바인딩이 모두 꺼진다(바인딩 표: `env.VECTORIZE … not supported`, `env.AI … not supported`). 그래서 녹화 명령은 **`cd worker && pnpm exec wrangler dev --env record`**(`--local` 없이): 바인딩 표 `env.DB (copilot) D1 local` · `env.VECTORIZE (rulebook-v1) remote` · `env.AI remote`, `/health` streamHash `fca1971c…`·earningsLines 5200(로컬 D1 그대로). D1은 remote 표시가 없어 로컬이다.
+- 시크릿: `worker/.dev.vars.record`(이 env에서만 읽힌다 — 커밋 안 함, `.gitignore`에 `.dev.vars.*`·`!.dev.vars.example` 추가)에 `worker/.dev.vars`의 GROQ_API_KEY·SESSION_SECRET·POLICY_KEY_SECRET를 grep으로 옮기고 `LLM_TRACE=1`을 더했다(값은 출력하지 않았다 — 키 이름·"값 있음"만 확인). `.dev.vars.example`에 안내 줄.
+
 ## 원격 마이그레이션 0005(운영자 승인 2026-11-02)
 
 `wrangler d1 migrations apply copilot --remote` — `0005_llm_trace.sql` ✅(3 commands). 확인: `llm_trace`·`ix_llm_trace_hash` 있음, `llm_trace` 0행(원격 env에 `LLM_TRACE`가 없어 쓰지 않는다). 로그 `logs/phase-4-migration-0005-remote.log`(DB id 가림).
@@ -94,6 +104,7 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 
 ```
 pnpm -r test   → grounding 66 · web 35 · worker 320 · gen 189 통과(항목 4까지)
+pnpm -r test   → grounding 66 · web 35 · worker 324 · gen 201 통과(2026-11-02 — env.record·재생 픽스처·Vectorize 점검·본문 점검까지)
 pnpm run lint  → 오류 0
 tsc --noEmit   → gen·worker 오류 0
 ```
@@ -121,5 +132,5 @@ tsc --noEmit   → gen·worker 오류 0
 
 1. ~~**Workers AI 뉴런 실측이 `usage` 합보다 크다**~~ — **해소(2026-11-02)**: 대시보드 실측 회당 98로 `usage`와 일치, 1일차 초과는 10-31 관문 녹화 포함 추정(확인 불가), 상한 90. 아래는 당시 기록: 2026-11-01 설명 배치 85회의 응답 `usage` 뉴런 합은 8,088(회당 98.6)인데, 같은 날 다른 Workers AI 호출 없이 bge-m3 임베딩 1회가 **4006(10,000 소진)**으로 거부됐다 — 계정 집계로는 85회가 10,000 이상, 회당 **117.6뉴런 이상**이다. 운영자 지시의 "85회 ≈ 9,140뉴런, 약 800 남김"이 성립하지 않는다. 배치 상한을 낮출지(예: 75회 ≈ 8,820 — 117.6 기준) 운영자 판단 필요. 그 전까지는 임베딩 같은 개발 호출을 배치보다 먼저 둔다(배치는 2026-11-02부터 매일 20:10 KST = 11:10 UTC — 운영자 변경. 11-02 00:01 UTC 임베딩 예약은 실행되지 않아 같은 날 배치 직전에 한다).
 2. ~~`sim_stub` 데이터~~ — `load:d1 --sim-stub`(위 항목 4).
-3. 답변 VCR — 운영자 결정 방식으로 경로 완료(위 항목 4). **재생 시험의 데이터 문제**: 녹화는 로컬 D1의 실제 스트림(데모 1 A-1001)으로 하므로 요청에는 실제 툴 결과가 들어간다. 시험 픽스처(`worker/test/fixture.ts`)는 작은 가짜 세계라 같은 질문의 툴 결과가 달라 요청 해시가 맞지 않는다 → 재생 시험은 실제 스트림의 데모 설계사 행을 로컬 D1 시험 DB에 넣어야 한다(gen이 뷰에서 시험용 SQL 픽스처를 만드는 안). 검색 청크도 녹화 요청의 `<rules>`에서 id를 읽어 가짜 검색이 같은 순서로 돌려준다. 녹화 전에 정한다.
+3. 답변 VCR — 운영자 결정 방식으로 경로 완료(위 항목 4). **재생 픽스처로 해소(2026-11-02, 위 "답변 녹화 준비")**. 당시 기록 — **재생 시험의 데이터 문제**: 녹화는 로컬 D1의 실제 스트림(데모 1 A-1001)으로 하므로 요청에는 실제 툴 결과가 들어간다. 시험 픽스처(`worker/test/fixture.ts`)는 작은 가짜 세계라 같은 질문의 툴 결과가 달라 요청 해시가 맞지 않는다 → 재생 시험은 실제 스트림의 데모 설계사 행을 로컬 D1 시험 DB에 넣어야 한다(gen이 뷰에서 시험용 SQL 픽스처를 만드는 안). 검색 청크도 녹화 요청의 `<rules>`에서 id를 읽어 가짜 검색이 같은 순서로 돌려준다. 녹화 전에 정한다.
 4. **Vectorize 로컬 바인딩이 없다** — **(b) 승인·점검 스크립트로 해소(2026-11-02, 위)**: Miniflare(wrangler 4.153)의 Vectorize 플러그인은 원격 프록시만 있고 로컬 시뮬레이션이 없다(`VECTORIZE_REMOTE_SERVICE_NAME` — 확인). vitest는 `remoteBindings: false`라 `env.VECTORIZE`를 쓸 수 없다. 항목 6 "internal 청크가 어떤 질의에도 반환되지 않음(Vectorize 로컬 바인딩)"의 선택지: (a) 시험에서만 원격 바인딩(실제 인덱스 질의 — 무료 질의 차원 소모, CI에 계정 토큰 필요), (b) 원격 인덱스에 대한 별도 점검 스크립트(질의 N개 × filter visibility=agent → internal id 0건)를 Phase 종료 증거로 + 단위 시험은 D1 재필터, (c) 메타데이터 필터를 흉내 내는 메모리 가짜(필터 동작 자체는 검증 못 함). 권고 (b). 운영자 판단.

@@ -5,3 +5,6 @@ GROQ_API_KEY=
 SESSION_SECRET=
 # 설계서 v0.1.12 §7: policyKey HMAC 비밀(SESSION_SECRET과 다른 값)
 POLICY_KEY_SECRET=
+# 답변 녹화(운영자 2026-11-02): `wrangler dev --env record`는 .dev.vars 대신 .dev.vars.record(커밋 안 함)만 읽는다.
+# 위 세 값을 그대로 옮기고 LLM_TRACE=1을 더한다 — LLM_TRACE는 wrangler.jsonc에 두지 않는다(원격에서 llm_trace를 쓰지 않게).
+# LLM_TRACE=1

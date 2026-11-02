@@ -15,7 +15,8 @@
     "explain:check": "node explain/check-bodies.ts",
     "rulebook": "node rulebook/run.ts",
     "rulebook:embed": "node rulebook/embed.ts",
-    "rulebook:vectorize-check": "node rulebook/vectorize-check.ts"
+    "rulebook:vectorize-check": "node rulebook/vectorize-check.ts",
+    "fixture:answer": "node scripts/answer-fixture.ts"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

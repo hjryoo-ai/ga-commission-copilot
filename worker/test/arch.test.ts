@@ -233,3 +233,28 @@ describe("아키텍처: llm_trace 쓰기는 LLM_TRACE 분기 안에서만(운영
     expect(traceWritesOutsideGuard('function a(env){ if (env.LLM_TRACE === "1") { const x = { y: 1 }; insertLlmTrace(db, r); } }')).toEqual([]);
   });
 });
+
+// 운영자 2026-11-02: 녹화 설정은 env.record로 분리 — 평소 dev·시험·배포 설정에 원격 바인딩이 섞이지 않고, record는 Vectorize(·늘 원격인 AI)만 다르다.
+describe("아키텍처: wrangler.jsonc env.record(답변 녹화 전용)", () => {
+  // 이 파일의 주석은 모두 줄 머리 // — 줄 주석만 지우고 JSON으로 읽는다
+  const cfg = JSON.parse(
+    wranglerConfig
+      .split("\n")
+      .filter((l) => !l.trim().startsWith("//"))
+      .join("\n"),
+  ) as Record<string, any>;
+  const rec = cfg.env?.record as Record<string, any>;
+
+  it("env는 record 하나, 최상위 바인딩에는 remote가 없다", () => {
+    expect(Object.keys(cfg.env)).toEqual(["record"]);
+    expect(JSON.stringify([cfg.d1_databases, cfg.vectorize, cfg.ai])).not.toMatch(/"remote"/);
+  });
+
+  it("record는 D1·vars가 최상위와 같고, Vectorize·AI만 remote: true", () => {
+    expect(rec.d1_databases).toEqual(cfg.d1_databases);
+    expect(rec.vars).toEqual(cfg.vars);
+    expect(rec.vectorize).toEqual(cfg.vectorize.map((v: object) => ({ ...v, remote: true })));
+    expect(rec.ai).toEqual({ ...cfg.ai, remote: true });
+    expect(Object.keys(rec).sort()).toEqual(["ai", "d1_databases", "vars", "vectorize"]);
+  });
+});
