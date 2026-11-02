@@ -1,0 +1,16 @@
+프롬프트 explain_line/v6·explain_limit/v6·explain_month/v6, 카세트 explain
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+[regenerate] explain:LINE:A-1002:c-A1002-13-1 바꿈(#1): 2027년 2월에 체결된 *********0002 계약의 2027년 2월 마감분으로, 초년도 수수료가 504,000원 산출되었습니다. 엔진은 요율 7와 지급률 0.9를 적용해 산출한 값이며, 이 금액은 2028년 2월에 252,000원 지급됨, 2029년 2월에 252,000원 예정, 2030년 2월에 252,000원 예정으로 분급 지급됩니다. 첫 번째 분급은 이미 지급된 상태이며, 나머지는 지급 예정입니다.
+regenerate: 생성 1(PASS 1 · FAIL 0 — 첫 시도 1/1(100.0%) · 재생성 후 100.0%), 캐시 건너뜀 0, 호출 {"workers-ai":1}, 재시도 {}
+  LINE: PASS 1 · FAIL 0 — 첫 시도 1/1(100.0%) · 재생성 후 100.0%
+  workers-ai: PASS 1 · FAIL 0 — 첫 시도 1/1(100.0%) · 재생성 후 100.0%
+  모델 @cf/openai/gpt-oss-120b: 본문 1건 평균 3.0문장 · 성공 호출 1회 평균 출력 401토큰(추론 포함)
+  사용량 workers-ai: 성공 1회 · 입력 2532 · 출력 401 토큰(회당 2933.0) · 107.9 뉴런(회당 107.9)
+  재생성 explain:LINE:A-1002:c-A1002-13-1: 바꿈 — 시도 1
+explanation fca1971cdbce: 레코드 171, 이미 있음 170, 새로 0, 바뀐 행 1(재생성 — 지우고 다시) → D1 171행
+   실측 rows written(wrangler): 3
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 171 — PASS 171 · FAIL 0, PASS 행 위반 0
+  LIMIT: PASS 6 · FAIL 0
+  LINE: PASS 159 · FAIL 0
+  MONTH_DIFF: PASS 6 · FAIL 0
+[{'subject_id': 'c-A1002-13-1', 'created_at': '2026-11-02T11:31:40.156Z', 'curve': 0}]
