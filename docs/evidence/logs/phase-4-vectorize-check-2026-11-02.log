@@ -1,0 +1,17 @@
+rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-v1, 2026-11-02T11:33:06.269Z
+== rb-0453f7d205db-a09-1(internal) 자기 벡터로 질의
+  ① 필터 없음 top-k 5: ✓ 1위 = 자기 자신(internal) — internal 2건
+     rb-0453f7d205db-a09-1(1.0000, internal) · rb-0453f7d205db-a11-1(0.7051, internal) · rb-0453f7d205db-a05-1(0.6972, agent) · rb-0453f7d205db-a06-1(0.6899, agent) · rb-0453f7d205db-a07-1(0.6839, agent)
+  ② visibility=agent top-k 20: ✓ internal 0건
+     rb-0453f7d205db-a05-1(0.6972, agent) · rb-0453f7d205db-a06-1(0.6899, agent) · rb-0453f7d205db-a07-1(0.6839, agent) · rb-0453f7d205db-a02-1(0.6635, agent) · rb-0453f7d205db-a12-1(0.6405, agent) … (+15)
+== rb-0453f7d205db-a10-1(internal) 자기 벡터로 질의
+  ① 필터 없음 top-k 5: ✓ 1위 = 자기 자신(internal) — internal 2건
+     rb-0453f7d205db-a10-1(1.0000, internal) · rb-0453f7d205db-a20-1(0.6515, agent) · rb-0453f7d205db-a21-1(0.6379, agent) · rb-0453f7d205db-a14-1(0.6371, agent) · rb-0453f7d205db-a09-1(0.6261, internal)
+  ② visibility=agent top-k 20: ✓ internal 0건
+     rb-0453f7d205db-a20-1(0.6515, agent) · rb-0453f7d205db-a21-1(0.6379, agent) · rb-0453f7d205db-a14-1(0.6371, agent) · rb-0453f7d205db-a31-1(0.6158, agent) · rb-0453f7d205db-a19-1(0.6151, agent) … (+15)
+== rb-0453f7d205db-a11-1(internal) 자기 벡터로 질의
+  ① 필터 없음 top-k 5: ✓ 1위 = 자기 자신(internal) — internal 2건
+     rb-0453f7d205db-a11-1(1.0000, internal) · rb-0453f7d205db-a09-1(0.7050, internal) · rb-0453f7d205db-a08-1(0.6982, agent) · rb-0453f7d205db-a40-1(0.6548, agent) · rb-0453f7d205db-a03-1(0.6200, agent)
+  ② visibility=agent top-k 20: ✓ internal 0건
+     rb-0453f7d205db-a08-1(0.6982, agent) · rb-0453f7d205db-a40-1(0.6548, agent) · rb-0453f7d205db-a03-1(0.6200, agent) · rb-0453f7d205db-a29-1(0.6183, agent) · rb-0453f7d205db-a32-1(0.6083, agent) … (+15)
+판정: 통과 — internal 3개 모두 필터 없이 1위, visibility=agent 필터로 0건

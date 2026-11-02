@@ -46,7 +46,7 @@ async function embedBatch(texts: readonly string[]): Promise<number[][]> {
   return body.result.data;
 }
 
-function wrangler(args: string[]): string {
+export function wrangler(args: string[]): string {
   const r = spawnSync("pnpm", ["--dir", join(REPO_ROOT, "worker"), "exec", "wrangler", ...args], { encoding: "utf8" });
   if (r.status !== 0) throw new Error(`wrangler ${args.slice(0, 3).join(" ")} 실패(exit ${r.status}): ${(r.stderr || r.stdout).trim().slice(0, 1500)}`);
   return r.stdout;

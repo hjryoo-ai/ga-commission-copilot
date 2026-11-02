@@ -4,6 +4,7 @@ import { CHUNK_MAX_TOKENS, chunksOf, headOf, rulebookHash, splitArticle, tokens 
 import { factNumbers, gateArticle, instructionViolations } from "../rulebook/gate.ts";
 import { articleRequest, generateArticle } from "../rulebook/generate.ts";
 import { build } from "../rulebook/run.ts";
+import { judge, parseQuery } from "../rulebook/vectorize-check.ts";
 import { GroundingVerifier } from "@copilot/grounding";
 
 // PHASES Phase 4 항목 1 — 가상 사규집 40조항(설계서 §4.1(c)). LLM 실호출 없음(가짜 호출기).
@@ -137,5 +138,30 @@ describe("rulebook_chunk 적재 SQL", () => {
     const [sql, ...rest] = rulebookInserts([{ chunkId: "rb-0123456789ab-a01-1", article: "제1조", title: "목적", body: "제1조(목적) — 가상 규정 · 예시값\n1. 'O' 회사.", visibility: "agent", version: "0123456789ab", tokenCount: 20 }]);
     expect(rest).toEqual([]);
     expect(sql).toBe("INSERT OR IGNORE INTO rulebook_chunk (chunk_id, article, title, body, visibility, version, token_count) VALUES\n('rb-0123456789ab-a01-1', '제1조', '목적', '제1조(목적) — 가상 규정 · 예시값\n1. ''O'' 회사.', 'agent', '0123456789ab', 20)");
+  });
+});
+
+describe("원격 Vectorize 필터 점검 판정(rulebook:vectorize-check — 운영자 2026-11-02, 항목 6 방식 (b))", () => {
+  const m = (id: string, visibility: string, score = 0.5) => ({ id, score, visibility });
+  const agents = Array.from({ length: 20 }, (_, i) => m(`a${i}`, "agent"));
+  const internal = new Set(["i9", "i11"]);
+  const probe = (q: string) => ({ queryId: q, unfiltered: [m(q, "internal", 1), m("a0", "agent")], filtered: agents });
+
+  it("대조군(필터 없이 1위 = 자기 internal)과 필터(internal 0건·top-k 꽉 참)가 모두 맞아야 통과", () => {
+    expect(judge([probe("i9"), probe("i11")], internal).ok).toBe(true);
+  });
+
+  it("필터 결과에 internal이 섞이거나, 대조군 1위가 자기가 아니거나, 결과가 모자라거나, 질의 수가 다르면 실패", () => {
+    expect(judge([{ ...probe("i9"), filtered: [...agents.slice(1), m("i11", "internal")] }, probe("i11")], internal).ok).toBe(false);
+    expect(judge([{ ...probe("i9"), filtered: [...agents.slice(1), m("x", "?")] }, probe("i11")], internal).ok).toBe(false);
+    expect(judge([{ ...probe("i9"), unfiltered: [m("a0", "agent", 1)] }, probe("i11")], internal).ok).toBe(false);
+    expect(judge([{ ...probe("i9"), filtered: agents.slice(0, 5) }, probe("i11")], internal).ok).toBe(false);
+    expect(judge([probe("i9")], internal).ok).toBe(false);
+    expect(judge([], new Set()).ok).toBe(false);
+  });
+
+  it("wrangler vectorize query 출력(머리글 + JSON)을 읽는다", () => {
+    const out = ' ⛅️ wrangler 4.153.0\n📋 Searching for relevant vectors...\n{"count":1,"matches":[{"id":"rb-x-a05-1","score":0.69,"metadata":{"visibility":"agent"}}]}';
+    expect(parseQuery(out)).toEqual([{ id: "rb-x-a05-1", score: 0.69, visibility: "agent" }]);
   });
 });

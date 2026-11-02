@@ -44,6 +44,43 @@
 - 원격 `GROQ_API_KEY`: `grep '^GROQ_API_KEY=' gen/.dev.vars | cut -d= -f2- | (cd worker && pnpm wrangler secret put GROQ_API_KEY)` — "Success! Uploaded secret GROQ_API_KEY", `wrangler secret list` 이름 3개(GROQ_API_KEY·POLICY_KEY_SECRET·SESSION_SECRET). 값은 출력·기록하지 않았다.
 - 답변 VCR 방식·`sim_stub` 경로·Vectorize 로컬 시험은 아래 항목 4·남은 이슈.
 
+## 운영자 결정(2026-11-02, 2일차 수용 때)
+
+- Workers AI 배치 상한 **90/일**(대시보드 실측 70회 = 6,870뉴런, 회당 98 — `usage` 일치. 90 × 98 ≈ 8,820, 개발용 약 1,100 남음). DECISIONS의 "원인 미상" → "대시보드 실측 98/회로 usage 일치, 전일 초과는 관문 녹화 포함 추정". 설계서 v0.1.19.
+- **Vectorize 시험 방식 (b) 승인** — 아래 "Vectorize 필터 점검"이 항목 6 완료 기준("internal 청크가 어떤 질의에도 반환되지 않음")의 증거. 단위 시험은 D1 재필터(`answer.test.ts`).
+- **원격 0005 적용 승인** → 적용(아래).
+- 부록 A 12건 답변 녹화는 2026-11-03 00:00 UTC 리셋 뒤 배치 앞에서(임베딩 12회 ≈ 0.6뉴런 — 순서는 사실 무관하지만 규칙 유지).
+
+## Vectorize 필터 점검(항목 6 완료 기준 증거 — 방식 (b))
+
+`cd gen && pnpm run rulebook:vectorize-check`(`gen/rulebook/vectorize-check.ts`): internal 청크 3개마다 자기 벡터로(`--vector-id`) ① 필터 없음 top-k 5(대조군 — 1위가 자기 자신이어야 internal 벡터가 인덱스에 있고 검색된다는 뜻), ② `{"visibility":"agent"}` top-k 20(런타임 `answer.ts`와 같은 필터 — internal 0건·20건 모두 agent). internal에 가장 가까운 질의라 필터가 새면 여기서 먼저 보인다. Workers AI 호출 없음, 질의 6회(약 25만 질의 차원 — 무료 월 3,000만). 판정 함수 `judge`·출력 파서는 `gen/test/rulebook.test.ts` 3건.
+
+```
+$ cd gen && pnpm run rulebook:vectorize-check
+rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-v1, 2026-11-02T11:33:06.269Z
+== rb-0453f7d205db-a09-1(internal) 자기 벡터로 질의
+  ① 필터 없음 top-k 5: ✓ 1위 = 자기 자신(internal) — internal 2건
+     rb-0453f7d205db-a09-1(1.0000, internal) · rb-0453f7d205db-a11-1(0.7051, internal) · rb-0453f7d205db-a05-1(0.6972, agent) · rb-0453f7d205db-a06-1(0.6899, agent) · rb-0453f7d205db-a07-1(0.6839, agent)
+  ② visibility=agent top-k 20: ✓ internal 0건
+     rb-0453f7d205db-a05-1(0.6972, agent) · rb-0453f7d205db-a06-1(0.6899, agent) · rb-0453f7d205db-a07-1(0.6839, agent) · rb-0453f7d205db-a02-1(0.6635, agent) · rb-0453f7d205db-a12-1(0.6405, agent) … (+15)
+== rb-0453f7d205db-a10-1(internal) 자기 벡터로 질의
+  ① 필터 없음 top-k 5: ✓ 1위 = 자기 자신(internal) — internal 2건
+     rb-0453f7d205db-a10-1(1.0000, internal) · rb-0453f7d205db-a20-1(0.6515, agent) · rb-0453f7d205db-a21-1(0.6379, agent) · rb-0453f7d205db-a14-1(0.6371, agent) · rb-0453f7d205db-a09-1(0.6261, internal)
+  ② visibility=agent top-k 20: ✓ internal 0건
+     rb-0453f7d205db-a20-1(0.6515, agent) · rb-0453f7d205db-a21-1(0.6379, agent) · rb-0453f7d205db-a14-1(0.6371, agent) · rb-0453f7d205db-a31-1(0.6158, agent) · rb-0453f7d205db-a19-1(0.6151, agent) … (+15)
+== rb-0453f7d205db-a11-1(internal) 자기 벡터로 질의
+  ① 필터 없음 top-k 5: ✓ 1위 = 자기 자신(internal) — internal 2건
+     rb-0453f7d205db-a11-1(1.0000, internal) · rb-0453f7d205db-a09-1(0.7050, internal) · rb-0453f7d205db-a08-1(0.6982, agent) · rb-0453f7d205db-a40-1(0.6548, agent) · rb-0453f7d205db-a03-1(0.6200, agent)
+  ② visibility=agent top-k 20: ✓ internal 0건
+     rb-0453f7d205db-a08-1(0.6982, agent) · rb-0453f7d205db-a40-1(0.6548, agent) · rb-0453f7d205db-a03-1(0.6200, agent) · rb-0453f7d205db-a29-1(0.6183, agent) · rb-0453f7d205db-a32-1(0.6083, agent) … (+15)
+판정: 통과 — internal 3개 모두 필터 없이 1위, visibility=agent 필터로 0건
+```
+전체 로그: `logs/phase-4-vectorize-check-2026-11-02.log`(같은 날 손으로 한 첫 점검: `logs/phase-4-vectorize-filter-2026-11-02.log`).
+
+## 원격 마이그레이션 0005(운영자 승인 2026-11-02)
+
+`wrangler d1 migrations apply copilot --remote` — `0005_llm_trace.sql` ✅(3 commands). 확인: `llm_trace`·`ix_llm_trace_hash` 있음, `llm_trace` 0행(원격 env에 `LLM_TRACE`가 없어 쓰지 않는다). 로그 `logs/phase-4-migration-0005-remote.log`(DB id 가림).
+
 ## 항목 4 — `/me/ask`·`/answers/{id}`(진행 중)
 
 - `POST /api/v1/me/ask {question}`(`worker/src/api/ask.ts`, me 라우터 — 세션 필수): 질문 1~500자·다른 키 거부(400). 개발 하드 상한 `ASK_DAILY_CAP`(기본 20, `budget_counter` scope `ask:dev`, `reserveBudget` — INSERT OR IGNORE + 단일 UPDATE `WHERE used < ?`). 닿으면 LLM 없이 **429** `{refused, reason: "BUDGET", text: 고정 문구, retryAfterSeconds}`(§7 저하 모드 응답 모양) + answer_log(provider·model `none`). 통과하면 `answerQuestion`(Groq — LLM_TRACE면 `traced`), 응답 `{answerId, text, citations, toolCalls, refused, reason, provider, model, promptVersion, groundingStatus, cacheHit: false, latencyMs}` + 공통 필드·고정 문구, `Cache-Control: no-store`. 공급자 오류는 503(폴백은 Phase 5).
@@ -73,16 +110,16 @@ tsc --noEmit   → gen·worker 오류 0
 ## 사람 작업
 
 - [x] §14.1-5 — 조항 단위 1청크 확정(v0.1.17)
-- [x] Workers AI 하루 상한 — 70(운영자), 대시보드 뉴런 실측을 주면 보정
+- [x] Workers AI 하루 상한 — 70(운영자 11-01) → 대시보드 실측(회당 98)으로 **90**(운영자 11-02)
 - [x] 원격 `GROQ_API_KEY` — 운영자 지정 파이프로 넣음
 - [ ] 커밋 푸시(자동 모드 권한 정책이 `git push`를 막았다 — 운영자가 푸시. 푸시하면 CI가 배포한다: `/me/ask`가 원격에서 열리고 `answer=v1`이 `/me.promptVersions`에 보인다)
-- [ ] 원격 마이그레이션 0005(`llm_trace` — 원격에서는 쓰지 않지만 스키마 일치용) 적용 승인
-- [ ] Vectorize 로컬 시험 방식 결정 — 아래 남은 이슈 4
-- [ ] (선택) Workers AI 대시보드 뉴런 실측 — 상한 보정용
+- [x] 원격 마이그레이션 0005 — 승인(11-02)·적용
+- [x] Vectorize 시험 방식 — (b) 승인(11-02), 점검 스크립트 위
+- [x] Workers AI 대시보드 뉴런 실측 — 70회 = 6,870(11-02)
 
 ## 남은 이슈
 
-1. **Workers AI 뉴런 실측이 `usage` 합보다 크다**(운영자: 상한 70, 원인 미상으로 DECISIONS에 기록): 2026-11-01 설명 배치 85회의 응답 `usage` 뉴런 합은 8,088(회당 98.6)인데, 같은 날 다른 Workers AI 호출 없이 bge-m3 임베딩 1회가 **4006(10,000 소진)**으로 거부됐다 — 계정 집계로는 85회가 10,000 이상, 회당 **117.6뉴런 이상**이다. 운영자 지시의 "85회 ≈ 9,140뉴런, 약 800 남김"이 성립하지 않는다. 배치 상한을 낮출지(예: 75회 ≈ 8,820 — 117.6 기준) 운영자 판단 필요. 그 전까지는 임베딩 같은 개발 호출을 배치보다 먼저 둔다(배치는 2026-11-02부터 매일 20:10 KST = 11:10 UTC — 운영자 변경. 11-02 00:01 UTC 임베딩 예약은 실행되지 않아 같은 날 배치 직전에 한다).
+1. ~~**Workers AI 뉴런 실측이 `usage` 합보다 크다**~~ — **해소(2026-11-02)**: 대시보드 실측 회당 98로 `usage`와 일치, 1일차 초과는 10-31 관문 녹화 포함 추정(확인 불가), 상한 90. 아래는 당시 기록: 2026-11-01 설명 배치 85회의 응답 `usage` 뉴런 합은 8,088(회당 98.6)인데, 같은 날 다른 Workers AI 호출 없이 bge-m3 임베딩 1회가 **4006(10,000 소진)**으로 거부됐다 — 계정 집계로는 85회가 10,000 이상, 회당 **117.6뉴런 이상**이다. 운영자 지시의 "85회 ≈ 9,140뉴런, 약 800 남김"이 성립하지 않는다. 배치 상한을 낮출지(예: 75회 ≈ 8,820 — 117.6 기준) 운영자 판단 필요. 그 전까지는 임베딩 같은 개발 호출을 배치보다 먼저 둔다(배치는 2026-11-02부터 매일 20:10 KST = 11:10 UTC — 운영자 변경. 11-02 00:01 UTC 임베딩 예약은 실행되지 않아 같은 날 배치 직전에 한다).
 2. ~~`sim_stub` 데이터~~ — `load:d1 --sim-stub`(위 항목 4).
 3. 답변 VCR — 운영자 결정 방식으로 경로 완료(위 항목 4). **재생 시험의 데이터 문제**: 녹화는 로컬 D1의 실제 스트림(데모 1 A-1001)으로 하므로 요청에는 실제 툴 결과가 들어간다. 시험 픽스처(`worker/test/fixture.ts`)는 작은 가짜 세계라 같은 질문의 툴 결과가 달라 요청 해시가 맞지 않는다 → 재생 시험은 실제 스트림의 데모 설계사 행을 로컬 D1 시험 DB에 넣어야 한다(gen이 뷰에서 시험용 SQL 픽스처를 만드는 안). 검색 청크도 녹화 요청의 `<rules>`에서 id를 읽어 가짜 검색이 같은 순서로 돌려준다. 녹화 전에 정한다.
-4. **Vectorize 로컬 바인딩이 없다**: Miniflare(wrangler 4.153)의 Vectorize 플러그인은 원격 프록시만 있고 로컬 시뮬레이션이 없다(`VECTORIZE_REMOTE_SERVICE_NAME` — 확인). vitest는 `remoteBindings: false`라 `env.VECTORIZE`를 쓸 수 없다. 항목 6 "internal 청크가 어떤 질의에도 반환되지 않음(Vectorize 로컬 바인딩)"의 선택지: (a) 시험에서만 원격 바인딩(실제 인덱스 질의 — 무료 질의 차원 소모, CI에 계정 토큰 필요), (b) 원격 인덱스에 대한 별도 점검 스크립트(질의 N개 × filter visibility=agent → internal id 0건)를 Phase 종료 증거로 + 단위 시험은 D1 재필터, (c) 메타데이터 필터를 흉내 내는 메모리 가짜(필터 동작 자체는 검증 못 함). 권고 (b). 운영자 판단.
+4. **Vectorize 로컬 바인딩이 없다** — **(b) 승인·점검 스크립트로 해소(2026-11-02, 위)**: Miniflare(wrangler 4.153)의 Vectorize 플러그인은 원격 프록시만 있고 로컬 시뮬레이션이 없다(`VECTORIZE_REMOTE_SERVICE_NAME` — 확인). vitest는 `remoteBindings: false`라 `env.VECTORIZE`를 쓸 수 없다. 항목 6 "internal 청크가 어떤 질의에도 반환되지 않음(Vectorize 로컬 바인딩)"의 선택지: (a) 시험에서만 원격 바인딩(실제 인덱스 질의 — 무료 질의 차원 소모, CI에 계정 토큰 필요), (b) 원격 인덱스에 대한 별도 점검 스크립트(질의 N개 × filter visibility=agent → internal id 0건)를 Phase 종료 증거로 + 단위 시험은 D1 재필터, (c) 메타데이터 필터를 흉내 내는 메모리 가짜(필터 동작 자체는 검증 못 함). 권고 (b). 운영자 판단.
