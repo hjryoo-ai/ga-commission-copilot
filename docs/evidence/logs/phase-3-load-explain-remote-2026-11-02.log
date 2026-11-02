@@ -1,0 +1,6 @@
+explanation fca1971cdbce: 레코드 171, 이미 있음 104, 새로 67 → D1 171행
+   실측 rows written(wrangler): 134
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 171 — PASS 171 · FAIL 0, PASS 행 위반 0
+  LIMIT: PASS 6 · FAIL 0
+  LINE: PASS 159 · FAIL 0
+  MONTH_DIFF: PASS 6 · FAIL 0
