@@ -3,7 +3,7 @@
 - 수행일: 2026-11-01(UTC) — 항목 1·2·3 착수(운영자 지시: 설명 배치와 병행, PHASES Phase 4 항목 1·2·3부터)
 - 기준 문서: 설계서 v0.1.18 §4.1(c)·§4.2·§4.3·§4.4·§5.1·§5.2·§6.3·§6.5·§10, 부록 A·B.1·B.2, PHASES.md Phase 4
 - 도구 버전: node 25.5.0, pnpm 10.28.2, wrangler 4.153.0, vitest 4.1.12, `gpt-tokenizer` 4.0.0(gen devDependency — 2026-08-16 배포판으로 고정, o200k 토큰 수), LLM: Groq `openai/gpt-oss-120b`(사규집 녹화), 임베딩 `@cf/baai/bge-m3`
-- 상태: **항목 1 — 사규집 생성·청킹·D1 적재 완료, 임베딩·Vectorize 업서트는 Workers AI 당일 뉴런 소진(4006)으로 2026-11-02 00:01 UTC 예약.** 항목 2·3 수용(2026-11-01, 편차 6건 수용). 항목 4 — `/me/ask`·`/answers/{id}`·개발 상한·LLM_TRACE 녹화 경로·`sim_stub` 적재 완료(LLM 없는 경로 시험). 부록 A 12건 녹화(카세트)·항목 5·6과 완료 기준은 아직.
+- 상태: **항목 1 완료 — 사규집 생성·청킹·D1 적재, 임베딩·Vectorize 업서트(2026-11-02 11:10 UTC, 벡터 40·visibility 인덱스).** 항목 2·3 수용(2026-11-01, 편차 6건 수용). 항목 4 — `/me/ask`·`/answers/{id}`·개발 상한·LLM_TRACE 녹화 경로·`sim_stub` 적재 완료(LLM 없는 경로 시험). 부록 A 12건 녹화(카세트)·항목 5·6과 완료 기준은 아직.
 
 운영자 조건(2026-11-01): 사규집 40조항 생성과 답변 프롬프트 녹화는 Groq, 임베딩만 Workers AI. `/me/ask`는 활성 설명 배치와 D1 쓰기 예산을 공유하므로 answer_log 적재 시험은 로컬 D1에서만. 푸시는 운영자.
 
@@ -18,7 +18,7 @@
 | 녹화 | 1차 실행이 제19조 뒤 예산 차감(원격 D1)에서 Cloudflare **7403**(일시 오류 — Phase 1에도 1회)으로 멈춤 → 카세트에서 이어서. **40/40 PASS, 첫 시도 38/40**(제9·11조 재생성). 제40조는 "한도·분급 조항은 2026년 7월 1일부터"로 적용일을 뒤섞어(뜻 오류 — 숫자는 facts 안이라 G4 통과) 다룰 내용을 한도·분급으로 나눠 1회 재녹화 | `logs/phase-4-rulebook-record-attempt1-7403.log`, `logs/phase-4-rulebook-record.log`, 카세트 `gen/providers/vcr/rulebook.json`(42항목, 입력 45,506 + 출력 8,958 토큰) |
 | 산출 | 사규집 `0453f7d205db…`: `data/rulebook/0453f7d205db41df5f162596f31cca0b6f9783ec51d0ace7f41d01033deb6428/{articles,chunks}.jsonl` — 조항 40, **청크 40**(agent 37 · internal 3), o200k 토큰 합 3,507 · 최소 41 · 최대 257 | |
 | D1 적재 | `load:d1 -- --local\|--remote --rulebook`(INSERT OR IGNORE): 로컬 40행, **원격 40행 — rows written 80** | `logs/phase-4-rulebook-load.log` |
-| 임베딩·업서트 | `rulebook:embed -- --upsert`(bge-m3 REST, `visibility` 메타데이터 인덱스를 먼저 만들고 `wrangler vectorize upsert rulebook-v1`). 2026-11-01 01:2x UTC 1회 시도 → **429 code 4006 "daily free allocation of 10,000 neurons"** — 설명 배치 85회 뒤 당일 뉴런 소진. **2026-11-02 00:01 UTC 예약**(배치보다 먼저) | `logs/phase-4-rulebook-embed.log` |
+| 임베딩·업서트 | `rulebook:embed -- --upsert`(bge-m3 REST, `visibility` 메타데이터 인덱스를 먼저 만들고 `wrangler vectorize upsert rulebook-v1`). 2026-11-01 01:2x UTC 1회 시도 → **429 code 4006 "daily free allocation of 10,000 neurons"** — 설명 배치 85회 뒤 당일 뉴런 소진. 00:01 UTC 예약은 실행되지 않았다(세션이 깨어 있지 않음). **2026-11-02 11:10 UTC — 설명 배치 직전에 실행**: 임베딩 40개 · bge-m3 호출 1회(dev 예산, 4006 없음) · 토큰 합 3,507 → `gen/out/rulebook/0453f7d2…/vectors.ndjson` → `--upsert`(저장된 임베딩 재사용 — 추가 Workers AI 호출 없음): metadata index `visibility` 만듦 → 40개 업서트(mutation `ae1c0bc3…`). 확인: `vectorize info` **vectorCount 40**·1024차원·processedUpTo 2026-11-02T11:10:32Z, `list-metadata-index` **visibility String**. 필터 점검: 제9조(internal) 자기 벡터로 질의 — 필터 없으면 1·2위가 internal(제9·11조), `{"visibility":"agent"}`면 5건 모두 agent | `logs/phase-4-rulebook-embed-2026-11-02.log`(1차 시도 `logs/phase-4-rulebook-embed.log`), `logs/phase-4-vectorize-filter-2026-11-02.log` |
 
 ## 항목 2 — 툴(`worker/src/tools/`)
 

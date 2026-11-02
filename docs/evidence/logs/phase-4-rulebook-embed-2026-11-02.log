@@ -1,0 +1,29 @@
+
+> @copilot/gen@ rulebook:embed /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node rulebook/embed.ts
+
+임베딩 40개 · 호출 1회(dev 예산) · 토큰 합 3507(o200k 기준) → /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/out/rulebook/0453f7d205db41df5f162596f31cca0b6f9783ec51d0ace7f41d01033deb6428/vectors.ndjson
+
+> @copilot/gen@ rulebook:embed /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node rulebook/embed.ts -- --upsert
+
+임베딩 재사용 40개(/Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen/out/rulebook/0453f7d205db41df5f162596f31cca0b6f9783ec51d0ace7f41d01033deb6428/vectors.ndjson)
+metadata index visibility: 만듦
+✨ Enqueued 40 vectors into index 'rulebook-v1' for upsertion. Mutation changeset identifier: ae1c0bc3-09c3-49b0-9da3-b6b58f5815b7
+✅ Successfully enqueued 40 vectors into index 'rulebook-v1' for upsertion.
+ ⛅️ wrangler 4.153.0 (update available 4.156.1)
+───────────────────────────────────────────────
+📋 Fetching index info...
+┌────────────┬─────────────┬───────────────────────┬───────────────────────┐
+│ dimensions │ vectorCount │ processedUpToMutation │ processedUpToDatetime │
+├────────────┼─────────────┼───────────────────────┼───────────────────────┤
+│ 1024       │ 0           │                       │                       │
+└────────────┴─────────────┴───────────────────────┴───────────────────────┘
+ ⛅️ wrangler 4.153.0 (update available 4.156.1)
+───────────────────────────────────────────────
+📋 Fetching metadata indexes...
+▲ [WARNING] 
+  You haven't created any metadata indexes on this account.
+  Use 'wrangler vectorize create-metadata-index <name>' to create one, or visit
+  https://developers.cloudflare.com/vectorize/ to get started.
+  		

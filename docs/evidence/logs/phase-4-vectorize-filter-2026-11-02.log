@@ -1,0 +1,12 @@
+== query rulebook-v1 --vector-id rb-0453f7d205db-a09-1(제9조, internal) --top-k 5, 필터 none
+  rb-0453f7d205db-a09-1  1.0000  internal
+  rb-0453f7d205db-a11-1  0.7051  internal
+  rb-0453f7d205db-a05-1  0.6972  agent
+  rb-0453f7d205db-a06-1  0.6899  agent
+  rb-0453f7d205db-a07-1  0.6839  agent
+== query rulebook-v1 --vector-id rb-0453f7d205db-a09-1(제9조, internal) --top-k 5, 필터 agent
+  rb-0453f7d205db-a05-1  0.6972  agent
+  rb-0453f7d205db-a06-1  0.6899  agent
+  rb-0453f7d205db-a07-1  0.6839  agent
+  rb-0453f7d205db-a02-1  0.6635  agent
+  rb-0453f7d205db-a12-1  0.6405  agent
