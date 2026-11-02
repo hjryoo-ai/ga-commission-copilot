@@ -1,0 +1,29 @@
+
+> @copilot/gen@ explain /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node explain/run.ts -- --batch
+
+프롬프트 explain_line/v6·explain_limit/v6·explain_month/v6, 카세트 explain
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+[batch] Workers AI 확인: {"label":"explain:LINE:A-1002:c-A1002-05-4","responseFormat":"json_schema","firstG1":"PASS","status":"PASS(attempts 1)","model":"@cf/openai/gpt-oss-120b"}
+[batch] explain:LINE:A-1002:c-A1002-15-1 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-13 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-11 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-9 PASS workers-ai (재생성)
+[batch] explain:LINE:A-1002:c-A1002-05-5 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-07-2 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-14 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-12 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-10 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-05-6 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-07-3 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-08-2 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-01-15 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-02-13 PASS workers-ai
+[batch] explain:LINE:A-1002:c-A1002-03-11 PASS workers-ai (재생성)
+[batch] explain:LINE:A-1002:c-A1002-05-7 PASS workers-ai
+[batch] workers-ai 끝: 예산 소진(scope=batch:explain:workers-ai, day=2026-11-02, cap=90) — 실호출 중단
+batch: 생성 17(PASS 17 · FAIL 0 — 첫 시도 15/17(88.2%) · 재생성 후 100.0%), 캐시 건너뜀 155, 호출 {"workers-ai":19}, 재시도 {}, 멈춤: 모든 공급자 예산 소진(오늘)
+  LINE: PASS 17 · FAIL 0 — 첫 시도 15/17(88.2%) · 재생성 후 100.0%
+  workers-ai: PASS 17 · FAIL 0 — 첫 시도 15/17(88.2%) · 재생성 후 100.0%
+  모델 @cf/openai/gpt-oss-120b: 본문 17건 평균 2.6문장 · 성공 호출 19회 평균 출력 317토큰(추론 포함)
+  사용량 workers-ai: 성공 19회 · 입력 45059 · 출력 6021 토큰(회당 2688.4) · 1844.2 뉴런(회당 97.1)
