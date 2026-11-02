@@ -268,6 +268,7 @@ v6을 만든다면(운영자 결정 뒤): INCENTIVE 행에 "'인센티브'라고
 - 원격: 적재 72 → 104행(v4 16 + v6 88), `verify:explain --remote` PASS 104·위반 0.
 - 로그: `logs/phase-3-explain-batch-2026-11-01.log`, 점검 `logs/phase-3-explain-batch-2026-11-01-scan.log`, 적재 `logs/phase-3-load-explain-remote-2026-11-01.log`.
 - **2일차(2026-11-02)**: 운영자 2026-11-01 상한 70, 2026-11-02 실행 시각 20:10 KST(11:10 UTC)로 변경. 같은 날 배치 전에 사규집 임베딩 1회(bge-m3, dev 예산 — `phase-4.md`). 진행 **155/591**(녹화 16 + 72 + 67), 남은 **436** → 하루 약 67이면 **약 7일**(11-08 끝 예상). 원격: 적재 67 → 171행(v4 16 + v6 155), `verify:explain --remote` PASS 171·위반 0. 로그: `logs/phase-3-explain-batch-2026-11-02.log`, 점검 `…-2026-11-02-scan.log`, 적재 `logs/phase-3-load-explain-remote-2026-11-02.log`.
+- **대시보드 뉴런(운영자 제공, 2026-11-02 11:2x UTC 무렵 화면)**: 오늘 705.97/10k — Text Generation `@cf/openai/gpt-oss-120b` 696.04, Text Embeddings `@cf/baai/bge-m3` 9.93. 응답 `usage`로 낸 배치 값 6,747.9(69회)의 약 1/10이다. 696.04 ÷ 회당 97.8 ≈ 7회 — 배치(11:10~11:19) 첫 1분 정도만 잡힌 것으로 보이고, 배치 전 임베딩(11:10, 9.93 — 40청크 1회)은 다 잡혔다. 1일차에 85회 뒤 4006(10,000 소진)이 난 것과도 맞지 않으므로 **대시보드 집계 지연(부분 집계)으로 보고 보정하지 않는다**(상한 70 유지). 같은 날 값은 하루가 다 지난 뒤(다음 09:00 KST 리셋 전) 다시 받아 보정한다. API 교차 확인은 못 함 — `gen/.dev.vars`의 토큰에 Account Analytics 읽기 권한이 없다(GraphQL `aiInferenceAdaptiveGroups` → `not authorized`).
 
 명령: `cd gen && pnpm run explain -- --batch` → `git add data/explain` 커밋 → `pnpm run load:d1 -- --remote --explain` → `pnpm run verify:explain -- --remote`. 배치 첫 호출은 첫 대상을 Workers AI로 만든다(`RunReport.probe`).
 
