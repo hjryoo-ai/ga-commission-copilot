@@ -85,6 +85,7 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 
 **녹화 설정 `env.record`**(`worker/wrangler.jsonc`): 평소 설정과 같은 D1·vars + **Vectorize만 `remote: true`**(AI는 원래 늘 원격 — 질문 임베딩 bge-m3, `remote: true`는 경고를 없애려고 적었을 뿐). 평소 `wrangler dev`·vitest(`remoteBindings: false`, 최상위 설정)·배포는 env를 고르지 않으므로 섞이지 않는다. `test/arch.test.ts` 2건 — env는 record 하나, 최상위에 remote 없음, record의 D1·vars = 최상위, Vectorize·AI만 remote.
 - **편차(확인)**: 지시의 "`wrangler dev --local` + Vectorize remote"는 wrangler 4.153에서 안 된다 — `--local`이면 원격 바인딩이 모두 꺼진다(바인딩 표: `env.VECTORIZE … not supported`, `env.AI … not supported`). 그래서 녹화 명령은 **`cd worker && pnpm exec wrangler dev --env record`**(`--local` 없이): 바인딩 표 `env.DB (copilot) D1 local` · `env.VECTORIZE (rulebook-v1) remote` · `env.AI remote`, `/health` streamHash `fca1971c…`·earningsLines 5200(로컬 D1 그대로). D1은 remote 표시가 없어 로컬이다.
+- CI 배포(`.github/workflows/deploy.yml`)는 `wrangler deploy --env=""`로 최상위 환경을 명시 — env가 둘 이상이면 wrangler가 "no target environment" 경고를 낸다. `--dry-run`으로 경고 없음·바인딩 DB·VECTORIZE·AI·PROMPT_VERSIONS 확인.
 - 시크릿: `worker/.dev.vars.record`(이 env에서만 읽힌다 — 커밋 안 함, `.gitignore`에 `.dev.vars.*`·`!.dev.vars.example` 추가)에 `worker/.dev.vars`의 GROQ_API_KEY·SESSION_SECRET·POLICY_KEY_SECRET를 grep으로 옮기고 `LLM_TRACE=1`을 더했다(값은 출력하지 않았다 — 키 이름·"값 있음"만 확인). `.dev.vars.example`에 안내 줄.
 
 ## 원격 마이그레이션 0005(운영자 승인 2026-11-02)
