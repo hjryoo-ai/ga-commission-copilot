@@ -6,6 +6,7 @@ import type { D1Exec } from "../load/flow.ts";
 import { type Slot, slotTable, sqlValue } from "../load/sql.ts";
 import { TENANT } from "../world/rules/tables.ts";
 import { type AgentRows, contextOf, type Kind, type Row } from "./context.ts";
+import { promptVersionOf } from "./generate.ts";
 
 export interface RecheckReport {
   streamHash: string;
@@ -15,9 +16,13 @@ export interface RecheckReport {
   pass: number;
   fail: number;
   byKind: Record<string, { pass: number; fail: number }>;
-  /** PASS 행인데 재검증에 걸린 것(0이어야 한다). */
-  violations: { kind: string; agentId: string; subjectId: string; promptVersion: string; problems: string[] }[];
+  /** 활성 프롬프트 버전(화면에 나가는 행)의 PASS 행인데 재검증에 걸린 것(0이어야 한다 — 있으면 exit 1). */
+  violations: Violation[];
+  /** 비활성 버전(이력 — 화면에 나가지 않는다, 운영자 2026-10-31 v4 행 보존)의 위반. 보고만 한다(2026-11-03 — 검증기가 엄격해지면 이력 행이 걸린다). */
+  historyViolations: Violation[];
 }
+
+type Violation = { kind: string; agentId: string; subjectId: string; promptVersion: string; problems: string[] };
 
 const JSON_COLS: Readonly<Record<string, readonly string[]>> = { earnings_line: ["basis", "policy_summary"] };
 
@@ -52,7 +57,7 @@ export function recheckExplanations(db: D1Exec, hashArg?: string, tenant = TENAN
   const rows = db.query(
     `SELECT agent_id, kind, subject_id, prompt_version, text, cited_fields, numbers_used, grounding_status FROM explanation WHERE tenant_id = ${sqlValue(tenant)} AND stream_hash = ${sqlValue(hash)} ORDER BY agent_id, kind, subject_id`,
   ) as { agent_id: string; kind: Kind; subject_id: string; prompt_version: string; text: string; cited_fields: string; numbers_used: string; grounding_status: string }[];
-  const report: RecheckReport = { streamHash: hash, slot: meta.slot, active: meta.active === 1, rows: rows.length, pass: 0, fail: 0, byKind: {}, violations: [] };
+  const report: RecheckReport = { streamHash: hash, slot: meta.slot, active: meta.active === 1, rows: rows.length, pass: 0, fail: 0, byKind: {}, violations: [], historyViolations: [] };
   const agents = new Map<string, AgentRows>();
   for (const r of rows) {
     const k = (report.byKind[r.kind] ??= { pass: 0, fail: 0 });
@@ -71,7 +76,7 @@ export function recheckExplanations(db: D1Exec, hashArg?: string, tenant = TENAN
       const g = gateExplanation({ text: r.text, citedFields: JSON.parse(r.cited_fields) as string[], numbersUsed: JSON.parse(r.numbers_used) as string[] }, ctx, { ownAgentId: r.agent_id });
       problems.push(...g.g4.map((x) => `G4 ${x}`), ...g.g5.map((x) => `G5 ${x}`), ...g.g6.map((x) => `G6 ${x}`));
     }
-    if (problems.length) report.violations.push({ kind: r.kind, agentId: r.agent_id, subjectId: r.subject_id, promptVersion: r.prompt_version, problems });
+    if (problems.length) (r.prompt_version === promptVersionOf(r.kind) ? report.violations : report.historyViolations).push({ kind: r.kind, agentId: r.agent_id, subjectId: r.subject_id, promptVersion: r.prompt_version, problems });
   }
   return report;
 }

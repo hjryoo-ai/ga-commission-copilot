@@ -268,6 +268,9 @@ describe("G6 금지어·식별자", () => {
   });
   it("실존 보험사명은 위반", () => {
     expect(forbiddenViolations("삼성생명 상품")).toEqual(["INSURER:삼성생명"]);
+    // 운영자 2026-11-03: 한도는 초년도(계약일부터 1년) 기준 — "회계연도"·"사업연도"는 데이터에 없는 기간 개념
+    expect(forbiddenViolations("이번 회계연도 한도는")).toEqual(["PHRASE:회계연도"]);
+    expect(forbiddenViolations("다음 사업 연도로")).toEqual(["PHRASE:사업 연도"]);
   });
 
   it("문장 쉼표·마침표 앞 숫자도 토큰(2026-11-03 — 쉼표가 붙으면 토큰이 사라지거나 0이 되던 G4 구멍)", () => {

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { rulebookChunks, ScopedQuery } from "../src/db/ScopedQuery";
-import { type AnswerDeps, type AnswerOutput, answerQuestion, normalizeQuestion, REFUSAL_TEXT, shapeProblems, TOP_K } from "../src/llm/answer";
+import { type AnswerDeps, type AnswerOutput, answerQuestion, articleNo, normalizeQuestion, REFUSAL_TEXT, shapeProblems, TOP_K } from "../src/llm/answer";
 import { activePrompt, loadPrompt, parsePrompt, render } from "../src/llm/promptRegistry";
 import { groq, ProviderError, type StructuredRequest } from "../src/llm/providers";
 import { HASH, seed } from "./fixture";
@@ -135,6 +135,21 @@ describe("답변 파이프라인", () => {
     expect(ok.groundingStatus).toBe("PASS");
     const bad = await answerQuestion(deps(out({ text: "요율은 내부 기준입니다.", citations: [{ kind: "rule", tool: "", field: "", article: "제9조", chunkId: "rb-0123456789ab-a09-1" }] })), q(), ENV, "요율?");
     expect(bad.violations).toEqual(["G5 규정 인용 제9조 rb-0123456789ab-a09-1"]);
+  });
+
+  it("G5 규정 인용은 조항 번호로(운영자 2026-11-03): 제목 붙은 표기·번호만·청크 id 모두 같은 조항, 저장은 정본 표기", async () => {
+    const cite = (article: string, chunkId = "") => ({ kind: "rule" as const, tool: "", field: "", article, chunkId });
+    expect(["제7조", "제25조(환수율)", "7", "rb-07", "rb-0453f7d205db-a25-1", "제 12 조", "환수율", ""].map(articleNo)).toEqual([7, 25, 7, 7, 25, 12, null, null]);
+    for (const c of [cite("제25조(환수율)", "rb-0453f7d205db-a25-1"), cite("25"), cite("", "rb-25"), cite("제25조", "rb-엉뚱한-id")]) {
+      const r = await answerQuestion(deps(out({ text: "1회차부터 6회차까지 해약하면 70%를 환수합니다.", citations: [c] })), q(), ENV, "해약 환수율은?");
+      expect(r.groundingStatus, JSON.stringify(c)).toBe("PASS");
+      expect(r.citations).toEqual([cite("제25조", "rb-0123456789ab-a25-1")]);
+    }
+    // 검색되지 않은 조항(제9조 internal·제40조)·읽을 수 없는 표기는 G5
+    for (const c of [cite("제9조"), cite("제40조"), cite("환수율")]) {
+      const r = await answerQuestion(deps(out({ text: "환수율은 규정에 따릅니다.", citations: [c] })), q(), ENV, "해약 환수율은?");
+      expect(r.violations, JSON.stringify(c)).toEqual([`G5 규정 인용 ${c.article} `]);
+    }
   });
 
   it("OTHER_AGENT·NEEDS_ENGINE 거부는 고정 문구, 툴 인자의 agentId는 받지 않는다(세션 설계사만)", async () => {

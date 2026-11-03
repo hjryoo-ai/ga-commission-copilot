@@ -130,7 +130,31 @@ async function hash16(s: string): Promise<string> {
 const rulesBlock = (rows: readonly RulebookChunkRow[]) => rows.map((r) => `[chunkId ${r.chunk_id}]\n${r.body}`).join("\n\n");
 const dataBlock = (results: readonly ToolResult[]) => (results.length ? JSON.stringify(results.map((r) => ({ tool: r.tool, args: r.args, result: r.data }))) : "");
 
-/** G4(툴 결과 + 청크 본문의 숫자) · G5(인용: 부른 툴의 키 / 검색된 청크) · G6(금지어·타 설계사 ID). */
+/**
+ * 규정 인용의 조항 번호(운영자 2026-11-03 — G5는 조항 번호로 대조): "제7조"·"제25조(환수율)"·"7"·"rb-07"·"rb-0453f7d205db-a25-1" → 7·25.
+ * 조항 = 청크 1:1(§14.0)이라 번호가 같으면 같은 청크다. 못 읽으면 null.
+ */
+export function articleNo(s: string): number | null {
+  const t = s.trim();
+  const m = t.match(/^제\s*(\d+)\s*조/) ?? t.match(/^(\d+)$/) ?? t.match(/^rb-(?:[0-9a-f]{12}-)?a?(\d+)(?:-\d+)?$/);
+  return m ? Number(m[1]) : null;
+}
+
+/** 규정 인용 → 검색된 청크(조항 번호 일치). article이 비거나 못 읽으면 chunkId로. */
+function citedRow(c: Citation, rows: readonly RulebookChunkRow[]): RulebookChunkRow | undefined {
+  const n = articleNo(c.article) ?? articleNo(c.chunkId);
+  return n === null ? undefined : rows.find((r) => articleNo(r.article) === n);
+}
+
+/** 통과한 답의 규정 인용을 검색된 청크의 정본 표기(article·chunkId)로 — answer_log·응답이 같은 모양. */
+export const canonicalCitations = (cs: readonly Citation[], rows: readonly RulebookChunkRow[]): Citation[] =>
+  cs.map((c) => {
+    if (c.kind !== "rule") return c;
+    const r = citedRow(c, rows)!;
+    return { ...c, article: r.article, chunkId: r.chunk_id };
+  });
+
+/** G4(툴 결과 + 청크 본문의 숫자) · G5(인용: 부른 툴의 키 경로 / 검색된 청크의 조항 번호) · G6(금지어·타 설계사 ID). */
 export function groundAnswer(out: AnswerOutput, results: readonly ToolResult[], rows: readonly RulebookChunkRow[], ownAgentId: string): string[] {
   const s = withTextTokens(contextNumbers(results.map((r) => r.data) as Json), rows.map((r) => r.body));
   const g4 = GroundingVerifier.verify(out.text, s, { numbersUsed: out.numbersUsed }).missing.map((x) => `G4 근거에 없는 숫자: ${x}`);
@@ -139,7 +163,7 @@ export function groundAnswer(out: AnswerOutput, results: readonly ToolResult[], 
     if (c.kind === "tool") {
       const r = results.find((x) => x.tool === c.tool);
       if (!r || !fieldInContext(c.field, contextKeys(r.data as Json))) g5.push(`G5 툴 인용 ${c.tool}.${c.field}`);
-    } else if (!rows.some((r) => r.chunk_id === c.chunkId && r.article === c.article)) g5.push(`G5 규정 인용 ${c.article} ${c.chunkId}`);
+    } else if (!citedRow(c, rows)) g5.push(`G5 규정 인용 ${c.article} ${c.chunkId}`);
   }
   const g6 = forbiddenViolations(out.text, { ownAgentId }).map((x) => `G6 ${x}`);
   return [...g4, ...g5, ...g6];
@@ -212,7 +236,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     reason,
     text,
     numbersUsed: refused ? [] : out.numbersUsed,
-    citations: refused ? [] : out.citations,
+    citations: refused ? [] : canonicalCitations(out.citations, rows),
     promptVersion,
     provider: deps.provider.name,
     model: res.model,

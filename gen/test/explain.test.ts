@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { type AgentRows, limitContext, lineContext, monthDiffContext, type Row, subjectsOf } from "../explain/context.ts";
 import { type Caller, generateOne, labelOf, promptVersionOf, type Subject } from "../explain/generate.ts";
 import { recheckExplanations } from "../explain/recheck.ts";
+import { regrade } from "../explain/verify-explanations.ts";
 import { type ExplanationRecord, ExplanationStore, recordProblems } from "../explain/store.ts";
 import { type D1Exec, loadExplanations, loadSlot, purgeInactive } from "../load/flow.ts";
 import { loadMigration } from "../load/sql.ts";
@@ -250,6 +251,24 @@ describe("적재(load:d1 --explain)와 적재 후 전수 재검증(설계서 §5
     expect(loadExplanations(db, HASH, again, () => {})).toMatchObject({ alreadyLoaded: 3, inserted: 0, replaced: 0 });
   });
 
+  it("재판정(--regrade)으로 grounding_status만 바뀐 행도 지우고 다시 넣는다", async () => {
+    const rs = await records();
+    loadExplanations(db, HASH, rs, () => {});
+    const failed = rs[2]!;
+    expect(failed.groundingStatus).toBe("FAIL");
+    const { failure: _f, ...rest } = failed;
+    expect(loadExplanations(db, HASH, [rs[0]!, rs[1]!, { ...rest, groundingStatus: "PASS" }], () => {})).toMatchObject({ replaced: 1, totalAfter: 3 });
+    expect(db.query("SELECT grounding_status FROM explanation WHERE subject_id = '1'")).toEqual([{ grounding_status: "PASS" }]);
+  });
+
+  it("재검증: 비활성(이력) 버전의 위반은 따로 보고하고 exit 대상(violations)에 넣지 않는다", async () => {
+    const rs = await records();
+    loadExplanations(db, HASH, [{ ...rs[0]!, promptVersion: "explain_line/v4", text: "이번 회계연도 지급액은 855,000원입니다." }], () => {});
+    const r = recheckExplanations(db);
+    expect(r.violations).toEqual([]);
+    expect(r.historyViolations).toEqual([{ kind: "LINE", agentId: "A-1001", subjectId: "2", promptVersion: "explain_line/v4", problems: ["G6 PHRASE:회계연도"] }]);
+  });
+
   it("같은 달 MONTH_DIFF를 설계사마다 둘 수 있다(PK에 agent_id — 설계서 v0.1.15)", async () => {
     const [, month] = await records();
     loadExplanations(db, HASH, [month!, { ...month!, agentId: "A-1002" }], () => {});
@@ -428,5 +447,27 @@ describe("단건 재생성(explain --regenerate — 운영자 2026-11-02)", () =
     await expect(runRegenerate(HASH, byAgent, subjects, store, ["explain:LINE:A-1001:9"], [], 1, fake([]).call)).rejects.toThrow(/subject 아님/);
     const empty = new ExplanationStore(mkdtempSync(join(tmpdir(), "regen-")), HASH);
     await expect(runRegenerate(HASH, byAgent, subjects, empty, [labelOf(subject)], [], 1, fake([]).call)).rejects.toThrow(/행 없음/);
+  });
+});
+
+describe("재판정(verify:explain --regrade — 운영자 2026-11-03, LLM 호출 없음)", () => {
+  const now = () => "2026-10-31T00:00:00.000Z";
+  it("저장된 FAIL 행(활성 버전)을 지금 검증기로 — 통과하면 PASS·failure 없앰, 본문·createdAt 그대로. 여전히 걸리면 그대로", async () => {
+    const store = new ExplanationStore(mkdtempSync(join(tmpdir(), "regrade-")), HASH);
+    const ctx = lineContext(A1, "2")!;
+    const ok = await generateOne(subject, HASH, ctx, fake([good]).call, undefined, now);
+    // 옛 검증기에서 걸렸다고 가정한 FAIL(본문은 지금 기준으로 맞다)
+    store.put({ ...ok, groundingStatus: "FAIL", attempts: 2, failure: { g4: ["0"], g5: [], g6: [] } });
+    const badSubject = { ...subject, subjectId: "1" };
+    store.put(await generateOne(badSubject, HASH, lineContext(A1, "1")!, fake([bad, bad]).call, undefined, now));
+    const res = regrade(store, (r) => lineContext(A1, r.subjectId));
+    expect(res.map((x) => [x.label, x.regraded]).sort()).toEqual([
+      ["LINE A-1001 1", false],
+      ["LINE A-1001 2", true],
+    ]);
+    const after = store.get({ ...subject, promptVersion: promptVersionOf("LINE") })!;
+    expect(after).toMatchObject({ groundingStatus: "PASS", text: good.text, createdAt: ok.createdAt, attempts: 2 });
+    expect(after.failure).toBeUndefined();
+    expect(store.get({ ...badSubject, promptVersion: promptVersionOf("LINE") })!.groundingStatus).toBe("FAIL");
   });
 });

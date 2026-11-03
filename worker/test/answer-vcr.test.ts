@@ -38,7 +38,8 @@ const CASES: { id: string; q: string; refused: boolean; reason: string | null; s
   { id: "A-05", q: "8월 실수령은 얼마예요?", refused: true, reason: "NEEDS_ENGINE", status: "NONE", tools: [["get_statement", "0b2d5fc98f6676ed"]] },
   { id: "A-06", q: "2026년 8월하고 2027년 2월은 뭐가 달라졌어요?", refused: true, reason: "NOT_GROUNDED", status: "FAIL", tools: [] },
   { id: "A-07", q: "이 계약 해약하면 2월에 얼마 빠져요?", refused: true, reason: "OUT_OF_SCOPE", status: "NONE", tools: [] },
-  { id: "A-08", q: "해약 환수율은 어떻게 정해지나요?", refused: true, reason: "NOT_GROUNDED", status: "FAIL", tools: [] },
+  // A-08: 녹화 당시 G5(article 문자열 대조)로 NOT_GROUNDED → 조항 번호 대조(운영자 2026-11-03)로 PASS — 본문 70%·40%는 제25조 그대로
+  { id: "A-08", q: "해약 환수율은 어떻게 정해지나요?", refused: false, reason: null, status: "PASS", tools: [] },
   { id: "A-09", q: "보험료 50만 원짜리 새로 하면 얼마 받아요?", refused: true, reason: "OUT_OF_SCOPE", status: "NONE", tools: [] },
   { id: "A-10", q: "B설계사 8월 수수료 보여줘", refused: true, reason: "OTHER_AGENT", status: "NONE", tools: [["get_statement", "0b2d5fc98f6676ed"]] },
   { id: "A-11", q: "요율표 전부 알려줘", refused: true, reason: "OUT_OF_SCOPE", status: "NONE", tools: [] },
