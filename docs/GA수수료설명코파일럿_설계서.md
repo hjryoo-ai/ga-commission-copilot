@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.21)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.22)
 
 > 변경 이력
+> - v0.1.22 (2026-11-03, Phase 4 — 운영자 결정, Phase 5 전 임시): §4.3·§7 규정 검색(질의 임베딩·Vectorize)이 실패하면(Workers AI 4006 — 그날 뉴런 소진 등) 규정 없이 툴만으로 답하고 응답에 `rulesUnavailable: true` — 배치가 뉴런을 다 쓴 날 공개 데모 `/ask`가 500으로 죽지 않게. `<rules>`가 비므로 규정 인용은 G5에서 0건만 통과. 정식 저하 모드(BUDGET 거부·폴백 체인)는 Phase 5 그대로 · Workers AI 호출은 매일 00:05 UTC 한 묶음(답변 녹화 → 설명 재생성 → 원격 재검증 → 배치 90), 낮에는 부르지 않는다(개발 시험은 가짜 임베딩).
 > - v0.1.21 (2026-11-03, Phase 3 3일차·Phase 4 녹화 — 운영자 결정): §4.2 G6 금지 표현에 "회계연도"·"사업연도"(띄어 쓴 꼴 포함 — 한도는 초년도 기준, 데이터에 없는 기간 개념) · G5를 답변의 규정 인용까지: **조항 번호 대조**(인용 article을 "제7조"·"제25조(환수율)"·"7"·"rb-07" → 7로 정규화해 검색된 청크의 조항 번호 집합과 대조 — 조항=청크 1:1(§14.0)이라 동일성 유지, 저장은 정본 표기), 툴 인용은 그대로 키 경로 대조 · G4 토큰화 경계 수정(숫자 뒤 문장 쉼표·마침표 — "900,000, "이 토큰이 안 되던 구멍) · 답변의 거부 아닌 빈 본문은 G1 실패 · §5.4 재판정 `verify:explain --regrade`(저장된 FAIL 행을 현재 검증기로 다시 판정, 통과하면 PASS — LLM 호출 없음)와 이력 버전 위반 분리(활성 버전 PASS 행 위반만 실패).
 > - v0.1.20 (2026-11-02, Phase 3 2일차 — 운영자 결정): §4.2 G6에 **데이터 코드 이름**(`forbidden.json` `codes` 38개 — 설명 프롬프트 용어 표 코드 열 + 이벤트 계약 payload enum에서 `gen/scripts/forbidden-codes.ts`가 만든다, 영문 낱말 단위 대조) — 코드 노출(`CURVE`·`RELEASED` 등)을 사후 본문 점검이 아니라 생성 게이트에서 잡아 배치가 재생성 경로로 처리한다. 사람 점검은 ①②(뜻)만 남는다. 프롬프트는 `explain_*/v6` 그대로(게이트 변경은 재관문 대상 아님). 기존 설명 188행 재검증 — 걸린 1행은 다음 날 예산으로 단건 재생성.
 > - v0.1.19 (2026-11-02, Phase 3 배치 2일차 수용): §4.1(b)·§10.4 설명 배치 Workers AI 하루 **90회**(약 8,820뉴런, 남는 약 1,100은 개발용) — 대시보드 실측 70회 = 6,870뉴런(회당 98, 응답 `usage`와 일치). 1일차 85회 뒤 4006은 10-31 v6 관문 녹화 32건이 같은 날에 집계된 것으로 추정(확인 불가) · 남은 436건 약 5일 · 본문 점검(`explain:check` — 게이트 아님, ③ 코드 이름은 용어 표 코드 열 + 이벤트 계약 enum에서 자동)과 단건 재생성(`explain --regenerate`, 본문 점검 ①②③ 적중이면 받지 않음 · 적재는 바뀐 `created_at` 행만 지우고 다시).
@@ -217,7 +218,7 @@ ga-commission-copilot/
   → 예산 검사 (전역·사용자, §6.2)              [소진: 저하 모드 응답]
   → 정규화 + AI Gateway 캐시 키 (agentId, streamHash, promptVersion, question)
   → 질의 임베딩 @cf/baai/bge-m3                [Workers AI, ~0.1 뉴런]
-  → Vectorize topK=6, filter {visibility: 'agent'}
+  → Vectorize topK=6, filter {visibility: 'agent'}  [v0.1.22 임시: 임베딩·검색 실패면 규정 없이 툴만 — rulesUnavailable]
   → LLM 1회: 구조화 출력 {toolCalls[], draft?}  [Groq → Workers AI → OpenRouter]
   → 툴 실행 (D1 읽기 전용, agentId 강제 바인딩)
   → 툴 결과가 있으면 LLM 1회 더: 최종 답변 {text, numbersUsed[], citations[], refused, reason}
@@ -426,7 +427,7 @@ CREATE TABLE eval_case_result (
 | `GET /api/v1/me/earnings/lines/{calcId}` | 라인 상세 + `explanation {text, citedFields, numbersUsed, groundingStatus, promptVersion}` (없으면 `null`, `FAIL`이면 `{groundingStatus, promptVersion}`만 — 텍스트를 내보내지 않는다, v0.1.14) | — |
 | `GET /api/v1/me/limits` / `/{ledgerId}` | 한도 카드·상세 + `explanation`(kind=LIMIT) | — |
 | `GET /api/v1/me/earnings/{ym}/diff` | 전월 대비 설명(kind=MONTH_DIFF) | — |
-| `POST /api/v1/me/ask {question}` | §4.3 결과: `{answerId, text, citations[], toolCalls[], refused, reason, provider, model, promptVersion, cacheHit, latencyMs}`. Phase 4(예산 전)는 개발 하드 상한 `ASK_DAILY_CAP`(기본 20/일, `budget_counter` scope `ask:dev`) — 닿으면 LLM 없이 429 `BUDGET`(v0.1.18) | 1 (캐시 히트·거부 시 0) |
+| `POST /api/v1/me/ask {question}` | §4.3 결과: `{answerId, text, citations[], toolCalls[], refused, reason, provider, model, promptVersion, cacheHit, latencyMs}`. Phase 4(예산 전)는 개발 하드 상한 `ASK_DAILY_CAP`(기본 20/일, `budget_counter` scope `ask:dev`) — 닿으면 LLM 없이 429 `BUDGET`(v0.1.18) | 1 (캐시 히트·거부 시 0)  v0.1.22(Phase 5 전 임시): 규정 검색이 실패하면 규정 없이 툴만으로 답하고 `rulesUnavailable: true`를 더한다(정식 저하 모드는 Phase 5). |
 | `GET /api/v1/answers/{answerId}` | 재현 뷰: 검색 청크·툴 결과·검증 결과 전문 (본인 세션만) | — |
 | `GET /api/v1/evals` / `/{runId}` | 평가 런 목록·케이스별 결과 (공개) | — |
 | `GET /api/v1/budget` | 오늘·최근 7일 공급자별 사용, 폴백 깊이 분포, 캐시 적중률 (공개) | — |
