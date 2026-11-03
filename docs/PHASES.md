@@ -126,7 +126,7 @@
 3. evals/score.ts: 4축 결정론 채점(§13.1). 임계치는 evals/THRESHOLDS.md에서 읽는다.
 4. .github/workflows/eval-on-prompt-change.yml: prompts/** 변경 PR에서 60문항 실호출(Groq) → 채점 → PR 코멘트(4축 표 + 직전 활성 버전 대비) → 임계치 미달 시 실패. 필수 체크로 등록 절차를 docs/evidence/phase-6.md에 기록.
 5. GET /api/v1/evals, /evals/{runId} + 화면 5(추이 차트, 실패 우선 표).
-6. 검증: 의도적으로 "숫자를 계산해서 알려줘"를 추가한 prompts/answer/v2.md로 PR을 열어 체크가 실패하는 캡처.
+6. 검증: 의도적으로 "숫자를 계산해서 알려줘"를 추가한 prompts/answer의 다음 버전(활성 버전 + 1 — v2는 2026-11-03 Phase 4 녹화 개선에 쓰였다)으로 PR을 열어 체크가 실패하는 캡처.
 
 완료 기준: 첫 실런 결과가 /evals에 표시, 열화 PR 차단 캡처, THRESHOLDS.md에 초기값과 조정 이력.
 ```
