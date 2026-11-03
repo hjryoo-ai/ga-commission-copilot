@@ -111,6 +111,23 @@ describe("답변 파이프라인", () => {
     expect(await logRow(r.answerId)).toMatchObject({ refused: 1, refuse_reason: "NOT_GROUNDED", grounding_status: "FAIL", answer: REFUSAL_TEXT.NOT_GROUNDED });
   });
 
+  it("임베딩이 실패하면(4006 등) 규정 검색 없이 툴만으로 답하고 rulesUnavailable, 규정 인용은 G5(임시 — 운영자 2026-11-03)", async () => {
+    const fail = (stage2: () => AnswerOutput) => {
+      const d = deps(out({ toolCalls: [tc("get_statement", { ym: "202608" })] }), stage2);
+      return { ...d, embed: async () => { throw new Error("4006: you have used up your daily free allocation of 10,000 neurons"); } };
+    };
+    const d = fail(() => out({ text: "2026년 8월 실지급액은 1,740,600원입니다.", numbersUsed: ["1,740,600원"], citations: [{ kind: "tool", tool: "get_statement", field: "net", article: "", chunkId: "" }] }));
+    const r = await answerQuestion(d, q(), ENV, "8월 실수령은 얼마예요?");
+    expect(r).toMatchObject({ refused: false, groundingStatus: "PASS", rulesUnavailable: true, retrievedChunks: [] });
+    expect(d.seen[0]!.messages[0]!.content).toContain("<rules>\n\n</rules>");
+    expect((await logRow(r.answerId))!.retrieved_chunks).toBe("[]");
+    const rule = await answerQuestion(fail(() => out({ text: "환수율은 규정에 따릅니다.", citations: [{ kind: "rule", tool: "", field: "", article: "제25조", chunkId: "" }] })), q(), ENV, "환수율?");
+    expect(rule).toMatchObject({ refused: true, reason: "NOT_GROUNDED", rulesUnavailable: true });
+    expect(rule.violations).toEqual(["G5 규정 인용 제25조 "]);
+    // 정상이면 false
+    expect((await answerQuestion(deps(out({ refused: true, reason: "OUT_OF_SCOPE" })), q(), ENV, "날씨?")).rulesUnavailable).toBe(false);
+  });
+
   it("거부가 아닌데 본문이 비면 NOT_GROUNDED(2026-11-03 녹화 A-02 — 숫자가 없어 G4가 비어 통과하던 구멍)", async () => {
     const d = deps(out({ toolCalls: [tc("get_statement", { ym: "202608" })] }), () => out({ text: "  ", toolCalls: [tc("get_deferrals", {})] }));
     const r = await answerQuestion(d, q(), ENV, "한도로 빠진 금액은 언제 받나요?");

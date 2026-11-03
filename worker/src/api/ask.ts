@@ -68,6 +68,8 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
     groundingStatus: r.groundingStatus,
     cacheHit: false,
     latencyMs: r.latencyMs,
+    // 규정 검색 실패 시에만(임시 — 운영자 2026-11-03, 설계서 v0.1.22 §7): 규정 없이 툴만으로 답했다
+    ...(r.rulesUnavailable ? { rulesUnavailable: true } : {}),
   });
 }
 

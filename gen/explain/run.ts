@@ -392,7 +392,8 @@ export async function runBatch(hash: string, byAgent: Map<string, AgentRows>, su
         record = await generateOne(s, hash, contextFor(byAgent, s), callerOf(bp), bp.model);
       } catch (e) {
         if (!(e instanceof BudgetExhausted)) throw e;
-        console.warn(`[batch] ${bp.provider} 끝: ${e.message}`);
+        // 시각을 남긴다 — 4006(계정 뉴런 소진)이 롤링·고정 리셋 중 어느 창인지 보는 근거(운영자 2026-11-03)
+        console.warn(`[batch] ${bp.provider} 끝(${new Date().toISOString()}): ${e.message}`);
         exhausted.add(bp.provider);
       }
     }

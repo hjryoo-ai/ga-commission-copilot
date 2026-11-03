@@ -152,7 +152,7 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 
 ### v2 재녹화 1차 — 2026-11-03 12:2x UTC, **Workers AI 4006으로 못 함**
 
-`wrangler dev --env record` → 12건 모두 HTTP 500 — 질문 임베딩(bge-m3) `AiError 4006: you have used up your daily free allocation of 10,000 neurons`(같은 날 설명 재생성 1 + 배치 89회 뒤). Groq는 부르지 않았다(임베딩이 먼저) — `llm_trace` 0행·`answer_log` 0행, 로컬 `ask:dev` 카운터 12 → 지움. 로그 `logs/phase-4-answer-record-v2-attempt1-4006.{log,json}`. **2026-11-04 00:00 UTC 리셋 뒤 배치 앞에서 다시**(운영자 순서 — 녹화 → 재생성 → 재검증 → 배치).
+`wrangler dev --env record` → 12건 모두 HTTP 500 — 질문 임베딩(bge-m3) `AiError 4006: you have used up your daily free allocation of 10,000 neurons`(같은 날 설명 재생성 1 + 배치 89회 뒤). Groq는 부르지 않았다(임베딩이 먼저) — `llm_trace` 0행·`answer_log` 0행, 로컬 `ask:dev` 카운터 12 → 지움. 로그 `logs/phase-4-answer-record-v2-attempt1-4006.{log,json}`. **2026-11-04 00:05 UTC(09:05 KST) 한 묶음의 첫 단계로 다시**(운영자 2026-11-03 — Workers AI는 그 묶음에서만: 녹화 → 재생성 → 재검증 → 배치). v2 미달이면 v3 1회 허용(재판정 표의 원인에서만), v3도 미달이면 멈추고 보고.
 - 함께 드러난 것: `/me/ask`가 Workers AI 임베딩 오류(4006)를 잡지 않고 500을 낸다 — Phase 5(폴백·저하 모드, §7) 몫으로 남은 이슈에.
 
 ## 원격 마이그레이션 0005(운영자 승인 2026-11-02)
@@ -175,6 +175,7 @@ pnpm -r test   → grounding 66 · web 35 · worker 320 · gen 189 통과(항목
 pnpm -r test   → grounding 66 · web 35 · worker 324 · gen 201 통과(2026-11-02 — env.record·재생 픽스처·Vectorize 점검·본문 점검까지)
 worker vitest → 339 통과(2026-11-03 — 부록 A 12건 VCR 재생 13 + 빈 답 1)
 pnpm -r test   → grounding 68 · web 35 · worker 341 · gen 207 통과(2026-11-03 — G5 조항 번호·G6 회계연도·--regrade·answer/v2 세션 블록까지)
+pnpm -r test   → grounding 68 · web 35 · worker 342 · gen 207 통과(2026-11-03 — rulesUnavailable 임시 처리까지)
 pnpm run lint  → 오류 0
 tsc --noEmit   → gen·worker 오류 0
 ```
@@ -204,4 +205,4 @@ tsc --noEmit   → gen·worker 오류 0
 2. ~~`sim_stub` 데이터~~ — `load:d1 --sim-stub`(위 항목 4).
 3. 답변 VCR — 운영자 결정 방식으로 경로 완료(위 항목 4). **재생 픽스처로 해소(2026-11-02, 위 "답변 녹화 준비")**. 당시 기록 — **재생 시험의 데이터 문제**: 녹화는 로컬 D1의 실제 스트림(데모 1 A-1001)으로 하므로 요청에는 실제 툴 결과가 들어간다. 시험 픽스처(`worker/test/fixture.ts`)는 작은 가짜 세계라 같은 질문의 툴 결과가 달라 요청 해시가 맞지 않는다 → 재생 시험은 실제 스트림의 데모 설계사 행을 로컬 D1 시험 DB에 넣어야 한다(gen이 뷰에서 시험용 SQL 픽스처를 만드는 안). 검색 청크도 녹화 요청의 `<rules>`에서 id를 읽어 가짜 검색이 같은 순서로 돌려준다. 녹화 전에 정한다.
 4. **Vectorize 로컬 바인딩이 없다** — **(b) 승인·점검 스크립트로 해소(2026-11-02, 위)**: Miniflare(wrangler 4.153)의 Vectorize 플러그인은 원격 프록시만 있고 로컬 시뮬레이션이 없다(`VECTORIZE_REMOTE_SERVICE_NAME` — 확인). vitest는 `remoteBindings: false`라 `env.VECTORIZE`를 쓸 수 없다. 항목 6 "internal 청크가 어떤 질의에도 반환되지 않음(Vectorize 로컬 바인딩)"의 선택지: (a) 시험에서만 원격 바인딩(실제 인덱스 질의 — 무료 질의 차원 소모, CI에 계정 토큰 필요), (b) 원격 인덱스에 대한 별도 점검 스크립트(질의 N개 × filter visibility=agent → internal id 0건)를 Phase 종료 증거로 + 단위 시험은 D1 재필터, (c) 메타데이터 필터를 흉내 내는 메모리 가짜(필터 동작 자체는 검증 못 함). 권고 (b). 운영자 판단.
-5. **`/me/ask` 임베딩 오류 처리**: Workers AI 4006(그날 뉴런 소진) 등 임베딩 실패가 500으로 나간다(2026-11-03 v2 재녹화 1차). Phase 5 폴백·저하 모드(§7)에서 BUDGET/저하 응답으로.
+5. ~~**`/me/ask` 임베딩 오류 처리**~~ — **임시 처리(운영자 2026-11-03, 설계서 v0.1.22)**: 임베딩·Vectorize 검색이 실패하면 규정 없이 툴만으로 답하고 응답에 `rulesUnavailable: true`(`<rules>`가 비어 규정 인용은 G5에서 0건만 통과, answer_log retrieved_chunks `[]`). 시험 `answer.test.ts` +1(4006 메시지로 embed 실패 → 툴 답 PASS·규정 인용 G5·정상은 false). 정식 저하 모드(BUDGET 거부·폴백 체인)는 Phase 5. 처음 기록: 4006 등 임베딩 실패가 500으로 나갔다(2026-11-03 v2 재녹화 1차).

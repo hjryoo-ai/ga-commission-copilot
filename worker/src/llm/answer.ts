@@ -73,6 +73,8 @@ export interface AnswerResult {
   /** 검증 실패 목록(G1·G4·G5·G6) — answer_log에는 남기지 않고 응답·시험에서만 본다. */
   violations: string[];
   latencyMs: number;
+  /** 규정 검색(임베딩·Vectorize)이 실패해 규정 없이 툴만으로 답했다(운영자 2026-11-03 — Phase 5 전 임시, 설계서 v0.1.22 §4.3). */
+  rulesUnavailable: boolean;
 }
 
 /** Cloudflare 바인딩으로 만든 기본 의존성(Workers AI 임베딩 · Vectorize · D1). */
@@ -193,7 +195,16 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   const prompt = activePrompt(env, "answer");
   const promptVersion = `${prompt.name}/${prompt.version}`;
 
-  const matches = await deps.search(await deps.embed(qText), TOP_K);
+  // 임시(운영자 2026-11-03, Phase 5 전): 임베딩·검색이 실패하면(Workers AI 4006 — 그날 뉴런 소진 등) 규정 없이 툴만으로 답한다.
+  // 배치가 뉴런을 다 쓴 날 공개 데모 /ask가 500으로 죽지 않게. <rules>가 비므로 규정 인용은 G5에서 0건만 통과한다. 정식 저하 모드는 Phase 5.
+  let matches: { id: string; score: number }[] = [];
+  let rulesUnavailable = false;
+  try {
+    matches = await deps.search(await deps.embed(qText), TOP_K);
+  } catch (e) {
+    rulesUnavailable = true;
+    console.warn(`[answer] 규정 검색 실패 — 규정 없이 툴만으로: ${(e as Error).message.slice(0, 200)}`);
+  }
   const byId = new Map((await deps.chunks(matches.map((m) => m.id))).map((r) => [r.chunk_id, r]));
   const rows = matches.flatMap((m) => (byId.has(m.id) ? [byId.get(m.id)!] : []));
   const retrievedChunks = matches.filter((m) => byId.has(m.id)).map((m) => ({ chunkId: m.id, score: m.score }));
@@ -262,6 +273,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     groundingStatus,
     retrievedChunks,
     toolCalls,
+    rulesUnavailable,
     violations,
     latencyMs: deps.now().getTime() - started,
   };
@@ -312,6 +324,7 @@ export async function refuseWithoutLlm(deps: Pick<AnswerDeps, "now" | "newId">, 
     toolCalls: [],
     violations: [],
     latencyMs: 0,
+    rulesUnavailable: false,
   };
   await logAnswer(deps, q, qText, r);
   return r;
