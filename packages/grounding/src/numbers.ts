@@ -115,8 +115,9 @@ const RULES: readonly Rule[] = [
     make: (m) => (validMonth(m[2]!) && validDay(m[3]!) ? { kind: "date", value: `${m[1]}-${pad2(m[2]!)}-${pad2(m[3]!)}` } : null),
   },
   { re: /(\d{4})\s*년\s*(\d{1,2})\s*월/g, make: (m) => (validMonth(m[2]!) ? { kind: "month", value: `${m[1]}${pad2(m[2]!)}` } : null) },
-  { re: /(?<![\d.,])(\d{4})[-./](\d{1,2})(?![\d.,])/g, make: (m) => (validMonth(m[2]!) ? { kind: "month", value: `${m[1]}${pad2(m[2]!)}` } : null) },
-  { re: /(?<![\d.,])(20\d{2})(0[1-9]|1[0-2])(?![\d.,])/g, make: (m) => ({ kind: "month", value: `${m[1]}${m[2]}` }) },
+  // 뒤 경계: 숫자나 "쉼표·마침표 + 숫자"(천 단위·소수 이어짐)만 막는다 — 문장 쉼표·마침표 앞 값도 토큰이 된다(2026-11-03 — "0.9, 회차"가 "0"이 되고 "900,000, "은 토큰이 아예 안 되던 G4 구멍)
+  { re: /(?<![\d.,])(\d{4})[-./](\d{1,2})(?!\d|[.,]\d)/g, make: (m) => (validMonth(m[2]!) ? { kind: "month", value: `${m[1]}${pad2(m[2]!)}` } : null) },
+  { re: /(?<![\d.,])(20\d{2})(0[1-9]|1[0-2])(?!\d|[.,]\d)/g, make: (m) => ({ kind: "month", value: `${m[1]}${m[2]}` }) },
   { re: /(?<![\d.,])(\d{1,2})\s*월\s*(\d{1,2})\s*일/g, make: (m) => (validMonth(m[1]!) && validDay(m[2]!) ? { kind: "monthDay", value: `${pad2(m[1]!)}-${pad2(m[2]!)}` } : null) },
   { re: /(?<![\d.,])(\d{4})\s*년(?!\s*차)/g, make: (m) => ({ kind: "year", value: m[1]! }) },
   { re: /(?<![\d.,])(\d{1,2})\s*월(?![납별말초])/g, make: (m) => (validMonth(m[1]!) ? { kind: "monthOfYear", value: String(Number(m[1])) } : null) },
@@ -137,7 +138,7 @@ const RULES: readonly Rule[] = [
     },
   },
   {
-    re: /(?<![\d.,])\d{1,3}(?:,\d{3})+(?:\.\d+)?(?![\d,])|(?<![\d.,])\d+(?:\.\d+)?(?![\d,])/g,
+    re: /(?<![\d.,])\d{1,3}(?:,\d{3})+(?:\.\d+)?(?!\d|,\d)|(?<![\d.,])\d+(?:\.\d+)?(?!\d|,\d)/g,
     make: (m) => {
       const v = canonical(m[0]);
       return v === null ? null : { kind: "number", value: v };

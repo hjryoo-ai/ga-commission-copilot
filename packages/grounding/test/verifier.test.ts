@@ -270,6 +270,17 @@ describe("G6 금지어·식별자", () => {
     expect(forbiddenViolations("삼성생명 상품")).toEqual(["INSURER:삼성생명"]);
   });
 
+  it("문장 쉼표·마침표 앞 숫자도 토큰(2026-11-03 — 쉼표가 붙으면 토큰이 사라지거나 0이 되던 G4 구멍)", () => {
+    const raw = (t: string) => extractTokens(t).map((x) => `${x.raw}:${x.value}`);
+    expect(raw("지급액은 900,000, 그리고")).toEqual(["900,000:900000"]);
+    expect(raw("지급액은 900000, 그리고")).toEqual(["900000:900000"]);
+    expect(raw("요율 0.04와 지급률 0.9, 회차 26을")).toEqual(["0.04:0.04", "0.9:0.9", "26:26"]);
+    expect(raw("1,000,000, 2,000.")).toEqual(["1,000,000:1000000", "2,000:2000"]);
+    expect(raw("202608, 202702.")).toEqual(["202608:202608", "202702:202702"]);
+    expect(raw("1,234,567원과 3.5")).toEqual(["1,234,567:1234567", "3.5:3.5"]);
+    expect(GroundingVerifier.verify("지급액은 900,000, 그리고 끝", { amount: 855000 }).missing).toEqual(["900,000"]);
+  });
+
   it("데이터 코드 이름(codes — 운영자 2026-11-02): 영문 낱말 단위, 한글·괄호 옆도 잡고 긴 코드는 통째로", () => {
     expect(forbiddenViolations("각각 CURVE 사유에 따라 처리됩니다.")).toEqual(["CODE:CURVE"]);
     expect(forbiddenViolations("지급됨( RELEASED) 상태, 지급 예정(SCHEDULED)")).toEqual(["CODE:RELEASED", "CODE:SCHEDULED"]);
