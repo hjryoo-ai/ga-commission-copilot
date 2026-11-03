@@ -198,7 +198,9 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     violations = [];
   } else {
     const draft = { ...out, text: normalizeText(out.text) };
-    violations = [...violations.filter((v) => !v.startsWith("툴 호출 거부")), ...groundAnswer(draft, results, rows, q.agentId)];
+    // 거부가 아닌데 본문이 비면 답이 없는 것이다 — 숫자가 없어 G4가 비어 통과하는 구멍(2026-11-03 녹화 A-02: 2단계가 툴을 더 요청하고 text "")
+    const empty = draft.text.trim() === "" ? ["G1 text 비어 있음(거부 아닌 빈 답)"] : [];
+    violations = [...violations.filter((v) => !v.startsWith("툴 호출 거부")), ...empty, ...groundAnswer(draft, results, rows, q.agentId)];
     if (violations.length) [refused, reason, text, groundingStatus] = [true, "NOT_GROUNDED", REFUSAL_TEXT.NOT_GROUNDED, "FAIL"];
     else [refused, reason, text, groundingStatus] = [false, null, draft.text, "PASS"];
   }

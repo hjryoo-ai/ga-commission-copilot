@@ -111,6 +111,13 @@ describe("답변 파이프라인", () => {
     expect(await logRow(r.answerId)).toMatchObject({ refused: 1, refuse_reason: "NOT_GROUNDED", grounding_status: "FAIL", answer: REFUSAL_TEXT.NOT_GROUNDED });
   });
 
+  it("거부가 아닌데 본문이 비면 NOT_GROUNDED(2026-11-03 녹화 A-02 — 숫자가 없어 G4가 비어 통과하던 구멍)", async () => {
+    const d = deps(out({ toolCalls: [tc("get_statement", { ym: "202608" })] }), () => out({ text: "  ", toolCalls: [tc("get_deferrals", {})] }));
+    const r = await answerQuestion(d, q(), ENV, "한도로 빠진 금액은 언제 받나요?");
+    expect(r).toMatchObject({ refused: true, reason: "NOT_GROUNDED", text: REFUSAL_TEXT.NOT_GROUNDED, groundingStatus: "FAIL" });
+    expect(r.violations).toEqual(["G1 text 비어 있음(거부 아닌 빈 답)"]);
+  });
+
   it("데이터 코드 이름(G6 codes — 운영자 2026-11-02)을 쓰면 NOT_GROUNDED", async () => {
     const d = deps(out({ toolCalls: [tc("get_statement", { ym: "202608" })] }), () => out({ text: "이 시책은 한도 초과분이 DEFER_AFTER_FY 정책으로 처리되었습니다." }));
     const r = await answerQuestion(d, q(), ENV, "8월 시책은 왜 덜 나왔어요?");

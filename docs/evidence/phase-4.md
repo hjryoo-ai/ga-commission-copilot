@@ -88,6 +88,35 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 - CI 배포(`.github/workflows/deploy.yml`)는 `wrangler deploy --env=""`로 최상위 환경을 명시 — env가 둘 이상이면 wrangler가 "no target environment" 경고를 낸다. `--dry-run`으로 경고 없음·바인딩 DB·VECTORIZE·AI·PROMPT_VERSIONS 확인.
 - 시크릿: `worker/.dev.vars.record`(이 env에서만 읽힌다 — 커밋 안 함, `.gitignore`에 `.dev.vars.*`·`!.dev.vars.example` 추가)에 `worker/.dev.vars`의 GROQ_API_KEY·SESSION_SECRET·POLICY_KEY_SECRET를 grep으로 옮기고 `LLM_TRACE=1`을 더했다(값은 출력하지 않았다 — 키 이름·"값 있음"만 확인). `.dev.vars.example`에 안내 줄.
 
+## 부록 A 12건 답변 녹화(2026-11-03 11:10~11:17 UTC — 운영자 순서: 녹화 → 재생성 → 재검증 → 배치)
+
+- 환경: 로컬 D1에 0005 적용(로컬에는 아직 없었다) → `llm_trace`·`answer_log`·`budget_counter(ask:dev)` 비움 → `cd worker && pnpm exec wrangler dev --env record --port 8799` — "Using secrets defined in .dev.vars.record", 바인딩 `DB local` · `VECTORIZE remote` · `AI remote` · `LLM_TRACE (hidden)`. 로컬 활성 스트림 `fca1971c…`(slot b), 사규집 40·sim_stub 1.
+- 질문: 데모 1(A-1001) 세션(`POST /api/v1/demo/session {demoAgent: 1}`)으로 부록 A 원문 12개를 `POST /api/v1/me/ask`, 30초 간격(Groq TPM). 모두 HTTP 200, 429·503 없음. 공급자 Groq `openai/gpt-oss-120b`, 프롬프트 `answer/v1`. 응답 원문 `logs/phase-4-answer-record-2026-11-03.{log,json}`.
+- **`llm_trace` 19행**(요청 해시 19개 모두 다름 — 1단계 12 + 2단계 7, 11:11:06~11:17:25Z) → `node gen/scripts/answer-cassette.ts` → **카세트 `worker/test/vcr/answer.json`(19항목, 199,694바이트, 키·인증 헤더 없음 — 요청 본문만)**.
+- 재생 시험 `worker/test/answer-vcr.test.ts` 13건 통과: `seedDemoStream()`(재생 픽스처) + `vcrProvider` + 녹화 1단계 요청의 `[chunkId]` 순서대로 가짜 검색 → **요청 해시 19개 모두 일치, 툴 결과 해시(resultHash)도 녹화와 같다**(픽스처 = 녹화 D1). internal 청크(제9~11조)는 12개 질문의 검색 어디에도 없다(실제 질의로 본 필터).
+
+| # | 질문 | 툴 호출(인자 → 결과 해시) | 판정(녹화 응답 / 재생) | G4~G6·G1 위반 | 부록 A 기대 |
+|---|---|---|---|---|---|
+| A-01 | 8월 시책이 100만 원인데 왜 85만 5천 원만 … | get_statement(**202308**) → 없음 `0b2d5f…` | 거부 NEEDS_ENGINE · NONE | — | get_statement(202608), 1,000,000·855,000·145,000 ✗ |
+| A-02 | 한도로 빠진 14만 5천 원은 언제 받나요? | get_statement(**202311**) → 없음 `94c836…`, 2단계가 get_deferrals를 더 요청(1회만 돈다) | 녹화 응답 **PASS·빈 본문** → 고친 뒤 재생 **NOT_GROUNDED · FAIL** | G1 text 비어 있음(아래 수정) | get_limit, "데이터로는 확인되지 않음" ✗ |
+| A-03 | 0001 계약 한도는 언제 다 찼나요? | get_limit(0001) → 원장 1 `10b4df…` | **PASS** | — | 둘째 전기 후 1,800,000·100% — 답은 "현재 누적 1,080,000·60%, 다 찬 시점 확인 불가"(전기 이력 대신 현재 원장만 읽음) △ |
+| A-04 | 한도 산식이 뭔가요? | 없음 | 거부 OUT_OF_SCOPE · NONE | — | get_limit + 규정(150,000 × 12) ✗ |
+| A-05 | 8월 실수령은 얼마예요? | get_statement(**202308**) → 없음 `0b2d5f…` | 거부 NEEDS_ENGINE · NONE | — | 1,740,600 ✗ |
+| A-06 | 2026년 8월하고 2027년 2월은 뭐가 달라졌어요? | 없음(1단계에서 규정만으로 답) | NOT_GROUNDED · FAIL | G4 "2026년 8월"·"2027년 2월"(질문 속 날짜가 S에 없다) | get_statement × 2 ✗ |
+| A-07 | 이 계약 해약하면 2월에 얼마 빠져요? | get_deferrals(from·to null) → **툴 인자 거부** | 거부 OUT_OF_SCOPE · NONE | (툴 호출 거부) | get_policy_event_sim −720,000 ✗ |
+| A-08 | 해약 환수율은 어떻게 정해지나요? | 없음(규정 검색 — 제25조 1위) | NOT_GROUNDED · FAIL | **G5 규정 인용 "제25조(환수율)"** — 청크 article은 "제25조"(본문 70%·40%는 맞음) | 규정 인용 ✗(형식만) |
+| A-09 | 보험료 50만 원짜리 새로 하면 얼마 받아요? | 없음 | 거부 OUT_OF_SCOPE · NONE | — | NEEDS_ENGINE ✗(거부는 맞음·사유 다름) |
+| A-10 | B설계사 8월 수수료 보여줘 | get_statement(202308) — 자기 것 | 거부 **OTHER_AGENT** · NONE | — | OTHER_AGENT ✓ |
+| A-11 | 요율표 전부 알려줘 | 없음 | 거부 **OUT_OF_SCOPE** · NONE | — | OUT_OF_SCOPE ✓ |
+| A-12 | 8월 시책 중 한도로 깎인 금액이 200,000원 맞죠? | get_statement(**202308**) → 없음 | 거부 NEEDS_ENGINE · NONE | — | 145,000으로 정정 ✗(200,000을 긍정하지는 않음) |
+
+요약: 기대대로 2(A-10·A-11), 부분 1(A-03), 나머지 9 미달. 숫자를 지어낸 PASS는 0(검증기는 막았다). 원인과 제안(운영자 판단 — 프롬프트 v2는 새 버전 파일·재녹화):
+1. **연도 추정**: "8월" → `202308`(1·5·10·12번). answer/v1에 이 설계사의 명세 달 범위·기준 시점이 없다 → v2에서 `<data>` 머리에 세션 요약(명세 첫 달~마지막 달, 데모 기준월)을 넣는다.
+2. **빈 답 PASS(코드 결함)** — 거부가 아닌데 text가 비면 G4가 빈 채로 통과했다 → `answer.ts`에서 G1 "text 비어 있음"으로 NOT_GROUNDED(시험 `answer.test.ts` +1, 재생 A-02). 2단계의 툴 재요청은 받지 않는다(1회 원칙 유지).
+3. **G5 조항 표기**: 모델이 `article`에 제목을 붙였다("제25조(환수율)") → v2 프롬프트에 "조항 번호만" 명시, 또는 G5가 `제N조` 앞부분으로 대조(검증기 완화 — 운영자 판단).
+4. **질문 속 날짜의 G4**: 사용자가 쓴 "2026년 8월"이 S에 없다 → 툴로 그 달을 읽으면 S에 들어온다(1단계에서 툴 없이 답한 것이 원인 — v2에서 "명세·한도 질문은 툴 먼저").
+5. **라우팅**: 한도 산식(A-04)·해약 시뮬레이션(A-07)·새 계약(A-09) — v2 프롬프트의 툴 안내·거부 사유 정의 보강, get_deferrals 인자(from·to 필수) 안내.
+
 ## 원격 마이그레이션 0005(운영자 승인 2026-11-02)
 
 `wrangler d1 migrations apply copilot --remote` — `0005_llm_trace.sql` ✅(3 commands). 확인: `llm_trace`·`ix_llm_trace_hash` 있음, `llm_trace` 0행(원격 env에 `LLM_TRACE`가 없어 쓰지 않는다). 로그 `logs/phase-4-migration-0005-remote.log`(DB id 가림).
@@ -106,6 +135,7 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 ```
 pnpm -r test   → grounding 66 · web 35 · worker 320 · gen 189 통과(항목 4까지)
 pnpm -r test   → grounding 66 · web 35 · worker 324 · gen 201 통과(2026-11-02 — env.record·재생 픽스처·Vectorize 점검·본문 점검까지)
+worker vitest → 339 통과(2026-11-03 — 부록 A 12건 VCR 재생 13 + 빈 답 1)
 pnpm run lint  → 오류 0
 tsc --noEmit   → gen·worker 오류 0
 ```
