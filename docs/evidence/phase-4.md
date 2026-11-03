@@ -117,6 +117,44 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 4. **질문 속 날짜의 G4**: 사용자가 쓴 "2026년 8월"이 S에 없다 → 툴로 그 달을 읽으면 S에 들어온다(1단계에서 툴 없이 답한 것이 원인 — v2에서 "명세·한도 질문은 툴 먼저").
 5. **라우팅**: 한도 산식(A-04)·해약 시뮬레이션(A-07)·새 계약(A-09) — v2 프롬프트의 툴 안내·거부 사유 정의 보강, get_deferrals 인자(from·to 필수) 안내.
 
+### 재판정(운영자 2026-11-03 — 새 G5 조항 번호 대조·G6 회계연도·G4 토큰 경계·빈 답 G1로 v1 녹화 원문 응답 다시)
+
+`worker/test/answer-vcr.test.ts`(카세트 그대로 재생 → 지금 파이프라인·검증기로 판정). 통과 = 부록 A 기대와 같은 결과(답이면 기대 툴·사실로 PASS, 거부면 사유 코드 일치). v1 카세트 사본 `logs/phase-4-answer-cassette-v1-2026-11-03.json`.
+
+| 질문 | 기대 툴 / 실제 툴 | 거부 코드 기대 / 실제 | G4 | G5 | G6 | 통과 |
+|---|---|---|---|---|---|---|
+| A-01 | get_statement(202608) / get_statement(**202308** — 없음) | 답 / NEEDS_ENGINE | — | — | — | ✗ |
+| A-02 | get_limit(0001) / get_statement(**202311** — 없음) | 답 / NOT_GROUNDED(빈 답 G1) | — | — | — | ✗ |
+| A-03 | get_limit / get_limit(0001) | 답 / 답 PASS | ✓ | ✓ | ✓ | ✗(뜻 — 현재 원장 60%로 "다 찬 시점 확인 불가", 기대는 둘째 전기 뒤 1,800,000·100%) |
+| A-04 | get_limit + 규정 / 없음 | 답 / OUT_OF_SCOPE | — | — | — | ✗ |
+| A-05 | get_statement(202608) / get_statement(**202308**) | 답 / NEEDS_ENGINE | — | — | — | ✗ |
+| A-06 | get_statement × 2 / 없음 | 답 / NOT_GROUNDED | ✗ 질문 속 "2026년 8월"·"2027년 2월" | — | ✓ | ✗ |
+| A-07 | get_policy_event_sim(0001) / get_deferrals(인자 null → 거부) | 답 / OUT_OF_SCOPE | — | — | — | ✗ |
+| A-08 | 규정만 / 규정만(제25조) | 답 / 답 **PASS** | ✓ | ✓(새 G5 — "제25조(환수율)" → 25) | ✓ | ✓ |
+| A-09 | 없음 / 없음 | NEEDS_ENGINE / **OUT_OF_SCOPE** | — | — | — | ✗ |
+| A-10 | 없음 / get_statement(202308 — 자기 것) | OTHER_AGENT / OTHER_AGENT | — | — | — | ✓ |
+| A-11 | 없음 / 없음 | OUT_OF_SCOPE / OUT_OF_SCOPE | — | — | — | ✓ |
+| A-12 | get_statement(202608) / get_statement(**202308**) | 정정 답(145,000) / NEEDS_ENGINE | — | — | — | ✗ |
+
+판정: **통과 3/12**(A-08·A-10·A-11). 운영자 기준(A-09·10·11 거부 코드 일치 + A-12 정정 답 + ≥ 9 통과) **미달** — A-09 코드 불일치, A-12 정정 없음. → answer/v2(원인별)·12건 재녹화.
+
+### answer/v2(재판정 표의 원인에서만 — `prompts/answer/CHANGELOG.md`)
+
+| 원인(표) | 케이스 | v2 |
+|---|---|---|
+| 연도 추정("8월" → 202308) | A-01·05·12(·10) | `<session>` 블록(서버가 ScopedQuery로 만든 명세 달 목록·계약 끝 4자리·해약 시뮬레이션 준비 계약 — **G4 근거 아님**) + 규칙 8·9(연도 없는 달은 그 월 명세를 모두, 최대 3) |
+| 2단계 툴 재요청·빈 답, 이연분 지급 시점 | A-02 | 2단계는 툴 추가 불가·거부 아니면 text 필수, 규칙 12(정해진 문장) |
+| 툴 없이 규정으로 데이터 답 | A-06 | 규칙 10(데이터 질문은 툴 먼저) |
+| 한도 도달 시점을 현재 원장으로 | A-03 | 규칙 11(history에서 시점) |
+| 라우팅 | A-04·07·09 | 규칙 4 보충(규정 질문은 범위 안, 새 계약은 NEEDS_ENGINE), 규칙 13(해약 → get_policy_event_sim, "이 계약" → 시뮬레이션 준비 계약), get_deferrals 인자 필수 |
+
+코드: `sessionBlock(q)`(`answer.ts` — earnings_month·policy_limit·`ScopedQuery.simStubPolicies`), `promptRegistry`에 v2, `PROMPT_VERSIONS` answer=v2(최상위·env.record). 시험 `demo-stream.test.ts` +1(세션 블록 — A-1001: 202603…202806 25개월·0001…·시뮬 0001, A-1002 시뮬 없음). worker 341 통과. 커밋 `c6e72e0`.
+
+### v2 재녹화 1차 — 2026-11-03 12:2x UTC, **Workers AI 4006으로 못 함**
+
+`wrangler dev --env record` → 12건 모두 HTTP 500 — 질문 임베딩(bge-m3) `AiError 4006: you have used up your daily free allocation of 10,000 neurons`(같은 날 설명 재생성 1 + 배치 89회 뒤). Groq는 부르지 않았다(임베딩이 먼저) — `llm_trace` 0행·`answer_log` 0행, 로컬 `ask:dev` 카운터 12 → 지움. 로그 `logs/phase-4-answer-record-v2-attempt1-4006.{log,json}`. **2026-11-04 00:00 UTC 리셋 뒤 배치 앞에서 다시**(운영자 순서 — 녹화 → 재생성 → 재검증 → 배치).
+- 함께 드러난 것: `/me/ask`가 Workers AI 임베딩 오류(4006)를 잡지 않고 500을 낸다 — Phase 5(폴백·저하 모드, §7) 몫으로 남은 이슈에.
+
 ## 원격 마이그레이션 0005(운영자 승인 2026-11-02)
 
 `wrangler d1 migrations apply copilot --remote` — `0005_llm_trace.sql` ✅(3 commands). 확인: `llm_trace`·`ix_llm_trace_hash` 있음, `llm_trace` 0행(원격 env에 `LLM_TRACE`가 없어 쓰지 않는다). 로그 `logs/phase-4-migration-0005-remote.log`(DB id 가림).
@@ -136,6 +174,7 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 pnpm -r test   → grounding 66 · web 35 · worker 320 · gen 189 통과(항목 4까지)
 pnpm -r test   → grounding 66 · web 35 · worker 324 · gen 201 통과(2026-11-02 — env.record·재생 픽스처·Vectorize 점검·본문 점검까지)
 worker vitest → 339 통과(2026-11-03 — 부록 A 12건 VCR 재생 13 + 빈 답 1)
+pnpm -r test   → grounding 68 · web 35 · worker 341 · gen 207 통과(2026-11-03 — G5 조항 번호·G6 회계연도·--regrade·answer/v2 세션 블록까지)
 pnpm run lint  → 오류 0
 tsc --noEmit   → gen·worker 오류 0
 ```
@@ -165,3 +204,4 @@ tsc --noEmit   → gen·worker 오류 0
 2. ~~`sim_stub` 데이터~~ — `load:d1 --sim-stub`(위 항목 4).
 3. 답변 VCR — 운영자 결정 방식으로 경로 완료(위 항목 4). **재생 픽스처로 해소(2026-11-02, 위 "답변 녹화 준비")**. 당시 기록 — **재생 시험의 데이터 문제**: 녹화는 로컬 D1의 실제 스트림(데모 1 A-1001)으로 하므로 요청에는 실제 툴 결과가 들어간다. 시험 픽스처(`worker/test/fixture.ts`)는 작은 가짜 세계라 같은 질문의 툴 결과가 달라 요청 해시가 맞지 않는다 → 재생 시험은 실제 스트림의 데모 설계사 행을 로컬 D1 시험 DB에 넣어야 한다(gen이 뷰에서 시험용 SQL 픽스처를 만드는 안). 검색 청크도 녹화 요청의 `<rules>`에서 id를 읽어 가짜 검색이 같은 순서로 돌려준다. 녹화 전에 정한다.
 4. **Vectorize 로컬 바인딩이 없다** — **(b) 승인·점검 스크립트로 해소(2026-11-02, 위)**: Miniflare(wrangler 4.153)의 Vectorize 플러그인은 원격 프록시만 있고 로컬 시뮬레이션이 없다(`VECTORIZE_REMOTE_SERVICE_NAME` — 확인). vitest는 `remoteBindings: false`라 `env.VECTORIZE`를 쓸 수 없다. 항목 6 "internal 청크가 어떤 질의에도 반환되지 않음(Vectorize 로컬 바인딩)"의 선택지: (a) 시험에서만 원격 바인딩(실제 인덱스 질의 — 무료 질의 차원 소모, CI에 계정 토큰 필요), (b) 원격 인덱스에 대한 별도 점검 스크립트(질의 N개 × filter visibility=agent → internal id 0건)를 Phase 종료 증거로 + 단위 시험은 D1 재필터, (c) 메타데이터 필터를 흉내 내는 메모리 가짜(필터 동작 자체는 검증 못 함). 권고 (b). 운영자 판단.
+5. **`/me/ask` 임베딩 오류 처리**: Workers AI 4006(그날 뉴런 소진) 등 임베딩 실패가 500으로 나간다(2026-11-03 v2 재녹화 1차). Phase 5 폴백·저하 모드(§7)에서 BUDGET/저하 응답으로.
