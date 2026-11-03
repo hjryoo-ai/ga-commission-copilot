@@ -1,0 +1,7 @@
+explanation fca1971cdbce: 레코드 267, 이미 있음 188, 새로 79 → D1 267행
+   실측 rows written(wrangler): 158
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 267 — PASS 266 · FAIL 1, PASS 행 위반 0
+  LIMIT: PASS 6 · FAIL 0
+  LINE: PASS 254 · FAIL 1
+  MONTH_DIFF: PASS 6 · FAIL 0
+verify exit: 0
