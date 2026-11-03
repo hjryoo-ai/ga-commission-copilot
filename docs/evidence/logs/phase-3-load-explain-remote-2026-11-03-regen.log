@@ -1,0 +1,7 @@
+explanation fca1971cdbce: 레코드 188, 이미 있음 187, 새로 0, 바뀐 행 1(재생성 — 지우고 다시) → D1 188행
+   실측 rows written(wrangler): 3
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 188 — PASS 188 · FAIL 0, PASS 행 위반 0
+  LIMIT: PASS 6 · FAIL 0
+  LINE: PASS 176 · FAIL 0
+  MONTH_DIFF: PASS 6 · FAIL 0
+verify exit: 0
