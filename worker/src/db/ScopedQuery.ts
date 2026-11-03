@@ -241,6 +241,16 @@ export class ScopedQuery {
    * 데모 시뮬레이션 고정 응답(설계서 §4.3·§5.1 sim_stub — get_policy_event_sim). 이 설계사·그 증권번호 행만. 없으면 null(→ NEEDS_ENGINE).
    * 증권번호는 호출자가 이 설계사의 원장·라인에서 찾은 원문이다(LLM 인자를 그대로 넣지 않는다).
    */
+  /** 이 설계사의 시뮬레이션 스텁이 있는 증권번호(답변 프롬프트 <session> — 운영자 2026-11-03 answer/v2). */
+  async simStubPolicies(kind: SimStubKind): Promise<string[]> {
+    if (!SIM_STUB_KINDS.includes(kind)) throw new Error("invalid sim_stub kind");
+    const r = await this.db
+      .prepare("SELECT policy_no FROM sim_stub WHERE tenant_id = ? AND agent_id = ? AND kind = ? ORDER BY policy_no")
+      .bind(this.tenantId, this.agentId, kind)
+      .all<{ policy_no: string }>();
+    return r.results.map((x) => x.policy_no);
+  }
+
   async simStub(policyNo: string, kind: SimStubKind): Promise<SimStubRow | null> {
     if (!SIM_STUB_KINDS.includes(kind)) throw new Error("invalid sim_stub kind");
     return this.db

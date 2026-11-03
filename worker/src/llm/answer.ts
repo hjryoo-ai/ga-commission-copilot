@@ -127,6 +127,24 @@ async function hash16(s: string): Promise<string> {
   return [...new Uint8Array(d).slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * 프롬프트 <session>(answer/v2 — 운영자 2026-11-03, v1 녹화의 연도 추정·"이 계약" 실패에서): 이 설계사의 명세 달 목록·계약 끝 4자리·해약 시뮬레이션 준비 계약.
+ * 툴 인자를 고르는 데만 쓰고 G4 근거(S)에 넣지 않는다 — 여기 숫자를 본문에 쓰려면 툴로 읽어야 한다. v1 본문에는 {{session}}이 없어 쓰이지 않는다.
+ */
+export async function sessionBlock(q: ScopedQuery): Promise<string> {
+  const [months, ledgers, sims] = await Promise.all([
+    q.all<{ close_ym: string }>("earnings_month", { columns: ["close_ym"], orderBy: "close_ym" }),
+    q.all<{ policy_no: string }>("policy_limit", { columns: ["policy_no"], orderBy: "policy_no" }),
+    q.simStubPolicies("POLICY_EVENT"),
+  ]);
+  const tail = (p: string) => p.slice(-4);
+  return [
+    `명세가 있는 달(yyyyMM): ${months.map((m) => m.close_ym).join(", ") || "없음"}`,
+    `계약(증권번호 끝 4자리): ${ledgers.map((l) => tail(l.policy_no)).join(", ") || "없음"}`,
+    `해약 시뮬레이션이 준비된 계약(끝 4자리): ${sims.map(tail).join(", ") || "없음"}`,
+  ].join("\n");
+}
+
 const rulesBlock = (rows: readonly RulebookChunkRow[]) => rows.map((r) => `[chunkId ${r.chunk_id}]\n${r.body}`).join("\n\n");
 const dataBlock = (results: readonly ToolResult[]) => (results.length ? JSON.stringify(results.map((r) => ({ tool: r.tool, args: r.args, result: r.data }))) : "");
 
@@ -180,10 +198,11 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   const rows = matches.flatMap((m) => (byId.has(m.id) ? [byId.get(m.id)!] : []));
   const retrievedChunks = matches.filter((m) => byId.has(m.id)).map((m) => ({ chunkId: m.id, score: m.score }));
 
+  const session = prompt.body.includes("{{session}}") ? await sessionBlock(q) : "";
   const ask = (stage: string, data: string) =>
     deps.provider.structured({
       model: prompt.modelHint,
-      messages: [{ role: "user", content: render(prompt.body, { stage, rules: rulesBlock(rows), data, question: qText }) }],
+      messages: [{ role: "user", content: render(prompt.body, { stage, session, rules: rulesBlock(rows), data, question: qText }) }],
       schemaName: "answer",
       schema: prompt.outputSchema,
       maxCompletionTokens: MAX_COMPLETION_TOKENS,

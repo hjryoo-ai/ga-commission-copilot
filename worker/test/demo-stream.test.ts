@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ScopedQuery } from "../src/db/ScopedQuery";
+import { sessionBlock } from "../src/llm/answer";
 import { parseToolCall, runTool } from "../src/tools";
 import { DEMO_STREAM, seedDemoStream } from "./demo-stream";
 
@@ -21,5 +22,15 @@ describe("답변 재생 픽스처(실제 스트림 데모 설계사 3명)", () =
     expect(r.data).toMatchObject({ found: true, ledger: { ledgerId: "1", limitAmount: 1800000 } });
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM rulebook_chunk WHERE version = ?").bind(DEMO_STREAM.rulebookVersion).first("n")).toBe(40);
     expect(await env.DB.prepare("SELECT agent_id, policy_no FROM sim_stub").all().then((x) => x.results)).toEqual([{ agent_id: "A-1001", policy_no: "POL-2026-0001" }]);
+  });
+
+  it("answer/v2 <session>: 명세 달·계약 끝 4자리·해약 시뮬레이션 준비 계약(그 설계사 행만)", async () => {
+    const q = (agentId: string) => new ScopedQuery(env.DB, { tenantId: "T1", agentId, stream: { streamHash: DEMO_STREAM.streamHash, slot: "a" } });
+    const s1 = await sessionBlock(q("A-1001"));
+    expect(s1.split("\n")[0]).toMatch(/^명세가 있는 달\(yyyyMM\): 202603, 202604, .*202608, .*202708, .*202806$/);
+    expect(s1).toContain("계약(증권번호 끝 4자리): 0001, ");
+    expect(s1).not.toMatch(/POL-/);
+    expect(s1.split("\n")[2]).toBe("해약 시뮬레이션이 준비된 계약(끝 4자리): 0001");
+    expect((await sessionBlock(q("A-1002"))).split("\n")[2]).toBe("해약 시뮬레이션이 준비된 계약(끝 4자리): 없음");
   });
 });

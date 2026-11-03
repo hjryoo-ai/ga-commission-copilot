@@ -2,9 +2,10 @@
 // 프롬프트 본문은 prompts/에만 있고 여기는 파일을 묶어 읽기만 한다(CLAUDE.md — 코드 문자열에 프롬프트를 쓰지 않는다). 새 버전 파일은 아래 FILES에 한 줄 추가.
 import answerSchema from "../../../contracts/answer/v1/answer.schema.json";
 import answerV1 from "../../../prompts/answer/v1.md";
+import answerV2 from "../../../prompts/answer/v2.md";
 import { promptVersions } from "../api/explain";
 
-const FILES: Readonly<Record<string, string>> = { "answer/v1": answerV1 };
+const FILES: Readonly<Record<string, string>> = { "answer/v1": answerV1, "answer/v2": answerV2 };
 const SCHEMAS: Readonly<Record<string, object>> = { "contracts/answer/v1/answer.schema.json": answerSchema };
 
 export interface PromptFile {
