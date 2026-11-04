@@ -50,7 +50,11 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
       r = await answerQuestion(deps, q, c.env, question);
     } catch (e) {
       // Phase 4는 Groq만 — 공급자 실패(429·5xx·타임아웃)는 폴백 없이 503(폴백·저하 모드는 Phase 5)
-      if (e instanceof ProviderError) return problem(c, 503, "INTERNAL_ERROR");
+      if (e instanceof ProviderError) {
+        // 녹화 2026-11-04 A-02 503의 원인(429 TPM 추정)이 남지 않았다 — 상태·메시지만 남긴다(키·본문 없음)
+        console.warn(`[ask] provider error ${e.status}: ${e.message}`);
+        return problem(c, 503, "INTERNAL_ERROR");
+      }
       throw e;
     }
   }
