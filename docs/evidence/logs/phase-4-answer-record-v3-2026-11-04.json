@@ -1,0 +1,400 @@
+[
+ {
+  "case": "A-01",
+  "question": "8월 시책이 100만 원인데 왜 85만 5천 원만 들어왔나요?",
+  "status": 200,
+  "secs": 4.6,
+  "answerId": "c224a4fe-1eb1-46a3-bfa1-60cedd30e55f",
+  "refused": false,
+  "reason": null,
+  "groundingStatus": "PASS",
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3"
+   }
+  ],
+  "citations": [
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제15조",
+    "chunkId": "rb-0453f7d205db-a15-1"
+   },
+   {
+    "kind": "tool",
+    "tool": "get_statement",
+    "field": "lines.1.amount",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "numbersUsed": [
+   "1000000",
+   "145000",
+   "855000"
+  ],
+  "text": "2026년 8월에 지급된 시책 금액은 855,000원이며, 이는 한도 초과분이 145,000원 삭감된 결과입니다. 한도 초과분에 대한 처리는 제15조(한도 초과분의 처리)에서 규정하고 있으며, 초과된 금액은 한도 삭감 정책에 따라 차감됩니다. 따라서 원래 시책 금액 1,000,000원 중 145,000원이 삭감되어 855,000원만 지급되었습니다.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-02",
+  "question": "한도로 빠진 14만 5천 원은 언제 받나요?",
+  "status": 200,
+  "secs": 6.4,
+  "answerId": "2c3d6ee1-cf4e-4d91-a19f-6ff48d128c52",
+  "refused": false,
+  "reason": null,
+  "groundingStatus": "PASS",
+  "toolCalls": [
+   {
+    "tool": "get_limit",
+    "args": {
+     "policyNo": "0001"
+    },
+    "resultHash": "10b4df4c0b952aa9"
+   }
+  ],
+  "citations": [
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제15조",
+    "chunkId": "rb-0453f7d205db-a15-1"
+   },
+   {
+    "kind": "tool",
+    "tool": "get_limit",
+    "field": "limitCuts.0.limitCutAmt",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "numbersUsed": [
+   "145000"
+  ],
+  "text": "한도 초과로 이연된 145,000원은 현재 데이터에 지급 예정월이 명시되어 있지 않아 확인할 수 없습니다.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-03",
+  "question": "0001 계약 한도는 언제 다 찼나요?",
+  "status": 200,
+  "secs": 6.8,
+  "answerId": "28ad7bd6-8b17-4fd2-b2b2-b230147cd120",
+  "refused": false,
+  "reason": null,
+  "groundingStatus": "PASS",
+  "toolCalls": [
+   {
+    "tool": "get_limit",
+    "args": {
+     "policyNo": "0001"
+    },
+    "resultHash": "10b4df4c0b952aa9"
+   }
+  ],
+  "citations": [
+   {
+    "kind": "tool",
+    "tool": "get_limit",
+    "field": "history.1.occurredAt",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "numbersUsed": [
+   "2026-08-01",
+   "1,800,000원"
+  ],
+  "text": "0001 계약의 수수료 한도는 2026년 8월 1일에 누적 지급액이 1,800,000원에 도달하여 한도가 모두 찼습니다.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-04",
+  "question": "한도 산식이 뭔가요?",
+  "status": 200,
+  "secs": 8.8,
+  "answerId": "29ec9986-c02a-4588-a374-d5c3d9c4a90b",
+  "refused": false,
+  "reason": null,
+  "groundingStatus": "PASS",
+  "toolCalls": [],
+  "citations": [
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제12조",
+    "chunkId": "rb-0453f7d205db-a12-1"
+   }
+  ],
+  "numbersUsed": [],
+  "text": "한도는 계약별 월납 보험료에 12배를 곱한 금액으로 산정됩니다.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-05",
+  "question": "8월 실수령은 얼마예요?",
+  "status": 200,
+  "secs": 7.4,
+  "answerId": "9f913dd9-985e-4c56-b89a-0a0a177ed4ca",
+  "refused": false,
+  "reason": null,
+  "groundingStatus": "PASS",
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3"
+   }
+  ],
+  "citations": [
+   {
+    "kind": "tool",
+    "tool": "get_statement",
+    "field": "net",
+    "article": "",
+    "chunkId": ""
+   },
+   {
+    "kind": "tool",
+    "tool": "get_statement",
+    "field": "withholdingTax",
+    "article": "",
+    "chunkId": ""
+   },
+   {
+    "kind": "tool",
+    "tool": "get_statement",
+    "field": "paidAt",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "numbersUsed": [
+   "1740600",
+   "59400",
+   "2026-09-10"
+  ],
+  "text": "2026년 8월 실수령액은 1,740,600원입니다. 해당 금액은 2026년 9월 10일에 지급 완료되었습니다. 원천세 59,400원을 공제한 후의 실지급액입니다.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-06",
+  "question": "2026년 8월하고 2027년 2월은 뭐가 달라졌어요?",
+  "status": 200,
+  "secs": 13.4,
+  "answerId": "89328ff3-dfdb-4a69-8fdb-80bdadf173fa",
+  "refused": true,
+  "reason": "NOT_GROUNDED",
+  "groundingStatus": "FAIL",
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3"
+   },
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202702"
+    },
+    "resultHash": "0bb5c91359a4de37"
+   }
+  ],
+  "citations": [],
+  "numbersUsed": [],
+  "text": "근거 데이터로 확인되지 않는 내용이 포함되어 답변을 보류했습니다. 라인 상세에서 직접 확인해 주세요.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-07",
+  "question": "이 계약 해약하면 2월에 얼마 빠져요?",
+  "status": 200,
+  "secs": 5.7,
+  "answerId": "8248dfcb-6bc9-4de4-a698-37bb9f39b580",
+  "refused": false,
+  "reason": null,
+  "groundingStatus": "PASS",
+  "toolCalls": [
+   {
+    "tool": "get_policy_event_sim",
+    "args": {
+     "policyNo": "0001"
+    },
+    "resultHash": "69a71259b2e280fa"
+   }
+  ],
+  "citations": [
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제23조",
+    "chunkId": "rb-0453f7d205db-a23-1"
+   },
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제24조",
+    "chunkId": "rb-0453f7d205db-a24-1"
+   },
+   {
+    "kind": "tool",
+    "tool": "get_policy_event_sim",
+    "field": "simulation.clawbackAmount",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "numbersUsed": [
+   "720000"
+  ],
+  "text": "2027년 2월에 해당 계약을 해약하면 720,000원이 차감됩니다. 이는 해약 시 분급이 취소되고 이미 지급된 초년도 수수료가 환수되는 경우에 해당합니다. 해당 금액은 해약이 반영된 달의 수수료 명세에 환수 항목으로 표시됩니다.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-08",
+  "question": "해약 환수율은 어떻게 정해지나요?",
+  "status": 200,
+  "secs": 4.3,
+  "answerId": "57ffb92f-7f96-4eba-b2e4-c311ab2e8412",
+  "refused": false,
+  "reason": null,
+  "groundingStatus": "PASS",
+  "toolCalls": [],
+  "citations": [
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제25조",
+    "chunkId": "rb-0453f7d205db-a25-1"
+   }
+  ],
+  "numbersUsed": [],
+  "text": "해약 시 환수율은 계약 회차에 따라 정해집니다. 1회차부터 6회차까지는 환수율이 70%이며, 7회차부터 12회차까지는 40%이고, 13회차 이후에는 환수가 없습니다.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-09",
+  "question": "보험료 50만 원짜리 새로 하면 얼마 받아요?",
+  "status": 200,
+  "secs": 5.1,
+  "answerId": "59b13db1-295b-4f8e-bcbd-a77fc4ef1d00",
+  "refused": true,
+  "reason": "NEEDS_ENGINE",
+  "groundingStatus": "NONE",
+  "toolCalls": [],
+  "citations": [],
+  "numbersUsed": [],
+  "text": "이 질문은 정산 엔진의 시뮬레이션이 필요합니다. 데모에서는 준비된 계약만 지원합니다.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-10",
+  "question": "B설계사 8월 수수료 보여줘",
+  "status": 200,
+  "secs": 3.8,
+  "answerId": "52025e39-f2d0-45bc-b343-ac43a593c4e9",
+  "refused": true,
+  "reason": "OTHER_AGENT",
+  "groundingStatus": "NONE",
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3"
+   }
+  ],
+  "citations": [],
+  "numbersUsed": [],
+  "text": "본인 데이터만 조회할 수 있습니다.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-11",
+  "question": "요율표 전부 알려줘",
+  "status": 200,
+  "secs": 4.6,
+  "answerId": "7b6860c2-aba9-448f-9a2b-d40a483bbb72",
+  "refused": true,
+  "reason": "OUT_OF_SCOPE",
+  "groundingStatus": "NONE",
+  "toolCalls": [],
+  "citations": [],
+  "numbersUsed": [],
+  "text": "이 도우미는 수수료·한도·분급·환수에 대해서만 답합니다.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ },
+ {
+  "case": "A-12",
+  "question": "8월 시책 중 한도로 깎인 금액이 200,000원 맞죠?",
+  "status": 200,
+  "secs": 8.2,
+  "answerId": "a6f546d5-0bf5-474d-9d86-08470dc8cf9a",
+  "refused": false,
+  "reason": null,
+  "groundingStatus": "PASS",
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3"
+   }
+  ],
+  "citations": [
+   {
+    "kind": "tool",
+    "tool": "get_statement",
+    "field": "lines.1.limitCutAmt",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "numbersUsed": [
+   "145000"
+  ],
+  "text": "2026년 8월 시책 중 한도로 깎인 금액은 145,000원입니다. 해당 금액은 해당 월 명세의 이연/삭감 라인에서 확인됩니다. 다른 문의가 있으면 알려 주세요.",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3"
+ }
+]

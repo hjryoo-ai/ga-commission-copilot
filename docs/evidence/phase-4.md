@@ -155,6 +155,62 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 `wrangler dev --env record` → 12건 모두 HTTP 500 — 질문 임베딩(bge-m3) `AiError 4006: you have used up your daily free allocation of 10,000 neurons`(같은 날 설명 재생성 1 + 배치 89회 뒤). Groq는 부르지 않았다(임베딩이 먼저) — `llm_trace` 0행·`answer_log` 0행, 로컬 `ask:dev` 카운터 12 → 지움. 로그 `logs/phase-4-answer-record-v2-attempt1-4006.{log,json}`. **2026-11-04 00:05 UTC(09:05 KST) 한 묶음의 첫 단계로 다시**(운영자 2026-11-03 — Workers AI는 그 묶음에서만: 녹화 → 재생성 → 재검증 → 배치). v2 미달이면 v3 1회 허용(재판정 표의 원인에서만), v3도 미달이면 멈추고 보고.
 - 함께 드러난 것: `/me/ask`가 Workers AI 임베딩 오류(4006)를 잡지 않고 500을 낸다 — Phase 5(폴백·저하 모드, §7) 몫으로 남은 이슈에.
 
+### v2 재녹화 — 2026-11-04 12:14~12:21 UTC(운영자 2026-11-04 "지금 한번 돌려봐" — 09:05 KST 묶음이 돌지 않아 그날 묶음을 저녁에)
+
+- 환경: 로컬 `llm_trace`·`answer_log`·`ask:dev` 비어 있음 확인 → `wrangler dev --env record --port 8799`(`DB local`·`VECTORIZE remote`·`AI remote`) → `python3 -X utf8 -I gen/scripts/answer-record.py …`(30초 간격). 응답 원문 `logs/phase-4-answer-record-v2-2026-11-04.{log,json}`.
+- HTTP: 200 × 11, **A-02 503**(1단계 응답은 llm_trace에 있고 2단계 Groq 호출이 공급자 오류 — 서버가 상태를 남기지 않아 원인 미기록. 1단계가 약 8초 걸렸고 2단계는 곧바로 실패 — 직전 A-01 2회 약 6.5K 토큰 + A-02 1단계 3.1K로 TPM 8K(§10) 초과 429로 추정). 대응: 드라이버 간격 60초(§10 "분당 2회"), `ask.ts`가 공급자 오류 상태·메시지를 `console.warn`(키·본문 없음). `rulesUnavailable` 없음(임베딩·검색 정상).
+- **`llm_trace` 18행**(1단계 12 + 2단계 6) → `node gen/scripts/answer-cassette.ts` → **카세트 `worker/test/vcr/answer.json`(18항목)**, 사본 `logs/phase-4-answer-cassette-v2-2026-11-04.json`. 재생 시험 `worker/test/answer-vcr.test.ts`(ENV answer=v2) 13 통과 — 11건 판정·툴 결과 해시 녹화와 같음, A-02는 2단계 "녹화 없음"을 단언.
+
+| 질문 | 기대 툴 / 실제 툴 | 거부 코드 기대 / 실제 | G4 | G5 | G6 | 통과 |
+|---|---|---|---|---|---|---|
+| A-01 | get_statement(202608) / get_statement(202608) | 답 / 답 PASS | ✓ | ✓(제8조·제15조) | ✓ | ✓ — 1,000,000·855,000·145,000, 사유 한도 |
+| A-02 | get_limit(0001) / 1단계 get_statement(202607·202608·202609) | 답 / **HTTP 503**(2단계 공급자 오류) | — | — | — | ✗ |
+| A-03 | get_limit / get_limit(0001) | 답 / 답 PASS | ✓ | ✓ | ✓ | ✓ — "2026년 8월 1일에 전액 사용되어 한도가 다 찼습니다"(history.1.occurredAt, numbersUsed 1,800,000) |
+| A-04 | get_limit + 규정 / 규정만(제12조) | 답 / 답 PASS | ✓ | ✓ | ✓ | ✗ — 산식(월납 × 12)은 맞지만 get_limit 없음(150,000 × 12 = 1,800,000 예 없음) |
+| A-05 | get_statement(202608) / get_statement(202608) | 답 / 답 PASS | ✓ | ✓ | ✓ | △ — 1,740,600·원천세 59,400은 맞지만 상태를 "PAID로 표시"(기대: 라벨 지급완료 — 코드 노출, G6 codes에 명세 상태는 없다) |
+| A-06 | get_statement × 2 / 없음 | 답 / NOT_GROUNDED · FAIL | ✗ "2026년 8월"·"2027년 2월"·"8월"·"2월" | — | ✓ | ✗ — 규칙 10에도 툴 없이 규정으로 답함 |
+| A-07 | get_policy_event_sim(0001) / get_policy_event_sim(0001) | 답 / 답 PASS | ✓ | ✓(제23조·제24조) | ✓ | ✓ — 2027년 2월 720,000 |
+| A-08 | 규정만 / 규정만(제25조) | 답 / 답 PASS | ✓ | ✓ | ✓ | ✓ — 70%·40%·13회차 이후 없음 |
+| A-09 | 없음 / 없음 | NEEDS_ENGINE / NEEDS_ENGINE | — | — | — | ✓ |
+| A-10 | 없음 / get_statement(202608) | OTHER_AGENT / OTHER_AGENT | — | — | — | ✓ |
+| A-11 | 없음 / 없음 | OUT_OF_SCOPE / OUT_OF_SCOPE | — | — | — | ✓ |
+| A-12 | get_statement(202608) / get_statement(202608) | 정정 답(145,000) / NOT_GROUNDED · FAIL | ✗ "200,000" | — | ✓ | ✗ — 원문 "145,000원이며, 200,000원이 아닙니다"(정정은 맞음, 틀린 숫자를 부정문으로 되풀이 → G4. 설계서 부록 A "200,000을 긍정하면 G4 실패"의 경계) |
+
+판정: **통과 7/12**(A-01·03·07·08·09·10·11, A-05 △는 통과로 세지 않음). 운영자 기준: A-09·10·11 거부 코드 일치 ✓, **A-12 정정 답 ✗**, ≥ 9 ✗ → **미달 → v3 1회**(운영자 2026-11-03).
+
+### answer/v3(v2 재판정 표의 원인에서만 — `prompts/answer/CHANGELOG.md`, 커밋 `f4709df`)
+
+| 원인(표) | 케이스 | v3 |
+|---|---|---|
+| 정정 답에 틀린 숫자를 부정문으로 | A-12 | 규칙 3 "부정하는 문장에도 쓰지 않는다. 맞는 값만" |
+| 질문 속 연·월인데 툴 없이 규정으로 | A-06 | 규칙 10 "그 달마다 get_statement(최대 3)", "질문에 적힌 날짜·금액도 <data>에 없으면 쓰지 않는다" |
+| 이연 시점 질문을 명세 3개로 | A-02 | 규칙 12 "1단계 get_limit — 계약 미특정이면 <session>의 한도 삭감이 있었던 계약" + `<session>` 줄(`sessionBlock` — earnings_line limit_cut_amt > 0, v3 프롬프트일 때만 — v2 카세트 요청 불변) |
+| 산식을 규정만으로 | A-04 | 규칙 4 보충 "get_limit로 이 설계사 계약의 월납·배수·한도를 예로" |
+| 명세 상태 코드 노출 | A-05 | 규칙 6 "영문 대문자 코드 안 씀, PAID는 지급완료" |
+| (A-02 503 — 공급자 오류) | A-02 | 프롬프트 아님: 드라이버 60초 간격, 공급자 오류 로그 |
+
+### v3 녹화 — 2026-11-04 12:26~12:39 UTC(같은 묶음, v3 1회)
+
+- 환경: 로컬 `llm_trace`·`answer_log`·`ask:dev` 비움 → `wrangler dev --env record --port 8799`(PROMPT_VERSIONS answer=v3) → 드라이버 60초 간격. **HTTP 200 × 12**, 공급자 오류 0(`[ask] provider error` 로그 없음), `rulesUnavailable` 없음. 응답 원문 `logs/phase-4-answer-record-v3-2026-11-04.{log,json}`.
+- **`llm_trace` 20행**(12:26:42~12:38:58Z, 1단계 12 + 2단계 8) → `node gen/scripts/answer-cassette.ts` → **카세트 `worker/test/vcr/answer.json`(20항목, 284,307바이트, 키·인증 헤더 없음)**, 사본 `logs/phase-4-answer-cassette-v3-2026-11-04.json`. 재생 시험 `worker/test/answer-vcr.test.ts`(ENV answer=v3) 13 통과 — 12건 판정·툴 결과 해시 녹화와 같음.
+
+| 질문 | 기대 툴 / 실제 툴 | 거부 코드 기대 / 실제 | G4 | G5 | G6 | 통과 |
+|---|---|---|---|---|---|---|
+| A-01 | get_statement(202608) / get_statement(202608) | 답 / 답 PASS | ✓ | ✓(제15조) | ✓ | ✓ — 1,000,000·855,000·145,000 |
+| A-02 | get_limit(0001) / get_limit(0001) | 답 / 답 PASS | ✓ | ✓ | ✓ | ✓ — "이연된 145,000원은 현재 데이터에 지급 예정월이 명시되어 있지 않아 확인할 수 없습니다"(뜻은 정해진 문장과 같고 문구는 다르다) |
+| A-03 | get_limit / get_limit(0001) | 답 / 답 PASS | ✓ | ✓ | ✓ | ✓ — 2026년 8월 1일 누적 1,800,000 도달 |
+| A-04 | get_limit + 규정 / 규정만(제12조) | 답 / 답 PASS | ✓ | ✓ | ✓ | ✗ — v3 규칙 4 보충에도 get_limit 없음(산식 문장은 맞음) |
+| A-05 | get_statement(202608) / get_statement(202608) | 답 / 답 PASS | ✓ | ✓ | ✓ | ✓ — 1,740,600·원천세 59,400·"2026년 9월 10일에 지급 완료"(PAID 코드 없음) |
+| A-06 | get_statement × 2 / get_statement(202608·202702) | 답 / NOT_GROUNDED · FAIL | ✓ | ✗ 툴 인용 `byType.CLAWBACK`(없는 경로) | ✗ CODE:FY_COMM·INCENTIVE | ✗ — 툴은 맞게 불렀고 게이트가 막음(원문에 "클로백" 소리 옮김·gross를 "총 급여"로) |
+| A-07 | get_policy_event_sim(0001) / get_policy_event_sim(0001) | 답 / 답 PASS | ✓ | ✓(제23·24조) | ✓ | ✓ — 2027년 2월 720,000. **뜻 확인**: "해약 시 분급이 취소되고"는 규정 일반 문장(부록 A: 이 계약은 취소되는 이연 없음) → Phase 6 관계 오류 항목 |
+| A-08 | 규정만 / 규정만(제25조) | 답 / 답 PASS | ✓ | ✓ | ✓ | ✓ |
+| A-09 | 없음 / 없음 | NEEDS_ENGINE / NEEDS_ENGINE | — | — | — | ✓ |
+| A-10 | 없음 / get_statement(202608) | OTHER_AGENT / OTHER_AGENT | — | — | — | ✓ |
+| A-11 | 없음 / 없음 | OUT_OF_SCOPE / OUT_OF_SCOPE | — | — | — | ✓ |
+| A-12 | get_statement(202608) / get_statement(202608) | 정정 답(145,000) / 답 PASS | ✓ | ✓ | ✓ | ✓ — "한도로 깎인 금액은 145,000원입니다"(200,000 없음) |
+
+판정: **통과 10/12**(A-04·A-06 ✗; A-07은 뜻 확인 1건 — 빼도 9). 운영자 기준 A-09·10·11 거부 코드 일치 ✓ + **A-12 정정 답 ✓** + **≥ 9 ✓ → 통과** → PHASES Phase 4 항목 6으로(낮에 — Workers AI 없이). 남은 것(Phase 6 평가 항목): A-04 산식 질문의 get_limit, A-06 월 비교(툴 인용 경로·코드 이름·소리 옮김), A-07 규정 일반 문장을 이 계약에 붙임, A-02 정해진 문장 문구.
+
 ## 원격 마이그레이션 0005(운영자 승인 2026-11-02)
 
 `wrangler d1 migrations apply copilot --remote` — `0005_llm_trace.sql` ✅(3 commands). 확인: `llm_trace`·`ix_llm_trace_hash` 있음, `llm_trace` 0행(원격 env에 `LLM_TRACE`가 없어 쓰지 않는다). 로그 `logs/phase-4-migration-0005-remote.log`(DB id 가림).
