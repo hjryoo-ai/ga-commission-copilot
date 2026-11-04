@@ -35,7 +35,7 @@ describe("POST /api/v1/me/ask", () => {
     expect(res.status).toBe(429);
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     const b = (await res.json()) as Record<string, unknown>;
-    expect(b).toMatchObject({ refused: true, reason: "BUDGET", text: REFUSAL_TEXT.BUDGET, promptVersion: "answer/v2", asOf: { streamHash: HASH, demoNo: 1 }, disclaimer: expect.any(String) });
+    expect(b).toMatchObject({ refused: true, reason: "BUDGET", text: REFUSAL_TEXT.BUDGET, promptVersion: "answer/v3", asOf: { streamHash: HASH, demoNo: 1 }, disclaimer: expect.any(String) });
     expect(b.retryAfterSeconds as number).toBeGreaterThan(0);
     expect(b.retryAfterSeconds as number).toBeLessThanOrEqual(86_400);
     const row = await env.DB.prepare("SELECT agent_id, provider, refused, refuse_reason, grounding_status, stream_hash FROM answer_log WHERE answer_id = ?").bind(b.answerId).first();
