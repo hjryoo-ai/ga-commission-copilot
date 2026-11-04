@@ -1,0 +1,17 @@
+
+> @copilot/gen@ explain /Users/hjr/Documents/workspace/ai/ga-commision-copilot/gen
+> node explain/run.ts -- --regenerate explain:LINE:A-1002:c-A1002-15-1,explain:LINE:A-1002:c-A1002-14-4,explain:LINE:A-1001:c-A1001-05-10
+
+프롬프트 explain_line/v6·explain_limit/v6·explain_month/v6, 카세트 explain
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+[regenerate] explain:LINE:A-1002:c-A1002-15-1 바꿈(#1): 2027년 5월 마감분으로 집계된 초년도 수수료는 475,200원입니다. 엔진이 요율 6와 지급률 0.9를 적용해 산출한 금액이며, 이 금액은 한도 2,640,000원 안에서 지급되었습니다. 이 라인에 대해 2028년 5월에 237,600원이 지급되었고, 2029년 5월과 2030년 5월에 각각 237,600원씩 지급 예정이며, 현재 두 건은 지급 예정 상태입니다.
+[regenerate] explain:LINE:A-1002:c-A1002-14-4 바꿈(#1): 2028년 4월 마감분으로, 증권번호 **********2012의 유지 수수료가 3,240원 산출되었습니다. 엔진은 요율 0.03에 지급률 0.9를 적용하여 해당 회차인 14회차에 대한 금액을 계산한 결과입니다. 한도 초과나 분급, 환수 채권은 없으며, 이번 마감분은 전액 집계되었습니다.
+[regenerate] explain:LINE:A-1001:c-A1001-05-10 바꿈(#1): 2028년 3월 마감분으로, 증권번호 **********1005에 대한 유지 수수료가 6,300원 산출되었습니다. 엔진이 요율 0.02와 지급률 0.9를 적용해 계산한 금액입니다.
+regenerate: 생성 3(PASS 3 · FAIL 0 — 첫 시도 3/3(100.0%) · 재생성 후 100.0%), 캐시 건너뜀 0, 호출 {"workers-ai":3}, 재시도 {}
+  LINE: PASS 3 · FAIL 0 — 첫 시도 3/3(100.0%) · 재생성 후 100.0%
+  workers-ai: PASS 3 · FAIL 0 — 첫 시도 3/3(100.0%) · 재생성 후 100.0%
+  모델 @cf/openai/gpt-oss-120b: 본문 3건 평균 2.7문장 · 성공 호출 3회 평균 출력 387토큰(추론 포함)
+  사용량 workers-ai: 성공 3회 · 입력 7281 · 출력 1161 토큰(회당 2814.0) · 310.8 뉴런(회당 103.6)
+  재생성 explain:LINE:A-1002:c-A1002-15-1: 바꿈 — 시도 1
+  재생성 explain:LINE:A-1002:c-A1002-14-4: 바꿈 — 시도 1
+  재생성 explain:LINE:A-1001:c-A1001-05-10: 바꿈 — 시도 1
