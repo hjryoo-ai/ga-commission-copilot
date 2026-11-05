@@ -28,5 +28,6 @@ describe("답변 재생 픽스처(fixture:answer)", () => {
     expect(committed === fixtureText(now), "픽스처가 data와 다르다 — pnpm run fixture:answer").toBe(true);
     expect(now.demoAgents.map((d) => d.agentId)).toHaveLength(3);
     expect(now.statements.at(-1)).toMatch(/^UPDATE stream_meta SET active = 1/);
-  });
+    // 리플레이(projection-java)만 CI에서 5.3초(2026-11-05 ci 42… 기본 5초 초과) — explain-stream의 beforeAll과 같은 여유
+  }, 600_000);
 });
