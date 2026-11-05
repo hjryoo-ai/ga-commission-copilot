@@ -1,0 +1,271 @@
+# 설계서 v0.1.23 §11 CI/CD·§12 Phase 7 — weekly-generate.yml 중 설명 배치·녹화·재검증 부분을 먼저(운영자 2026-11-05).
+# Workers AI 하루 묶음(DECISIONS 2026-11-03): 매일 00:05 UTC(09:05 KST)에 한 번만 Workers AI를 부른다. 낮에는 부르지 않는다.
+#   ① 답변 녹화(수동 실행 record_answer=true일 때만 — 산출물은 artifact, 재판정·시험 기대값은 사람이)
+#   ② 설명 단건 재생성(수동 실행 regenerate 라벨)
+#   ③ 원격 적재·재검증 — exit 0이 아니면 배치 전에 멈춘다
+#   ④ 배치 90(budget_counter batch:explain:workers-ai — 같은 날 두 번 돌아도 원격 D1 카운터가 막는다)
+#   → 재판정(--regrade, 호출 없음)·본문 점검 → 원격 적재·재검증 → bot/daily-explain 브랜치에 커밋
+# main에는 푸시하지 않는다(main 푸시·배포는 운영자). GITHUB_TOKEN 푸시는 다른 워크플로(ci·deploy)를 깨우지 않는다.
+# 시크릿(CLAUDE.md 규약 10 — 값은 출력하지 않는다):
+#   CLOUDFLARE_BATCH_API_TOKEN  Workers AI 읽기·D1 편집(① 녹화는 Vectorize 읽기·Workers 스크립트 편집도 — wrangler dev 원격 바인딩)
+#   CLOUDFLARE_ACCOUNT_ID       커밋하는 로그에서는 <account>로 지운다
+#   GROQ_API_KEY                ① 녹화만
+name: daily-explain
+
+on:
+  schedule:
+    - cron: "5 0 * * *" # 00:05 UTC = 09:05 KST
+  workflow_dispatch:
+    inputs:
+      record_answer:
+        description: "① 부록 A 12건 답변 녹화(산출물 artifact만, 커밋 안 함)"
+        type: boolean
+        default: false
+      regenerate:
+        description: "② 단건 재생성 라벨(explain:KIND:agent:subject, 쉼표로 — 비우면 건너뜀)"
+        type: string
+        default: ""
+      batch:
+        description: "④ 배치 90"
+        type: boolean
+        default: true
+
+concurrency:
+  group: daily-explain
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  BOT_BRANCH: bot/daily-explain
+  NO_COLOR: "1"
+
+defaults:
+  run:
+    shell: bash # -eo pipefail — tee로 남겨도 앞 명령의 실패가 단계 실패가 된다
+
+jobs:
+  record-answer:
+    if: github.repository == 'hjryoo-ai/ga-commission-copilot' && github.event_name == 'workflow_dispatch' && inputs.record_answer
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: 로컬 D1 준비(마이그레이션 → 스트림 → 사규집 청크 → 시뮬레이션 스텁)
+        working-directory: gen
+        run: |
+          pnpm --dir ../worker exec wrangler d1 migrations apply copilot --local
+          pnpm run load:d1 -- --local
+          pnpm run load:d1 -- --local --rulebook
+          pnpm run load:d1 -- --local --sim-stub
+
+      - name: .dev.vars.record(값은 출력하지 않는다 — 세션·policyKey 비밀은 이 실행에서만 쓰는 무작위)
+        working-directory: worker
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          test -n "$GROQ_API_KEY" || { echo "GROQ_API_KEY 시크릿 없음"; exit 1; }
+          umask 077
+          {
+            printf 'GROQ_API_KEY=%s\n' "$GROQ_API_KEY"
+            printf 'SESSION_SECRET=%s\n' "$(openssl rand -hex 32)"
+            printf 'POLICY_KEY_SECRET=%s\n' "$(openssl rand -hex 32)"
+            printf 'LLM_TRACE=1\n'
+          } > .dev.vars.record
+
+      - name: 녹화 서버(wrangler dev --env record — D1 로컬, Vectorize·AI 원격, --local 금지)
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BATCH_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          nohup pnpm exec wrangler dev --env record --port 8799 > "../docs/evidence/logs/phase-4-answer-record-server-$(date -u +%F).log" 2>&1 &
+          for _ in $(seq 1 90); do
+            curl -fsS http://localhost:8799/api/v1/health > /dev/null 2>&1 && { curl -sS http://localhost:8799/api/v1/health; echo; exit 0; }
+            sleep 2
+          done
+          tail -50 "../docs/evidence/logs/phase-4-answer-record-server-$(date -u +%F).log"
+          exit 1
+
+      - name: ① 부록 A 12건 녹화(60초 간격 — Groq TPM 8K)
+        run: |
+          ver=$(grep -o 'answer=v[0-9]*' worker/wrangler.jsonc | head -1 | cut -d= -f2)
+          out="docs/evidence/logs/phase-4-answer-record-$ver-$(date -u +%F)"
+          python3 -X utf8 -I gen/scripts/answer-record.py "$out.json" 2>&1 | tee "$out.log"
+          pkill -f "wrangler dev --env record" || true
+          node gen/scripts/answer-cassette.ts
+          rows=$(pnpm --dir worker exec wrangler d1 execute copilot --local --json --command "SELECT COUNT(*) AS n FROM llm_trace" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[0].results[0].n))')
+          { echo "### ① 답변 녹화 answer/$ver"; echo; echo "- llm_trace $rows행 → worker/test/vcr/answer.json"; echo "- 재판정 표·answer-vcr.test.ts 기대값은 사람이(artifact에서)"; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 계정 ID 가리기
+        if: always()
+        env:
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          [ -n "$ACCOUNT" ] || exit 0
+          for f in docs/evidence/logs/phase-4-answer-record-*; do
+            if [ -f "$f" ]; then sed -i "s/$ACCOUNT/<account>/g" "$f"; fi
+          done
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: answer-record
+          path: |
+            docs/evidence/logs/phase-4-answer-record-*
+            worker/test/vcr/answer.json
+          if-no-files-found: warn
+
+  explain:
+    needs: record-answer
+    # ①이 건너뛰어졌거나 성공했을 때. ① 실패(녹화 미달 아님 — 서버·키 문제)면 Workers AI를 더 부르지 않는다.
+    if: >-
+      always() && github.repository == 'hjryoo-ai/ga-commission-copilot' &&
+      (needs.record-answer.result == 'success' || needs.record-answer.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    # 토큰은 쓰는 단계에만 준다(pnpm install의 의존성 스크립트에는 보이지 않게)
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: bot/daily-explain 이어서(main을 합친다 — 충돌이면 Workers AI 호출 전에 멈춘다)
+        id: branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin "$BOT_BRANCH" > /dev/null; then
+            git fetch origin "$BOT_BRANCH"
+            git checkout -B "$BOT_BRANCH" "origin/$BOT_BRANCH"
+            git merge --no-edit origin/main
+          else
+            git checkout -b "$BOT_BRANCH"
+          fi
+          echo "DAY=$(date -u +%F)" >> "$GITHUB_ENV"
+          echo "START=$(date -u +%FT%TZ)" >> "$GITHUB_ENV"
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: 시크릿 확인(값은 출력하지 않는다)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BATCH_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: test -n "$CLOUDFLARE_API_TOKEN" -a -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "CLOUDFLARE_BATCH_API_TOKEN·CLOUDFLARE_ACCOUNT_ID 시크릿 없음"; exit 1; }
+
+      - name: ② 설명 재생성
+        if: github.event_name == 'workflow_dispatch' && inputs.regenerate != ''
+        working-directory: gen
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BATCH_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          LABELS: ${{ inputs.regenerate }}
+        run: pnpm run explain -- --regenerate "$LABELS" 2>&1 | tee -a "../docs/evidence/logs/phase-3-explain-regenerate-$DAY.log"
+
+      - name: ③ 원격 적재·재검증(exit 0이 아니면 배치하지 않는다)
+        working-directory: gen
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BATCH_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          { pnpm run load:d1 -- --remote --explain && pnpm run verify:explain -- --remote; } 2>&1 \
+            | tee -a "../docs/evidence/logs/phase-3-load-explain-remote-$DAY-pre.log"
+
+      - name: ④ 배치 90
+        if: github.event_name == 'schedule' || inputs.batch
+        working-directory: gen
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BATCH_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm run explain -- --batch 2>&1 | tee -a "../docs/evidence/logs/phase-3-explain-batch-$DAY.log"
+
+      - name: 재판정(호출 없음)·본문 점검
+        if: github.event_name == 'schedule' || inputs.batch
+        working-directory: gen
+        run: |
+          pnpm run verify:explain -- --regrade 2>&1 | tee -a "../docs/evidence/logs/phase-3-explain-batch-$DAY.log"
+          pnpm run -s explain:check > "../docs/evidence/logs/phase-3-explain-batch-$DAY-scan.log"
+
+      - name: 원격 적재·재검증
+        working-directory: gen
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BATCH_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          { pnpm run load:d1 -- --remote --explain && pnpm run verify:explain -- --remote; } 2>&1 \
+            | tee -a "../docs/evidence/logs/phase-3-load-explain-remote-$DAY.log"
+
+      - name: 요약
+        if: always() && steps.branch.outcome == 'success'
+        run: |
+          {
+            echo "### 설명 묶음 $DAY (시작 $START)"
+            echo
+            for f in docs/evidence/logs/phase-3-explain-regenerate-"$DAY".log docs/evidence/logs/phase-3-explain-batch-"$DAY".log; do
+              [ -f "$f" ] || continue
+              echo "**$(basename "$f")**"
+              echo '```'
+              grep -E '^(batch|regenerate):|^  |\[batch\] .* 끝\(|\[regenerate\]' "$f" || true
+              echo '```'
+            done
+            for f in docs/evidence/logs/phase-3-load-explain-remote-"$DAY"*.log; do
+              [ -f "$f" ] || continue
+              echo "**$(basename "$f")** — 끝 5줄"
+              echo '```'
+              tail -5 "$f"
+              echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 계정 ID 가리기·커밋·bot/daily-explain 푸시
+        # 앞 단계가 실패해도 이미 쓴 뉴런의 결과(data/explain·로그)는 남긴다
+        if: always() && steps.branch.outcome == 'success'
+        env:
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$ACCOUNT" ]; then
+            for f in docs/evidence/logs/phase-3-*-"$DAY"*.log; do
+              if [ -f "$f" ]; then sed -i "s/$ACCOUNT/<account>/g" "$f"; fi
+            done
+          fi
+          git add data/explain docs/evidence/logs
+          if git diff --cached --quiet; then
+            echo "바뀐 것 없음"
+            exit 0
+          fi
+          git commit -m "phase-3: 설명 하루 묶음 $DAY(daily-explain)" -m "$RUN_URL"
+          git push origin "HEAD:$BOT_BRANCH"
