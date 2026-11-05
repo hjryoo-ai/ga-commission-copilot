@@ -188,6 +188,12 @@ export interface AskResult extends Common {
   rulesUnavailable?: boolean;
 }
 
+export interface Violations {
+  g4Missing: string[];
+  g5Unknown: string[];
+  g6Words: string[];
+}
+
 /** GET /answers/{id}(화면 7): 툴은 서버가 저장된 인자로 다시 실행 — reproduced = 답변 때 결과 해시와 같은가. */
 export interface AnswerReplay extends Common {
   answerId: string;
@@ -199,6 +205,8 @@ export interface AnswerReplay extends Common {
   groundingStatus: "PASS" | "FAIL" | "NONE";
   numbersUsed: string[];
   citations: Citation[];
+  /** 설계서 v0.1.25(0006): 검증 위반 토큰 — 0006 이전 답변은 null. */
+  violations: Violations | null;
   retrievedChunks: { chunkId: string; score: number; article?: string; title?: string; body?: string; version?: string }[];
   toolCalls: (ToolCallLog & { result?: unknown; truncated?: boolean; reproduced: boolean })[];
   promptVersion: string;

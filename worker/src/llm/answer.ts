@@ -70,8 +70,10 @@ export interface AnswerResult {
   groundingStatus: "PASS" | "FAIL" | "NONE";
   retrievedChunks: { chunkId: string; score: number }[];
   toolCalls: { tool: string; args: Record<string, string>; resultHash: string }[];
-  /** 검증 실패 목록(G1·G4·G5·G6) — answer_log에는 남기지 않고 응답·시험에서만 본다. */
+  /** 검증 실패 목록(G1·G4·G5·G6, 사람이 읽는 문장) — 응답·시험에서 본다. */
   violations: string[];
+  /** G4·G5·G6 위반 토큰(설계서 v0.1.25 — answer_log.violations, 화면 7). 거부·PASS면 빈 배열. */
+  grounding: GroundingViolations;
   latencyMs: number;
   /** 규정 검색(임베딩·Vectorize)이 실패해 규정 없이 툴만으로 답했다(운영자 2026-11-03 — Phase 5 전 임시, 설계서 v0.1.22 §4.3). */
   rulesUnavailable: boolean;
@@ -179,19 +181,38 @@ export const canonicalCitations = (cs: readonly Citation[], rows: readonly Ruleb
     return { ...c, article: r.article, chunkId: r.chunk_id };
   });
 
-/** G4(툴 결과 + 청크 본문의 숫자) · G5(인용: 부른 툴의 키 경로 / 검색된 청크의 조항 번호) · G6(금지어·타 설계사 ID). */
-export function groundAnswer(out: AnswerOutput, results: readonly ToolResult[], rows: readonly RulebookChunkRow[], ownAgentId: string): string[] {
+/** answer_log.violations(0006) 모양 — 토큰 그대로(G4 근거 없는 숫자, G5 확인 안 된 인용 "tool.field"·"article chunkId", G6 금지어·코드). */
+export interface GroundingViolations {
+  g4Missing: string[];
+  g5Unknown: string[];
+  g6Words: string[];
+}
+export const NO_VIOLATIONS: GroundingViolations = Object.freeze({ g4Missing: [], g5Unknown: [], g6Words: [] }) as GroundingViolations;
+
+/** G4(툴 결과 + 청크 본문의 숫자) · G5(인용: 부른 툴의 키 경로 / 검색된 청크의 조항 번호) · G6(금지어·타 설계사 ID) — 토큰 단위. */
+export function groundAnswerDetail(out: AnswerOutput, results: readonly ToolResult[], rows: readonly RulebookChunkRow[], ownAgentId: string): GroundingViolations {
   const s = withTextTokens(contextNumbers(results.map((r) => r.data) as Json), rows.map((r) => r.body));
-  const g4 = GroundingVerifier.verify(out.text, s, { numbersUsed: out.numbersUsed }).missing.map((x) => `G4 근거에 없는 숫자: ${x}`);
-  const g5: string[] = [];
+  const g4Missing = GroundingVerifier.verify(out.text, s, { numbersUsed: out.numbersUsed }).missing;
+  const g5Unknown: string[] = [];
   for (const c of out.citations) {
     if (c.kind === "tool") {
       const r = results.find((x) => x.tool === c.tool);
-      if (!r || !fieldInContext(c.field, contextKeys(r.data as Json))) g5.push(`G5 툴 인용 ${c.tool}.${c.field}`);
-    } else if (!citedRow(c, rows)) g5.push(`G5 규정 인용 ${c.article} ${c.chunkId}`);
+      if (!r || !fieldInContext(c.field, contextKeys(r.data as Json))) g5Unknown.push(`${c.tool}.${c.field}`);
+    } else if (!citedRow(c, rows)) g5Unknown.push(`${c.article} ${c.chunkId}`);
   }
-  const g6 = forbiddenViolations(out.text, { ownAgentId }).map((x) => `G6 ${x}`);
-  return [...g4, ...g5, ...g6];
+  return { g4Missing, g5Unknown, g6Words: forbiddenViolations(out.text, { ownAgentId }) };
+}
+
+/** 위반 토큰 → 사람이 읽는 문장(응답·시험의 violations). */
+export function violationLines(v: GroundingViolations, out?: AnswerOutput): string[] {
+  // 토큰이 툴 인용("tool.field")인지 규정 인용("article chunkId")인지는 원래 인용에서 가린다
+  const isTool = (t: string) => (out ? out.citations.some((c) => c.kind === "tool" && `${c.tool}.${c.field}` === t) : /^get_/.test(t));
+  const g5 = v.g5Unknown.map((t) => `G5 ${isTool(t) ? "툴" : "규정"} 인용 ${t}`);
+  return [...v.g4Missing.map((x) => `G4 근거에 없는 숫자: ${x}`), ...g5, ...v.g6Words.map((x) => `G6 ${x}`)];
+}
+
+export function groundAnswer(out: AnswerOutput, results: readonly ToolResult[], rows: readonly RulebookChunkRow[], ownAgentId: string): string[] {
+  return violationLines(groundAnswerDetail(out, results, rows, ownAgentId), out);
 }
 
 export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PROMPT_VERSIONS?: string }, question: string): Promise<AnswerResult> {
@@ -248,6 +269,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   let reason: RefuseReason | null;
   let text: string;
   let groundingStatus: AnswerResult["groundingStatus"];
+  let grounding = NO_VIOLATIONS;
   if (violations.some((v) => v.startsWith("G1"))) {
     [refused, reason, text, groundingStatus] = [true, "NOT_GROUNDED", REFUSAL_TEXT.NOT_GROUNDED, "FAIL"];
   } else if (out.refused) {
@@ -259,7 +281,8 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     const draft = { ...out, text: normalizeText(out.text) };
     // 거부가 아닌데 본문이 비면 답이 없는 것이다 — 숫자가 없어 G4가 비어 통과하는 구멍(2026-11-03 녹화 A-02: 2단계가 툴을 더 요청하고 text "")
     const empty = draft.text.trim() === "" ? ["G1 text 비어 있음(거부 아닌 빈 답)"] : [];
-    violations = [...violations.filter((v) => !v.startsWith("툴 호출 거부")), ...empty, ...groundAnswer(draft, results, rows, q.agentId)];
+    grounding = groundAnswerDetail(draft, results, rows, q.agentId);
+    violations = [...violations.filter((v) => !v.startsWith("툴 호출 거부")), ...empty, ...violationLines(grounding, draft)];
     if (violations.length) [refused, reason, text, groundingStatus] = [true, "NOT_GROUNDED", REFUSAL_TEXT.NOT_GROUNDED, "FAIL"];
     else [refused, reason, text, groundingStatus] = [false, null, draft.text, "PASS"];
   }
@@ -280,6 +303,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     toolCalls,
     rulesUnavailable,
     violations,
+    grounding,
     latencyMs: deps.now().getTime() - started,
   };
   await logAnswer(deps, q, qText, result);
@@ -307,6 +331,7 @@ async function logAnswer(deps: Pick<AnswerDeps, "now">, q: ScopedQuery, question
     latencyMs: r.latencyMs,
     cacheHit: false,
     createdAt: deps.now().toISOString(),
+    violations: JSON.stringify(r.grounding),
   });
 }
 
@@ -328,6 +353,7 @@ export async function refuseWithoutLlm(deps: Pick<AnswerDeps, "now" | "newId">, 
     retrievedChunks: [],
     toolCalls: [],
     violations: [],
+    grounding: NO_VIOLATIONS,
     latencyMs: 0,
     rulesUnavailable: false,
   };

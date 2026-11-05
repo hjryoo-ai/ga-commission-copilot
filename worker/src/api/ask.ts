@@ -89,6 +89,19 @@ const parseList = (s: unknown): unknown[] => {
   }
 };
 
+/** answer_log.violations → {g4Missing, g5Unknown, g6Words}(문자열 배열만), 없거나 모양이 다르면 null. */
+function parseViolations(s: unknown): { g4Missing: string[]; g5Unknown: string[]; g6Words: string[] } | null {
+  if (typeof s !== "string") return null;
+  try {
+    const v = JSON.parse(s) as Record<string, unknown>;
+    const arr = (x: unknown) => (Array.isArray(x) && x.every((t) => typeof t === "string") ? (x as string[]) : null);
+    const [g4Missing, g5Unknown, g6Words] = [arr(v.g4Missing), arr(v.g5Unknown), arr(v.g6Words)];
+    return g4Missing && g5Unknown && g6Words ? { g4Missing, g5Unknown, g6Words } : null;
+  } catch {
+    return null;
+  }
+}
+
 interface LoggedToolCall {
   tool?: unknown;
   args?: unknown;
@@ -136,6 +149,8 @@ answers.get("/:answerId", async (c) => {
     reason: row.refuse_reason,
     groundingStatus: row.grounding_status,
     numbersUsed: parseList(row.numbers_used),
+    // 0006(설계서 v0.1.25): 위반 토큰 — 0006 이전 행은 null
+    violations: parseViolations(row.violations),
     citations: parseList(row.citations),
     retrievedChunks: retrieved.map((r) => {
       const b = bodies.get(r.chunkId);

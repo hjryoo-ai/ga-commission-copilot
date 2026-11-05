@@ -47,7 +47,7 @@ async function columns(table: string): Promise<{ name: string; pk: number; notnu
   return results;
 }
 
-describe("D1 스키마 0001~0005", () => {
+describe("D1 스키마 0001~0006", () => {
   it("읽기 모델 8개 × 슬롯 2 + 추가 테이블 10개 = 26개 테이블, 원래 이름의 읽기 모델 표는 없다", async () => {
     expect(await names("table")).toEqual([...READ_MODEL, ...COPILOT].sort());
   });
@@ -57,6 +57,21 @@ describe("D1 스키마 0001~0005", () => {
     const explicit = (await names("index")).filter((n) => n.startsWith("ix_"));
     expect(explicit.sort()).toEqual([...INDEXES].sort());
     expect((await names("index")).filter((n) => n.startsWith("ux_")).sort()).toEqual(["ux_stream_meta_active", "ux_stream_meta_slot"]);
+  });
+
+  it("0006: answer_log.violations — 마지막 열, NULL 허용, JSON이 아니면 거부", async () => {
+    const cols = await columns("answer_log");
+    expect(cols.at(-1)).toMatchObject({ name: "violations", notnull: 0 });
+    const ins = (v: string | null) =>
+      env.DB.prepare(
+        "INSERT INTO answer_log (answer_id, tenant_id, agent_id, question, normalized_question, stream_hash, prompt_version, provider, model, fallback_depth, retrieved_chunks, tool_calls, refused, grounding_status, latency_ms, cache_hit, created_at, violations) VALUES (?, 'T1', 'A-1', 'q', 'q', 'h', 'answer/v3', 'none', 'none', 0, '[]', '[]', 1, 'NONE', 0, 0, 't', ?)",
+      )
+        .bind(crypto.randomUUID(), v)
+        .run();
+    await ins(null);
+    await ins('{"g4Missing":[],"g5Unknown":[],"g6Words":[]}');
+    await expect(ins("not json")).rejects.toThrow();
+    await env.DB.prepare("DELETE FROM answer_log").run();
   });
 
   it.each(BASE_READ_MODEL)("%s: 슬롯 a·b의 열 정의가 같다", async (table) => {

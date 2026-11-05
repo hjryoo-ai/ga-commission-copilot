@@ -109,6 +109,10 @@ describe("답변 파이프라인", () => {
     expect(r).toMatchObject({ refused: true, reason: "NOT_GROUNDED", text: REFUSAL_TEXT.NOT_GROUNDED, groundingStatus: "FAIL" });
     expect(r.violations).toEqual(["G4 근거에 없는 숫자: 300,000", "G4 근거에 없는 숫자: numbersUsed:300,000"]);
     expect(await logRow(r.answerId)).toMatchObject({ refused: 1, refuse_reason: "NOT_GROUNDED", grounding_status: "FAIL", answer: REFUSAL_TEXT.NOT_GROUNDED });
+    // 0006(설계서 v0.1.25): 위반 토큰만 — 거부 전 원문("300,000원이 맞습니다")은 어느 열에도 없다
+    const row = (await logRow(r.answerId))!;
+    expect(JSON.parse(row.violations as string)).toEqual({ g4Missing: ["300,000", "numbersUsed:300,000"], g5Unknown: [], g6Words: [] });
+    expect(Object.values(row).some((v) => typeof v === "string" && v.includes("맞습니다"))).toBe(false);
   });
 
   it("임베딩이 실패하면(4006 등) 규정 검색 없이 툴만으로 답하고 rulesUnavailable, 규정 인용은 G5(임시 — 운영자 2026-11-03)", async () => {
@@ -124,6 +128,9 @@ describe("답변 파이프라인", () => {
     const rule = await answerQuestion(fail(() => out({ text: "환수율은 규정에 따릅니다.", citations: [{ kind: "rule", tool: "", field: "", article: "제25조", chunkId: "" }] })), q(), ENV, "환수율?");
     expect(rule).toMatchObject({ refused: true, reason: "NOT_GROUNDED", rulesUnavailable: true });
     expect(rule.violations).toEqual(["G5 규정 인용 제25조 "]);
+    expect(JSON.parse((await logRow(rule.answerId))!.violations as string)).toEqual({ g4Missing: [], g5Unknown: ["제25조 "], g6Words: [] });
+    // PASS·모델 거부도 빈 배열로 기록(거부·PASS 모두)
+    expect(JSON.parse((await logRow(r.answerId))!.violations as string)).toEqual({ g4Missing: [], g5Unknown: [], g6Words: [] });
     // 정상이면 false
     expect((await answerQuestion(deps(out({ refused: true, reason: "OUT_OF_SCOPE" })), q(), ENV, "날씨?")).rulesUnavailable).toBe(false);
   });
@@ -140,6 +147,7 @@ describe("답변 파이프라인", () => {
     const r = await answerQuestion(d, q(), ENV, "8월 시책은 왜 덜 나왔어요?");
     expect(r).toMatchObject({ refused: true, reason: "NOT_GROUNDED", text: REFUSAL_TEXT.NOT_GROUNDED, groundingStatus: "FAIL" });
     expect(r.violations).toEqual(["G6 CODE:DEFER_AFTER_FY"]);
+    expect(JSON.parse((await logRow(r.answerId))!.violations as string)).toEqual({ g4Missing: [], g5Unknown: [], g6Words: ["CODE:DEFER_AFTER_FY"] });
   });
 
   it("규정 숫자는 검색된 청크 본문에 있으면 통과(A-08형), 인용한 청크가 검색되지 않았으면 G5", async () => {

@@ -236,6 +236,15 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 - 시험: `web/test/ask.test.tsx` 9건(경로·칩 6·답변 카드·거부 4종 대안 동선·BUDGET 남은 시간·타임라인 7단계 순서·재현 배지·프롬프트 링크·거부/실패 안내), `worker/test/ask.test.ts` +1(정규화·툴 재실행 일치/불일치·잘못된 인자·internal 청크 본문 없음).
 - 번들: `index-*.js` gzip 79.02KB(상한 250KB).
 
+### answer_log.violations(0006)·공개 URL 캡처 경로(운영자 결정 2026-11-05 — DECISIONS 화면 7 (2))
+
+- 마이그레이션 `0006_answer_log_violations.sql`: `ALTER TABLE answer_log ADD COLUMN violations TEXT CHECK (violations IS NULL OR json_valid(violations))` — JSON `{g4Missing[], g5Unknown[], g6Words[]}`, 거부·PASS 모두(위반 없으면 빈 배열), 0006 이전 행 NULL. 거부 전 원문은 저장하지 않는다(`llm_trace`만).
+- 파이프라인: `groundAnswerDetail`(토큰 단위) → `violationLines`(응답·시험의 문장 — 기존 문구 그대로) · `AnswerResult.grounding` → `logAnswer`가 `violations` 열에. BUDGET 거부도 빈 배열.
+- `GET /answers/{id}`에 `violations`(모양이 다르거나 NULL이면 null). 화면 7 "검증 결과"는 G4 근거에 없는 숫자·G5 확인되지 않은 인용·G6 금지 표현·코드를 토큰 칩 하나씩, 위반 없으면 "위반 없음", NULL이면 "0006 이전".
+- **원격 0006 적용**(운영자 승인 2026-11-05): `migrations apply copilot --remote` ✅, `violations` 열 notnull 0 — `logs/phase-4-migration-0006-remote.log`(계정 ID `<account>`). 열 추가뿐이라 지금 배포된 코드(열을 쓰지 않음)와 호환. 로컬도 적용.
+- **`capture-public.yml`**(workflow_dispatch, 시크릿 없음): `gen/scripts/capture-public.py` — 공개 URL 데모 1 세션 → `GET /me`로 활성 answer 버전 확인(입력 `expect_answer`, 다르면 묻기 전에 멈춤 — 로컬에서 v9로 확인: exit 1, 질문 0) → 부록 A 12건 `POST /me/ask`(60초 간격) → `GET /answers/{id}`. `<case>.ask.json`·`<case>.answer.json`·`index.json`·`capture.log`를 `docs/evidence/captures/phase-4-public/`에, `bot/capture-public` 브랜치에 커밋. 12문항 원문은 `gen/scripts/appendix-a.json`(answer-record.py와 공유).
+- 원격 상태(11-05 확인): Worker 시크릿에 `GROQ_API_KEY` 있음, 배포된 `/me.promptVersions.answer` = **v3**.
+
 ## 시험
 
 ```
@@ -245,6 +254,7 @@ worker vitest → 339 통과(2026-11-03 — 부록 A 12건 VCR 재생 13 + 빈 �
 pnpm -r test   → grounding 68 · web 35 · worker 341 · gen 207 통과(2026-11-03 — G5 조항 번호·G6 회계연도·--regrade·answer/v2 세션 블록까지)
 pnpm -r test   → grounding 68 · web 35 · worker 342 · gen 207 통과(2026-11-03 — rulesUnavailable 임시 처리까지)
 pnpm -r test   → grounding 68 · web 46 · worker 346 · gen 207 통과(2026-11-05 — /answers 재현 보강·화면 4·7, gen pretest로 build:replay 먼저)
+pnpm -r test   → grounding 68 · web 47 · worker 347 · gen 207 통과(2026-11-05 — answer_log.violations 0006·화면 7 위반 토큰)
 pnpm run lint  → 오류 0
 tsc --noEmit   → gen·worker 오류 0
 ```
@@ -275,6 +285,6 @@ tsc --noEmit   → gen·worker 오류 0
 3. 답변 VCR — 운영자 결정 방식으로 경로 완료(위 항목 4). **재생 픽스처로 해소(2026-11-02, 위 "답변 녹화 준비")**. 당시 기록 — **재생 시험의 데이터 문제**: 녹화는 로컬 D1의 실제 스트림(데모 1 A-1001)으로 하므로 요청에는 실제 툴 결과가 들어간다. 시험 픽스처(`worker/test/fixture.ts`)는 작은 가짜 세계라 같은 질문의 툴 결과가 달라 요청 해시가 맞지 않는다 → 재생 시험은 실제 스트림의 데모 설계사 행을 로컬 D1 시험 DB에 넣어야 한다(gen이 뷰에서 시험용 SQL 픽스처를 만드는 안). 검색 청크도 녹화 요청의 `<rules>`에서 id를 읽어 가짜 검색이 같은 순서로 돌려준다. 녹화 전에 정한다.
 4. **Vectorize 로컬 바인딩이 없다** — **(b) 승인·점검 스크립트로 해소(2026-11-02, 위)**: Miniflare(wrangler 4.153)의 Vectorize 플러그인은 원격 프록시만 있고 로컬 시뮬레이션이 없다(`VECTORIZE_REMOTE_SERVICE_NAME` — 확인). vitest는 `remoteBindings: false`라 `env.VECTORIZE`를 쓸 수 없다. 항목 6 "internal 청크가 어떤 질의에도 반환되지 않음(Vectorize 로컬 바인딩)"의 선택지: (a) 시험에서만 원격 바인딩(실제 인덱스 질의 — 무료 질의 차원 소모, CI에 계정 토큰 필요), (b) 원격 인덱스에 대한 별도 점검 스크립트(질의 N개 × filter visibility=agent → internal id 0건)를 Phase 종료 증거로 + 단위 시험은 D1 재필터, (c) 메타데이터 필터를 흉내 내는 메모리 가짜(필터 동작 자체는 검증 못 함). 권고 (b). 운영자 판단.
 5. ~~**`/me/ask` 임베딩 오류 처리**~~ — **임시 처리(운영자 2026-11-03, 설계서 v0.1.22)**: 임베딩·Vectorize 검색이 실패하면 규정 없이 툴만으로 답하고 응답에 `rulesUnavailable: true`(`<rules>`가 비어 규정 인용은 G5에서 0건만 통과, answer_log retrieved_chunks `[]`). 시험 `answer.test.ts` +1(4006 메시지로 embed 실패 → 툴 답 PASS·규정 인용 G5·정상은 false). 정식 저하 모드(BUDGET 거부·폴백 체인)는 Phase 5. 처음 기록: 4006 등 임베딩 실패가 500으로 나갔다(2026-11-03 v2 재녹화 1차).
-6. **화면 7 "검증 결과(실패 토큰 표시)"를 다 채우지 못한다(2026-11-05)** — answer_log에는 검증 위반 목록과 거부 전 모델 원문이 없다(`answer.ts` `violations`는 응답·시험에서만, 거부는 고정 문구로 저장 — 설계서 §4.3·§4.4). 화면은 상태 배지와 "저장하지 않는다" 안내만 보인다. 채우려면 answer_log에 열을 더하는 마이그레이션(위반 목록, 필요하면 거부 전 초안)과 설계서 §5.1 변경이 필요하다 — 운영자 판단 대기(DECISIONS 2026-11-05).
-7. **완료 기준의 실호출 부분** — "실호출 12건 수동 확인 캡처"는 공개 `/me/ask`(질문 임베딩 = Workers AI)와 Groq를 부른다. 낮에는 Workers AI를 부르지 않으므로(운영자 2026-11-03) 시점은 운영자 판단. answer_log 12행(retrieved_chunks·tool_calls·grounding_status)은 11-04 v3 녹화로 **로컬 D1**에 있다(위 재현 확인) — 원격 12행은 실호출 캡처 때 생긴다.
+6. ~~**화면 7 "검증 결과(실패 토큰 표시)"를 다 채우지 못한다(2026-11-05)**~~ — **해소: 운영자 결정 (2), 0006 `violations`(위 절)**. 당시 기록: — answer_log에는 검증 위반 목록과 거부 전 모델 원문이 없다(`answer.ts` `violations`는 응답·시험에서만, 거부는 고정 문구로 저장 — 설계서 §4.3·§4.4). 화면은 상태 배지와 "저장하지 않는다" 안내만 보인다. 채우려면 answer_log에 열을 더하는 마이그레이션(위반 목록, 필요하면 거부 전 초안)과 설계서 §5.1 변경이 필요하다 — 운영자 판단 대기(DECISIONS 2026-11-05).
+7. **완료 기준의 실호출 부분** — 운영자 결정(11-05): `capture-public.yml`로, 11-06 00:05 UTC daily-explain 뒤 수동 실행. 캡처 12건의 원격 answer_log 행(violations 포함)이 완료 기준 "answer_log 12행". 당시 기록 — "실호출 12건 수동 확인 캡처"는 공개 `/me/ask`(질문 임베딩 = Workers AI)와 Groq를 부른다. 낮에는 Workers AI를 부르지 않으므로(운영자 2026-11-03) 시점은 운영자 판단. answer_log 12행(retrieved_chunks·tool_calls·grounding_status)은 11-04 v3 녹화로 **로컬 D1**에 있다(위 재현 확인) — 원격 12행은 실호출 캡처 때 생긴다.
 8. 상단 칩 "오늘 남은 질문"·"프롬프트"는 아직 자리만(남은 질문 수를 주는 API가 없다 — Phase 5 `/budget`).

@@ -40,6 +40,7 @@ describe("POST /api/v1/me/ask", () => {
     expect(b.retryAfterSeconds as number).toBeLessThanOrEqual(86_400);
     const row = await env.DB.prepare("SELECT agent_id, provider, refused, refuse_reason, grounding_status, stream_hash FROM answer_log WHERE answer_id = ?").bind(b.answerId).first();
     expect(row).toEqual({ agent_id: "A-1001", provider: "none", refused: 1, refuse_reason: "BUDGET", grounding_status: "NONE", stream_hash: HASH });
+    expect(await env.DB.prepare("SELECT violations FROM answer_log WHERE answer_id = ?").bind(b.answerId).first("violations")).toBe('{"g4Missing":[],"g5Unknown":[],"g6Words":[]}');
     // 상한은 그대로(차감 실패 — UPDATE … WHERE used < ? 영향 행 0)
     expect(await env.DB.prepare("SELECT used FROM budget_counter WHERE scope = 'ask:dev'").first("used")).toBe(ASK_DAILY_CAP_DEFAULT);
   });
@@ -62,7 +63,7 @@ describe("GET /api/v1/answers/{id}", () => {
     const get = (cookie: string, id: string) => app.fetch(new Request(`https://example.com/api/v1/answers/${id}`, { headers: { Cookie: cookie } }));
     const mine = await get(one, answerId);
     expect(mine.status).toBe(200);
-    expect(await mine.json()).toMatchObject({ answerId, question: "8월 실수령은?", answer: REFUSAL_TEXT.BUDGET, refused: true, reason: "BUDGET", retrievedChunks: [], toolCalls: [], fallbackDepth: 0 });
+    expect(await mine.json()).toMatchObject({ answerId, question: "8월 실수령은?", answer: REFUSAL_TEXT.BUDGET, refused: true, reason: "BUDGET", retrievedChunks: [], toolCalls: [], fallbackDepth: 0, violations: { g4Missing: [], g5Unknown: [], g6Words: [] } });
     expect((await get(await login(app, 2), answerId)).status).toBe(404);
     expect((await get(one, "not-a-uuid")).status).toBe(404);
   });
@@ -85,6 +86,7 @@ describe("GET /api/v1/answers/{id}", () => {
     await put(A, [{ tool: "get_statement", args: { ym: "202608" }, resultHash: "0000000000000000" }, { tool: "get_limit", args: { policyNo: "!!" }, resultHash: "x" }]);
     const a = await get(A);
     expect(a.normalizedQuestion).toBe("8월 시책이 왜");
+    expect(a.violations).toBeNull(); // 0006 이전 행(violations NULL)
     expect(a.toolCalls[0]).toMatchObject({ tool: "get_statement", args: { ym: "202608" }, reproduced: false, truncated: false });
     expect(a.toolCalls[0].result).toBeTruthy();
     expect(a.toolCalls[1]).toEqual({ tool: "get_limit", args: { policyNo: "!!" }, resultHash: "x", reproduced: false });

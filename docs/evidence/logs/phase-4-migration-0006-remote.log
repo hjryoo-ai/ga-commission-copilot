@@ -1,0 +1,50 @@
+
+ ⛅️ wrangler 4.153.0 (update available 4.158.0)
+───────────────────────────────────────────────
+Resource location: remote 
+
+Migrations to be applied:
+┌────────────────────────────────┐
+│ name                           │
+├────────────────────────────────┤
+│ 0006_answer_log_violations.sql │
+└────────────────────────────────┘
+? About to apply 1 migration(s)
+Your database may not be available to serve requests during the migration, continue?
+🤖 Using fallback value in non-interactive context: yes
+🌀 Executing on remote database copilot (f97c77d4-3afc-4ec3-ae17-d91bee6015dc):
+🌀 To execute on your local development database, remove the --remote flag from your wrangler command.
+🚣 Executed 2 commands in 2.00ms
+┌────────────────────────────────┬────────┐
+│ name                           │ status │
+├────────────────────────────────┼────────┤
+│ 0006_answer_log_violations.sql │ ✅     │
+└────────────────────────────────┴────────┘
+[
+  {
+    "results": [
+      {
+        "name": "violations",
+        "notnull": 0
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "APAC",
+      "served_by_colo": "ICN",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.191
+      },
+      "duration": 0.191,
+      "changes": 0,
+      "last_row_id": 6,
+      "changed_db": false,
+      "size_after": 3223552,
+      "rows_read": 22,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]

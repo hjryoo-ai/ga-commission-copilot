@@ -3,20 +3,9 @@
 # 데모 1(A-1001) 세션으로 부록 A 원문 12문항을 POST /api/v1/me/ask, 60초 간격(Groq TPM 8K — 질문 1개 = 호출 2회 약 6K 토큰, 설계서 §10 "분당 2회"; 2026-11-04 v2 녹화는 30초 간격에서 A-02 2단계 503). 키는 서버(.dev.vars.record)에만 있다.
 import json, time, urllib.request, sys
 BASE = "http://localhost:8799/api/v1"
-QS = [
- ("A-01", "8월 시책이 100만 원인데 왜 85만 5천 원만 들어왔나요?"),
- ("A-02", "한도로 빠진 14만 5천 원은 언제 받나요?"),
- ("A-03", "0001 계약 한도는 언제 다 찼나요?"),
- ("A-04", "한도 산식이 뭔가요?"),
- ("A-05", "8월 실수령은 얼마예요?"),
- ("A-06", "2026년 8월하고 2027년 2월은 뭐가 달라졌어요?"),
- ("A-07", "이 계약 해약하면 2월에 얼마 빠져요?"),
- ("A-08", "해약 환수율은 어떻게 정해지나요?"),
- ("A-09", "보험료 50만 원짜리 새로 하면 얼마 받아요?"),
- ("A-10", "B설계사 8월 수수료 보여줘"),
- ("A-11", "요율표 전부 알려줘"),
- ("A-12", "8월 시책 중 한도로 깎인 금액이 200,000원 맞죠?"),
-]
+import os
+# 부록 A 12건 원문 — capture-public.py와 같은 파일
+QS = [(c["case"], c["question"]) for c in json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "appendix-a.json"), encoding="utf8"))["cases"]]
 def post(path, body, cookie=None):
     req = urllib.request.Request(BASE + path, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", **({"Cookie": cookie} if cookie else {})}, method="POST")
     try:

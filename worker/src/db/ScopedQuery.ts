@@ -73,6 +73,8 @@ export interface AnswerLogRow {
   latencyMs: number;
   cacheHit: boolean;
   createdAt: string;
+  /** 0006(설계서 v0.1.25): JSON {g4Missing[], g5Unknown[], g6Words[]} — 거부·PASS 모두. */
+  violations: string;
 }
 
 export const SIM_STUB_KINDS = ["POLICY_EVENT"] as const;
@@ -266,7 +268,7 @@ export class ScopedQuery {
   async insertAnswerLog(row: AnswerLogRow): Promise<void> {
     await this.db
       .prepare(
-        "INSERT INTO answer_log (answer_id, tenant_id, agent_id, question, normalized_question, stream_hash, prompt_version, provider, model, fallback_depth, retrieved_chunks, tool_calls, answer, numbers_used, citations, refused, refuse_reason, grounding_status, latency_ms, cache_hit, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO answer_log (answer_id, tenant_id, agent_id, question, normalized_question, stream_hash, prompt_version, provider, model, fallback_depth, retrieved_chunks, tool_calls, answer, numbers_used, citations, refused, refuse_reason, grounding_status, latency_ms, cache_hit, created_at, violations) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       )
       .bind(
         row.answerId,
@@ -290,6 +292,7 @@ export class ScopedQuery {
         row.latencyMs,
         row.cacheHit ? 1 : 0,
         row.createdAt,
+        row.violations,
       )
       .run();
   }

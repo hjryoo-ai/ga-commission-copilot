@@ -100,6 +100,7 @@ const replay: AnswerReplay = {
   groundingStatus: "PASS",
   numbersUsed: pass.numbersUsed!,
   citations: pass.citations!,
+  violations: { g4Missing: [], g5Unknown: [], g6Words: [] },
   retrievedChunks: [
     { chunkId: "rb-07", score: 0.7123, article: "제7조", title: "한도", body: "가상 규정 · 예시값 — 한도 본문", version: "0453f7d205db" },
     { chunkId: "rb-99", score: 0.5 },
@@ -137,12 +138,20 @@ describe("화면 7 답변 재현", () => {
     expect([promptHref("answer/v3"), promptHref("../x"), promptHref("answer/3")]).toEqual(["https://github.com/hjryoo-ai/ga-commission-copilot/blob/main/prompts/answer/v3.md", null, null]);
   });
 
-  it("거부·검증 실패: 고정 문구와 '원문·실패 토큰은 저장하지 않는다'", () => {
-    const html = renderToStaticMarkup(<ReplayTimeline a={{ ...replay, refused: true, reason: "NOT_GROUNDED", groundingStatus: "FAIL", answer: "근거 고정 문구", numbersUsed: [], citations: [] }} />);
+  it("거부·검증 실패: 고정 문구, 원문 없음 안내, 위반 토큰을 종류별로 하나씩(설계서 v0.1.25)", () => {
+    const violations = { g4Missing: ["200,000", "numbersUsed:200,000"], g5Unknown: ["get_statement.byType.CLAWBACK"], g6Words: ["CODE:FY_COMM"] };
+    const html = renderToStaticMarkup(<ReplayTimeline a={{ ...replay, refused: true, reason: "NOT_GROUNDED", groundingStatus: "FAIL", answer: "근거 고정 문구", numbersUsed: [], citations: [], violations }} />);
     expect(html).toContain("근거로 확인되지 않음");
     expect(html).toContain("근거 고정 문구");
-    expect(html).toContain("모델이 쓴 원문은 남지 않는다");
+    expect(html).toContain("모델이 쓴 원문은 남기지 않는다");
     expect(html).toContain("검증 실패");
-    expect(html).toContain("실패한 토큰");
+    for (const t of ["G4 근거에 없는 숫자", "G5 확인되지 않은 인용", "G6 금지 표현·코드"]) expect(html).toContain(t);
+    expect(html.match(/chip violation/g)).toHaveLength(4);
+    for (const t of [...violations.g4Missing, ...violations.g5Unknown, ...violations.g6Words]) expect(html).toContain(`>${t}</li>`);
+  });
+
+  it("위반 없음·0006 이전 답변(null)", () => {
+    expect(renderToStaticMarkup(<ReplayTimeline a={replay} />)).toContain("위반 없음(G4·G5·G6)");
+    expect(renderToStaticMarkup(<ReplayTimeline a={{ ...replay, violations: null }} />)).toContain("0006 이전");
   });
 });

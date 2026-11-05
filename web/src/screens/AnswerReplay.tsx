@@ -1,8 +1,8 @@
 // 화면 7 답변 재현(설계서 §8-7, 본인 세션만 — 남의 답변은 서버가 404): 질문 → 정규화 → 검색 청크(점수) → 툴 호출·결과 → 프롬프트(버전 링크)
 // → 모델 출력 → 검증 결과 순서의 세로 타임라인. LLM을 부르지 않는다 — 툴 결과는 서버가 저장된 인자로 다시 실행한 것이고 resultHash 일치를 배지로 보인다.
-// 검증 실패의 실패 토큰과 거부 전 모델 원문은 answer_log에 없다(설계서 §4.3 — 거부는 고정 문구로 저장) — 그 칸은 그렇다고 적는다.
+// 검증 결과는 answer_log.violations(설계서 v0.1.25, 0006)의 위반 토큰을 하나씩 표시한다. 거부 전 모델 원문은 저장하지 않는다(llm_trace만).
 import type { ReactNode } from "react";
-import type { AnswerReplay } from "../api";
+import type { AnswerReplay, Violations } from "../api";
 import { api } from "../api";
 import { kstDate } from "../format";
 import { GROUNDING_LABEL, REFUSE_LABEL } from "../labels";
@@ -15,6 +15,35 @@ const REPO = "https://github.com/hjryoo-ai/ga-commission-copilot/blob/main/promp
 export function promptHref(version: string): string | null {
   const m = version.match(/^([a-z_]+)\/(v[0-9]+)$/);
   return m ? `${REPO}/${m[1]}/${m[2]}.md` : null;
+}
+
+const VIOLATION_GROUPS: readonly { key: keyof Violations; title: string }[] = [
+  { key: "g4Missing", title: "G4 근거에 없는 숫자" },
+  { key: "g5Unknown", title: "G5 확인되지 않은 인용" },
+  { key: "g6Words", title: "G6 금지 표현·코드" },
+];
+
+/** 위반 토큰(화면 7 "실패 토큰 표시"): 종류별로 토큰 하나씩. */
+export function ViolationTokens({ v }: { v: Violations | null }) {
+  if (!v) return <p className="muted small">위반 기록 없음 — 이 기록이 생기기 전(0006 이전)의 답변입니다.</p>;
+  const groups = VIOLATION_GROUPS.filter((g) => v[g.key].length > 0);
+  if (groups.length === 0) return <p className="muted small" data-testid="violations">위반 없음(G4·G5·G6)</p>;
+  return (
+    <div data-testid="violations">
+      {groups.map((g) => (
+        <div key={g.key}>
+          <h4>{g.title}</h4>
+          <ul className="chips">
+            {v[g.key].map((t, i) => (
+              <li key={`${t}-${i}`} className="chip violation mono">
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
@@ -102,7 +131,7 @@ export function ReplayTimeline({ a }: { a: AnswerReplay }) {
               <Badge tone="warn">{a.reason ? REFUSE_LABEL[a.reason] : "답하지 않음"}</Badge>
             </p>
             <p className="explain-text">{a.answer}</p>
-            <p className="muted small">거부 답은 고정 문구로 저장한다 — 모델이 쓴 원문은 남지 않는다.</p>
+            <p className="muted small">거부 답은 고정 문구로 저장한다 — 모델이 쓴 원문은 남기지 않는다(검증 위반 토큰은 아래).</p>
           </>
         ) : (
           <p className="explain-text">{a.answer}</p>
@@ -112,7 +141,7 @@ export function ReplayTimeline({ a }: { a: AnswerReplay }) {
         <p>
           <Badge tone={a.groundingStatus === "FAIL" ? "crit" : a.groundingStatus === "PASS" ? "plain" : "muted"}>{GROUNDING_LABEL[a.groundingStatus]}</Badge>
         </p>
-        {a.groundingStatus === "FAIL" && <p className="muted small">실패한 토큰(G4·G5·G6 위반 목록)은 저장하지 않는다 — 응답·시험에서만 본다.</p>}
+        <ViolationTokens v={a.violations} />
         {a.numbersUsed.length > 0 && (
           <>
             <h4>사용된 숫자</h4>

@@ -528,3 +528,9 @@ footer {
 .replay .score {
   margin-left: 0.5em;
 }
+
+/* 화면 7 위반 토큰(설계서 v0.1.25) */
+.chip.violation {
+  border-color: #c0392b;
+  background: #fdecea;
+}
