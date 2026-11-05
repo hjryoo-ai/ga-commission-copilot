@@ -124,7 +124,8 @@ export function shapeProblems(o: unknown): string[] {
   return out.map((k) => `G1 ${k}`);
 }
 
-async function hash16(s: string): Promise<string> {
+/** 툴 결과 해시(answer_log.tool_calls.resultHash) — 화면 7 재현이 같은 함수로 대조한다. */
+export async function hash16(s: string): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(d).slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }

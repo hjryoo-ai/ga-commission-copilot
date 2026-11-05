@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ASK_DAILY_CAP_DEFAULT, askDailyCap, secondsToUtcMidnight } from "../src/api/ask";
-import { REFUSAL_TEXT } from "../src/llm/answer";
+import { hash16, REFUSAL_TEXT } from "../src/llm/answer";
 import { HASH, login, seed } from "./fixture";
 
 // PHASES Phase 4 항목 4 — POST /api/v1/me/ask·GET /api/v1/answers/{id}. LLM을 부르지 않는 경로만(입력 검사·개발 상한·재현 소유 확인).
@@ -65,5 +65,35 @@ describe("GET /api/v1/answers/{id}", () => {
     expect(await mine.json()).toMatchObject({ answerId, question: "8월 실수령은?", answer: REFUSAL_TEXT.BUDGET, refused: true, reason: "BUDGET", retrievedChunks: [], toolCalls: [], fallbackDepth: 0 });
     expect((await get(await login(app, 2), answerId)).status).toBe(404);
     expect((await get(one, "not-a-uuid")).status).toBe(404);
+  });
+  it("재현(LLM 없음): 정규화 질문, 툴은 저장된 인자로 다시 실행해 결과·resultHash 일치, 청크는 agent 본문만", async () => {
+    for (const [id, article, vis] of [["rb-07", "제7조", "agent"], ["rb-39", "제39조", "internal"]] as const) {
+      await env.DB.prepare("INSERT OR REPLACE INTO rulebook_chunk (chunk_id, article, title, body, visibility, version, token_count) VALUES (?, ?, '한도', ?, ?, '0123456789ab', 50)")
+        .bind(id, article, `${article} 가상 규정 · 예시값 본문`, vis)
+        .run();
+    }
+    const put = async (answerId: string, toolCalls: unknown) =>
+      env.DB.prepare(
+        "INSERT INTO answer_log (answer_id, tenant_id, agent_id, question, normalized_question, stream_hash, prompt_version, provider, model, fallback_depth, retrieved_chunks, tool_calls, answer, numbers_used, citations, refused, refuse_reason, grounding_status, latency_ms, cache_hit, created_at) VALUES (?, 'T1', 'A-1001', '8월 시책이 왜?', '8월 시책이 왜', ?, 'answer/v3', 'groq', 'openai/gpt-oss-120b', 0, ?, ?, '답', '[]', '[]', 0, NULL, 'PASS', 1234, 0, '2026-11-05T00:00:00Z')",
+      )
+        .bind(answerId, HASH, JSON.stringify([["rb-07", 0.71], ["rb-39", 0.5]]), JSON.stringify(toolCalls))
+        .run();
+    const one = await login(app, 1);
+    const get = async (id: string) => (await (await app.fetch(new Request(`https://example.com/api/v1/answers/${id}`, { headers: { Cookie: one } }))).json()) as Record<string, any>;
+    const A = "00000000-0000-4000-8000-00000000000a";
+    const B = "00000000-0000-4000-8000-00000000000b";
+    await put(A, [{ tool: "get_statement", args: { ym: "202608" }, resultHash: "0000000000000000" }, { tool: "get_limit", args: { policyNo: "!!" }, resultHash: "x" }]);
+    const a = await get(A);
+    expect(a.normalizedQuestion).toBe("8월 시책이 왜");
+    expect(a.toolCalls[0]).toMatchObject({ tool: "get_statement", args: { ym: "202608" }, reproduced: false, truncated: false });
+    expect(a.toolCalls[0].result).toBeTruthy();
+    expect(a.toolCalls[1]).toEqual({ tool: "get_limit", args: { policyNo: "!!" }, resultHash: "x", reproduced: false });
+    expect(a.retrievedChunks).toEqual([
+      { chunkId: "rb-07", score: 0.71, article: "제7조", title: "한도", body: "제7조 가상 규정 · 예시값 본문", version: "0123456789ab" },
+      { chunkId: "rb-39", score: 0.5 },
+    ]);
+    // 답변 때와 같은 결과면 reproduced true(해시는 파이프라인과 같은 hash16(serialize))
+    await put(B, [{ tool: "get_statement", args: { ym: "202608" }, resultHash: await hash16(JSON.stringify(a.toolCalls[0].result)) }]);
+    expect((await get(B)).toolCalls[0].reproduced).toBe(true);
   });
 });

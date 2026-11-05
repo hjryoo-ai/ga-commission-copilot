@@ -224,6 +224,18 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 - **`sim_stub`**: 상위 `ga-agent-portal@8b05465`의 `event-cancel-7.{request,response}.json`을 `contracts/sim/v1/samples/`에 복사(UPSTREAM·CHECKSUMS), `load:d1 -- --local|--remote --sim-stub` — 활성 스트림 데모 설계사 확인 뒤 INSERT OR IGNORE. 로컬·원격 1행(A-1001·`POL-2026-0001`·`RS-2407ecd6…`, 원격 rows written 2) — `logs/phase-4-sim-stub-load.log`.
 - 시험: `worker/test/ask.test.ts` 5건(401·400·상한 429와 answer_log·retryAfterSeconds·재현 소유 404), `answer.test.ts` +2(카세트 재생·해시, LLM_TRACE 쓰기 유무), `schema.test.ts` 표 26·인덱스 +1.
 
+## 항목 4 보강·항목 5 — 화면 4·7(2026-11-05, LLM 호출 없음)
+
+운영자 지시(11-05): "Phase 4 항목 4·5의 LLM 호출 없는 부분". Workers AI·Groq 호출 없음 — 시험은 정적 렌더, 확인은 `wrangler dev --local`(원격 바인딩 꺼짐)과 11-04 v3 녹화로 로컬 D1에 남은 answer_log 12행.
+
+- **`GET /api/v1/answers/{id}` 보강**(설계서 §7 "검색 청크·툴 결과·검증 결과 전문"): `normalizedQuestion`, 검색 청크에 본문(`rulebookChunks` — visibility=agent만, internal은 id·점수만), 툴은 **저장된 인자로 다시 실행**(읽기 전용·결정론, `parseToolCall`→`runTool`)해 `result`·`truncated`·`reproduced`(지금 결과의 `hash16(serialize)` = 답변 때 `resultHash`). 인자가 지금 검사를 통과하지 못하면 결과 없이 `reproduced: false`. `hash16`을 `llm/answer.ts`에서 export(같은 함수로 대조).
+- **화면 4 `/me/ask`**(`web/src/screens/Ask.tsx`): 입력창(500자) · 예시 질문 칩 6개(부록 A A-01·02·03·05·07·08 원문 — `web/src/examples.ts`) · 답변 카드(검증 배지·본문·고정 문구·인용(툴 필드/조항)·툴 호출 펼침·공급자·모델·지연·"이 답변 재현 보기") · 거부 카드(사유 라벨 — 영문 코드 없음, 본문은 서버 고정 문구 그대로, 사유별 대안 동선) · 429 BUDGET이면 입력창·칩 비활성 + 남은 시간(`waitText`) · 503은 "잠시 후 다시". 탭에 "질문".
+- **화면 7 `/answers/:id`**(`web/src/screens/AnswerReplay.tsx`): 세로 타임라인 7단계 — 질문 → 정규화 → 검색 청크(조항·제목·점수, 본문 펼침) → 툴 호출(재현 일치/불일치 배지, 다시 실행한 결과 펼침) → 프롬프트(저장소 `prompts/<name>/<v>.md` 링크) → 모델 출력(공급자·모델·지연·폴백) → 검증 결과(배지·사용된 숫자·인용).
+- **실제 녹화 답변으로 확인**: 로컬 D1의 v3 녹화 12건을 `/answers/{id}`로 — 12/12 200, 검색 청크 72개 모두 본문, **툴 호출 11건 모두 `reproduced: true`**(녹화 때 resultHash와 지금 다시 실행한 결과가 같다).
+- 캡처(390×844 @2x): `captures/phase-4-screen4-ask.png`, `captures/phase-4-screen7-replay-A-01.png`(PASS — 청크 본문·툴 결과 펼침), `captures/phase-4-screen7-replay-A-10.png`(OTHER_AGENT 거부).
+- 시험: `web/test/ask.test.tsx` 9건(경로·칩 6·답변 카드·거부 4종 대안 동선·BUDGET 남은 시간·타임라인 7단계 순서·재현 배지·프롬프트 링크·거부/실패 안내), `worker/test/ask.test.ts` +1(정규화·툴 재실행 일치/불일치·잘못된 인자·internal 청크 본문 없음).
+- 번들: `index-*.js` gzip 79.02KB(상한 250KB).
+
 ## 시험
 
 ```
@@ -232,6 +244,7 @@ pnpm -r test   → grounding 66 · web 35 · worker 324 · gen 201 통과(2026-1
 worker vitest → 339 통과(2026-11-03 — 부록 A 12건 VCR 재생 13 + 빈 답 1)
 pnpm -r test   → grounding 68 · web 35 · worker 341 · gen 207 통과(2026-11-03 — G5 조항 번호·G6 회계연도·--regrade·answer/v2 세션 블록까지)
 pnpm -r test   → grounding 68 · web 35 · worker 342 · gen 207 통과(2026-11-03 — rulesUnavailable 임시 처리까지)
+pnpm -r test   → grounding 68 · web 46 · worker 346 · gen 207 통과(2026-11-05 — /answers 재현 보강·화면 4·7, gen pretest로 build:replay 먼저)
 pnpm run lint  → 오류 0
 tsc --noEmit   → gen·worker 오류 0
 ```
@@ -262,3 +275,6 @@ tsc --noEmit   → gen·worker 오류 0
 3. 답변 VCR — 운영자 결정 방식으로 경로 완료(위 항목 4). **재생 픽스처로 해소(2026-11-02, 위 "답변 녹화 준비")**. 당시 기록 — **재생 시험의 데이터 문제**: 녹화는 로컬 D1의 실제 스트림(데모 1 A-1001)으로 하므로 요청에는 실제 툴 결과가 들어간다. 시험 픽스처(`worker/test/fixture.ts`)는 작은 가짜 세계라 같은 질문의 툴 결과가 달라 요청 해시가 맞지 않는다 → 재생 시험은 실제 스트림의 데모 설계사 행을 로컬 D1 시험 DB에 넣어야 한다(gen이 뷰에서 시험용 SQL 픽스처를 만드는 안). 검색 청크도 녹화 요청의 `<rules>`에서 id를 읽어 가짜 검색이 같은 순서로 돌려준다. 녹화 전에 정한다.
 4. **Vectorize 로컬 바인딩이 없다** — **(b) 승인·점검 스크립트로 해소(2026-11-02, 위)**: Miniflare(wrangler 4.153)의 Vectorize 플러그인은 원격 프록시만 있고 로컬 시뮬레이션이 없다(`VECTORIZE_REMOTE_SERVICE_NAME` — 확인). vitest는 `remoteBindings: false`라 `env.VECTORIZE`를 쓸 수 없다. 항목 6 "internal 청크가 어떤 질의에도 반환되지 않음(Vectorize 로컬 바인딩)"의 선택지: (a) 시험에서만 원격 바인딩(실제 인덱스 질의 — 무료 질의 차원 소모, CI에 계정 토큰 필요), (b) 원격 인덱스에 대한 별도 점검 스크립트(질의 N개 × filter visibility=agent → internal id 0건)를 Phase 종료 증거로 + 단위 시험은 D1 재필터, (c) 메타데이터 필터를 흉내 내는 메모리 가짜(필터 동작 자체는 검증 못 함). 권고 (b). 운영자 판단.
 5. ~~**`/me/ask` 임베딩 오류 처리**~~ — **임시 처리(운영자 2026-11-03, 설계서 v0.1.22)**: 임베딩·Vectorize 검색이 실패하면 규정 없이 툴만으로 답하고 응답에 `rulesUnavailable: true`(`<rules>`가 비어 규정 인용은 G5에서 0건만 통과, answer_log retrieved_chunks `[]`). 시험 `answer.test.ts` +1(4006 메시지로 embed 실패 → 툴 답 PASS·규정 인용 G5·정상은 false). 정식 저하 모드(BUDGET 거부·폴백 체인)는 Phase 5. 처음 기록: 4006 등 임베딩 실패가 500으로 나갔다(2026-11-03 v2 재녹화 1차).
+6. **화면 7 "검증 결과(실패 토큰 표시)"를 다 채우지 못한다(2026-11-05)** — answer_log에는 검증 위반 목록과 거부 전 모델 원문이 없다(`answer.ts` `violations`는 응답·시험에서만, 거부는 고정 문구로 저장 — 설계서 §4.3·§4.4). 화면은 상태 배지와 "저장하지 않는다" 안내만 보인다. 채우려면 answer_log에 열을 더하는 마이그레이션(위반 목록, 필요하면 거부 전 초안)과 설계서 §5.1 변경이 필요하다 — 운영자 판단 대기(DECISIONS 2026-11-05).
+7. **완료 기준의 실호출 부분** — "실호출 12건 수동 확인 캡처"는 공개 `/me/ask`(질문 임베딩 = Workers AI)와 Groq를 부른다. 낮에는 Workers AI를 부르지 않으므로(운영자 2026-11-03) 시점은 운영자 판단. answer_log 12행(retrieved_chunks·tool_calls·grounding_status)은 11-04 v3 녹화로 **로컬 D1**에 있다(위 재현 확인) — 원격 12행은 실호출 캡처 때 생긴다.
+8. 상단 칩 "오늘 남은 질문"·"프롬프트"는 아직 자리만(남은 질문 수를 주는 API가 없다 — Phase 5 `/budget`).

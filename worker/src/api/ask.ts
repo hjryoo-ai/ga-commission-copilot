@@ -1,13 +1,15 @@
 // 자유 질문·답변 재현 API(설계서 §4.3·§4.4·§7, PHASES Phase 4 항목 4).
 //   POST /api/v1/me/ask {question}  → 답변 파이프라인(llm/answer.ts). 예산은 Phase 5 — 지금은 개발용 하드 상한 ASK_DAILY_CAP(기본 20/일, budget_counter scope ask:dev).
-//   GET  /api/v1/answers/{id}       → 이 설계사의 answer_log 한 행(화면 7 답변 재현).
+//   GET  /api/v1/answers/{id}       → 이 설계사의 answer_log 한 행(화면 7 답변 재현). LLM을 부르지 않는다 —
+//                                     툴은 저장된 인자로 다시 실행해(읽기 전용·결정론) 결과와 resultHash 일치 여부를, 검색 청크는 본문을 붙인다.
 // 상한에 닿으면 LLM을 부르지 않고 429 + BUDGET 고정 문구 + retryAfterSeconds(다음 00:00 UTC까지 — §7 저하 모드 응답 모양, 거부도 answer_log에 남는다 — §4.4).
 import type { Context } from "hono";
 import { Hono } from "hono";
-import { reserveBudget } from "../db/ScopedQuery";
-import { answerQuestion, cloudflareDeps, refuseWithoutLlm } from "../llm/answer";
+import { reserveBudget, rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
+import { answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm } from "../llm/answer";
 import { groq, ProviderError, traced } from "../llm/providers";
 import { type AppEnv, common, DISCLAIMER, invalidRequest, notFound, problem } from "./http";
+import { InvalidToolCall, parseToolCall, runTool, serialize } from "../tools";
 import { requireSession } from "./session";
 
 export const ASK_DAILY_CAP_DEFAULT = 20;
@@ -87,6 +89,33 @@ const parseList = (s: unknown): unknown[] => {
   }
 };
 
+interface LoggedToolCall {
+  tool?: unknown;
+  args?: unknown;
+  resultHash?: unknown;
+}
+
+/**
+ * 화면 7 재현(설계서 §7 "툴 결과"): 저장된 인자로 툴을 다시 실행한다 — 툴은 읽기 전용이고 같은 활성 스트림이면 결과가 같다.
+ * reproduced = 지금 결과의 해시가 답변 때 resultHash와 같은가. 인자가 지금 검사를 통과하지 못하면 결과 없이 reproduced false.
+ */
+async function replayTools(q: ScopedQuery, logged: readonly unknown[]) {
+  const out = [];
+  for (const raw of logged) {
+    const t = (raw ?? {}) as LoggedToolCall;
+    const base = { tool: t.tool, args: t.args, resultHash: t.resultHash };
+    try {
+      const r = await runTool({ q }, parseToolCall({ tool: t.tool, args: t.args }));
+      const now = await hash16(serialize(r.data));
+      out.push({ ...base, result: r.data, truncated: r.truncated, reproduced: now === t.resultHash });
+    } catch (e) {
+      if (!(e instanceof InvalidToolCall)) throw e;
+      out.push({ ...base, reproduced: false });
+    }
+  }
+  return out;
+}
+
 /** GET /answers/{id} — 이 설계사 행만(남의 답변은 404). */
 export const answers = new Hono<AppEnv>();
 answers.use("*", requireSession);
@@ -95,17 +124,24 @@ answers.get("/:answerId", async (c) => {
   if (!ANSWER_ID.test(id)) return notFound(c);
   const row = await c.get("scope").q.answerLog(id);
   if (!row) return notFound(c);
+  const retrieved = parseList(row.retrieved_chunks).flatMap((x) => (Array.isArray(x) && typeof x[0] === "string" ? [{ chunkId: x[0], score: x[1] as unknown }] : []));
+  // 본문은 visibility=agent 행만(rulebookChunks) — internal 청크는 재현 화면에도 나가지 않는다
+  const bodies = new Map((await rulebookChunks(c.env.DB, retrieved.map((r) => r.chunkId))).map((r) => [r.chunk_id, r]));
   return answerJson(c, {
     answerId: row.answer_id,
     question: row.question,
+    normalizedQuestion: row.normalized_question,
     answer: row.answer,
     refused: row.refused === 1,
     reason: row.refuse_reason,
     groundingStatus: row.grounding_status,
     numbersUsed: parseList(row.numbers_used),
     citations: parseList(row.citations),
-    retrievedChunks: parseList(row.retrieved_chunks).map((x) => (Array.isArray(x) ? { chunkId: x[0], score: x[1] } : x)),
-    toolCalls: parseList(row.tool_calls),
+    retrievedChunks: retrieved.map((r) => {
+      const b = bodies.get(r.chunkId);
+      return b ? { ...r, article: b.article, title: b.title, body: b.body, version: b.version } : r;
+    }),
+    toolCalls: await replayTools(c.get("scope").q, parseList(row.tool_calls)),
     promptVersion: row.prompt_version,
     provider: row.provider,
     model: row.model,

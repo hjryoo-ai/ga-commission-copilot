@@ -1,5 +1,5 @@
 // 화면 라벨(상위 설계서 v1.9 §6.2 상태 매핑·세후 16칸, §6.3 한도 문구). 표만 둔다 — 금액은 바꾸지 않는다.
-import type { DeferralStatus, MonthStatus, NetBasis, Stage } from "./api";
+import type { DeferralStatus, MonthStatus, NetBasis, RefuseReason, Stage } from "./api";
 
 /** 월 상태 → 라벨(세전·환수 상계·라인 금액). */
 export const MONTH_STATUS_LABEL: Record<MonthStatus, string> = {
@@ -66,3 +66,19 @@ export const commTypeLabel = (t: string) => COMM_TYPE_LABEL[t] ?? t;
 /** 한도 삭감 문구(상위 §6.3 v1.7): 정책 이름이 아니라 사실대로. */
 export const CUT_LABEL = "한도 초과 삭감";
 export const DEFER_NOTE = "(사규: 초년도 후 이연 — 현재 이연 스케줄 없음)";
+
+/** 답변 거부 사유(설계서 §4.4) — 화면에 영문 코드를 쓰지 않는다. 본문은 서버의 고정 문구. */
+export const REFUSE_LABEL: Record<RefuseReason, string> = {
+  OUT_OF_SCOPE: "답할 수 있는 범위 밖",
+  NOT_GROUNDED: "근거로 확인되지 않음",
+  OTHER_AGENT: "다른 설계사 정보",
+  NEEDS_ENGINE: "엔진 계산이 필요한 질문",
+  BUDGET: "오늘 질문 예산 소진",
+};
+
+/** 검증 상태(답변·재현) — PASS만 "검증 통과". NONE은 거부라 검증 대상 본문이 없다. */
+export const GROUNDING_LABEL: Record<"PASS" | "FAIL" | "NONE", string> = {
+  PASS: "검증 통과",
+  FAIL: "검증 실패",
+  NONE: "검증 대상 아님(거부)",
+};

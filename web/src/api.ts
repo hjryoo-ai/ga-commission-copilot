@@ -151,6 +151,67 @@ export interface LimitDetail extends Common {
   explanation: Explanation | null;
 }
 
+/** 거부 사유 5종(설계서 §4.4) — 화면은 사유별 고정 문구(서버 text)와 대안 동선만. */
+export type RefuseReason = "OUT_OF_SCOPE" | "NOT_GROUNDED" | "OTHER_AGENT" | "NEEDS_ENGINE" | "BUDGET";
+
+/** 답변 인용: 툴 필드(tool·field) 또는 사규 조항(article·chunkId). 다른 쪽 칸은 빈 문자열. */
+export interface Citation {
+  kind: "tool" | "rule";
+  tool: string;
+  field: string;
+  article: string;
+  chunkId: string;
+}
+
+export interface ToolCallLog {
+  tool: string;
+  args: Record<string, string>;
+  resultHash: string;
+}
+
+/** POST /me/ask 응답(설계서 §7). 429 BUDGET도 이 모양(retryAfterSeconds). */
+export interface AskResult extends Common {
+  answerId: string;
+  refused: boolean;
+  reason: RefuseReason | null;
+  text: string;
+  promptVersion: string;
+  numbersUsed?: string[];
+  citations?: Citation[];
+  toolCalls?: ToolCallLog[];
+  provider?: string;
+  model?: string;
+  groundingStatus?: "PASS" | "FAIL" | "NONE";
+  cacheHit?: boolean;
+  latencyMs?: number;
+  retryAfterSeconds?: number;
+  rulesUnavailable?: boolean;
+}
+
+/** GET /answers/{id}(화면 7): 툴은 서버가 저장된 인자로 다시 실행 — reproduced = 답변 때 결과 해시와 같은가. */
+export interface AnswerReplay extends Common {
+  answerId: string;
+  question: string;
+  normalizedQuestion: string;
+  answer: string | null;
+  refused: boolean;
+  reason: RefuseReason | null;
+  groundingStatus: "PASS" | "FAIL" | "NONE";
+  numbersUsed: string[];
+  citations: Citation[];
+  retrievedChunks: { chunkId: string; score: number; article?: string; title?: string; body?: string; version?: string }[];
+  toolCalls: (ToolCallLog & { result?: unknown; truncated?: boolean; reproduced: boolean })[];
+  promptVersion: string;
+  provider: string;
+  model: string;
+  fallbackDepth: number;
+  latencyMs: number;
+  createdAt: string;
+}
+
+/** 공급자 실패(503) — 화면은 "잠시 후 다시". */
+export class Unavailable extends Error {}
+
 /** 세션이 없거나 스트림이 바뀌어 무효(401) — 화면은 설계사 선택으로. */
 export class Unauthenticated extends Error {}
 export class NotFound extends Error {}
@@ -174,6 +235,15 @@ export const api = {
   line: (calcId: string) => call<LineDetail>(`/api/v1/me/earnings/lines/${encodeURIComponent(calcId)}`),
   limits: () => call<Limits>("/api/v1/me/limits"),
   limit: (ledgerId: string) => call<LimitDetail>(`/api/v1/me/limits/${encodeURIComponent(ledgerId)}`),
+  answer: (answerId: string) => call<AnswerReplay>(`/api/v1/answers/${encodeURIComponent(answerId)}`),
+  /** 429(예산 소진 BUDGET)는 오류가 아니라 거부 답 — 본문을 그대로 돌려준다. */
+  async ask(question: string): Promise<AskResult> {
+    const res = await fetch("/api/v1/me/ask", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
+    if (res.status === 401) throw new Unauthenticated();
+    if (res.status === 503) throw new Unavailable();
+    if (!res.ok && res.status !== 429) throw new Error(`${res.status}`);
+    return (await res.json()) as AskResult;
+  },
 };
 
 /** 그 달 라인 전체(페이지를 total까지 — 상위 §8 명세: 같은 달 짝을 접으려면 전부 받는다). */

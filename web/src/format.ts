@@ -26,3 +26,10 @@ export function monthWindow(from: string, to: string): { from: string; to: strin
   const start = Math.max(idx(from), idx(to) - 35);
   return { from: `${Math.floor(start / 12)}${String((start % 12) + 1).padStart(2, "0")}`, to };
 }
+
+/** 남은 초 → "3시간 5분"(예산 소진 안내 — 시간 표시만). 1분 미만은 "1분". */
+export function waitText(seconds: number): string {
+  const m = Math.max(1, Math.ceil(seconds / 60));
+  const h = Math.floor(m / 60);
+  return h > 0 ? `${h}시간 ${m % 60}분` : `${m}분`;
+}

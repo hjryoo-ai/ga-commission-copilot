@@ -1,5 +1,7 @@
-// 화면 1~3(설계서 §8) + 라인·한도 상세. 경로는 router.tsx의 닫힌 목록.
+// 화면 1~4·7(설계서 §8) + 라인·한도 상세. 경로는 router.tsx의 닫힌 목록.
 import { match, usePath } from "./router";
+import { AnswerReplayScreen } from "./screens/AnswerReplay";
+import { Ask } from "./screens/Ask";
 import { LimitDetail, Limits } from "./screens/Limits";
 import { LineDetail } from "./screens/LineDetail";
 import { SelectAgent } from "./screens/SelectAgent";
@@ -20,6 +22,10 @@ export function App({ path: initial }: { path?: string } = {}) {
       return <Limits />;
     case "limit":
       return <LimitDetail ledgerId={route.ledgerId} />;
+    case "ask":
+      return <Ask />;
+    case "answer":
+      return <AnswerReplayScreen answerId={route.answerId} />;
     case "notFound":
       return (
         <>

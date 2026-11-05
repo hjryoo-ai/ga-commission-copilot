@@ -1,4 +1,4 @@
-// 작은 경로기(의존성 없이 History API). 경로는 닫힌 목록 — 설계서 §8 화면 1~3 + 라인 상세.
+// 작은 경로기(의존성 없이 History API). 경로는 닫힌 목록 — 설계서 §8 화면 1~4·7 + 라인 상세.
 import { type AnchorHTMLAttributes, type MouseEvent, useEffect, useState } from "react";
 
 export type Route =
@@ -7,6 +7,8 @@ export type Route =
   | { name: "line"; calcId: string }
   | { name: "limits" }
   | { name: "limit"; ledgerId: string }
+  | { name: "ask" }
+  | { name: "answer"; answerId: string }
   | { name: "notFound" };
 
 export function match(path: string): Route {
@@ -19,6 +21,9 @@ export function match(path: string): Route {
   if (path === "/me/limits") return { name: "limits" };
   m = path.match(/^\/me\/limits\/([^/]+)$/);
   if (m) return { name: "limit", ledgerId: decodeURIComponent(m[1]!) };
+  if (path === "/me/ask") return { name: "ask" };
+  m = path.match(/^\/answers\/([0-9a-f-]{36})$/);
+  if (m) return { name: "answer", answerId: m[1]! };
   return { name: "notFound" };
 }
 
@@ -28,6 +33,8 @@ export const paths = {
   line: (calcId: string) => `/me/earnings/lines/${encodeURIComponent(calcId)}`,
   limits: () => "/me/limits",
   limit: (ledgerId: string) => `/me/limits/${encodeURIComponent(ledgerId)}`,
+  ask: () => "/me/ask",
+  answer: (answerId: string) => `/answers/${encodeURIComponent(answerId)}`,
 };
 
 export function navigate(to: string, replace = false): void {

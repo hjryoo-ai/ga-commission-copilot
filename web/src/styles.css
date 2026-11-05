@@ -432,3 +432,99 @@ footer {
     animation: none !important;
   }
 }
+
+/* 화면 4 자유 질문(설계서 §8-4): 입력창·예시 칩(버튼 — 44px 터치)·답변/거부 카드 */
+.ask {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ask textarea {
+  font: inherit;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  resize: vertical;
+}
+
+.ask button[type="submit"] {
+  min-height: 44px;
+  font: inherit;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.ask button:disabled,
+.examples button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.examples button.chip {
+  min-height: 44px;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.exchange {
+  margin-top: 16px;
+}
+
+.exchange .question {
+  font-weight: 600;
+}
+
+.answer h4 {
+  font-size: 0.9rem;
+  margin: 12px 0 4px;
+}
+
+.answer.refusal {
+  border-color: #e6c200;
+}
+
+/* 화면 7 답변 재현: 세로 타임라인 */
+.replay {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-left: 2px solid var(--line);
+}
+
+.replay > li {
+  padding: 0 0 16px 16px;
+  position: relative;
+}
+
+.replay h3 {
+  margin: 0 0 6px;
+}
+
+.replay .step {
+  display: inline-block;
+  min-width: 1.6em;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--line);
+  font-size: 0.8rem;
+}
+
+.replay pre {
+  overflow-x: auto;
+  max-height: 320px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+/* summary는 flex라 사이 공백이 사라진다 — 점수는 여백으로 띄운다 */
+.replay .score {
+  margin-left: 0.5em;
+}
