@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.24)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.25)
 
 > 변경 이력
+> - v0.1.25 (2026-11-05, Phase 4 항목 5 — 운영자 결정): §5.1 `answer_log.violations`(마이그레이션 0006, TEXT JSON `{g4Missing[], g5Unknown[], g6Words[]}`) — 거부·PASS 모두 기록(위반이 없으면 빈 배열, 0006 이전 행은 NULL). 거부 전 모델 원문은 저장하지 않는다(로컬 녹화 `llm_trace`만) · §8-7 화면 7은 위반 목록을 토큰 단위로 표시 · §7 `GET /answers/{id}`에 `violations`·`normalizedQuestion`, 툴은 저장된 인자로 다시 실행해 `result`·`reproduced`(resultHash 대조), 검색 청크 본문(visibility=agent) · §11 `capture-public.yml`(workflow_dispatch — 공개 URL에 부록 A 12건 `/me/ask`, 응답 JSON·answerId·재현 응답을 `bot/capture-public` 브랜치에 커밋, Phase 4 완료 기준 "answer_log 12행"은 이 캡처의 원격 행).
 > - v0.1.24 (2026-11-05, CI 수정 — 운영자 지시): §11 CI/CD — 시험은 projection-java를 빌드하지 않는다. `ci.yml`·`daily-explain.yml`은 시험·CLI 전에 `pnpm run build:replay`(`installDist`) 한 번, 로컬 `pnpm -r test`는 gen `pretest`가 같은 빌드를 먼저. `viewsOf`는 산출물이 없으면 명확한 오류로 실패한다. 2026-11-02 이후 CI 실패는 병렬 시험 파일 2개(`explain-stream`·`answer-fixture`)가 각자 `installDist`를 돌려 서로의 bin을 다시 쓴 경쟁(4회 모두 두 파일 실행 구간 겹침, 빈 출력 JSON 파싱).
 > - v0.1.23 (2026-11-05, Phase 7 일부 선행 — 운영자 지시): §11 CI/CD에 `daily-explain.yml`(cron `5 0 * * *` = 09:05 KST + workflow_dispatch) — v0.1.22의 Workers AI 하루 묶음을 Claude Code 세션 예약(세션·컴퓨터가 깨어 있어야 돈다 — 11-04는 놓침) 대신 GitHub Actions로. 순서 ① 답변 녹화(수동 실행에서 고를 때만, 산출물은 artifact — 재판정·시험 기대값은 사람) → ② 설명 단건 재생성(수동 실행 라벨) → ③ 원격 적재·재검증, exit 0이 아니면 배치 전에 멈춤 → ④ 배치 90 → 재판정(`--regrade`, 호출 없음)·본문 점검 → 원격 적재·재검증. 결과(`data/explain`·`docs/evidence/logs`)는 main이 아니라 `bot/daily-explain` 브랜치에 커밋한다(main 푸시·배포는 운영자 — `GITHUB_TOKEN` 푸시는 ci·deploy를 깨우지 않는다), 커밋하는 로그의 계정 ID는 `<account>`. 시크릿 `CLOUDFLARE_BATCH_API_TOKEN`(Workers AI·D1 편집, 녹화는 Vectorize·Workers 스크립트 편집도)·`CLOUDFLARE_ACCOUNT_ID`·`GROQ_API_KEY`(녹화만). 같은 날 두 번 돌아도 원격 `budget_counter`(batch:explain:workers-ai 90)가 막는다. 공개 저장소라 표준 러너 분은 무료. Phase 7 `weekly-generate.yml`은 이 단계를 다시 쓴다.
 > - v0.1.22 (2026-11-03, Phase 4 — 운영자 결정, Phase 5 전 임시): §4.3·§7 규정 검색(질의 임베딩·Vectorize)이 실패하면(Workers AI 4006 — 그날 뉴런 소진 등) 규정 없이 툴만으로 답하고 응답에 `rulesUnavailable: true` — 배치가 뉴런을 다 쓴 날 공개 데모 `/ask`가 500으로 죽지 않게. `<rules>`가 비므로 규정 인용은 G5에서 0건만 통과. 정식 저하 모드(BUDGET 거부·폴백 체인)는 Phase 5 그대로 · Workers AI 호출은 매일 00:05 UTC 한 묶음(답변 녹화 → 설명 재생성 → 원격 재검증 → 배치 90), 낮에는 부르지 않는다(개발 시험은 가짜 임베딩).
@@ -312,7 +313,8 @@ CREATE TABLE answer_log (           -- 런타임 답변 전건 (거부 포함)
   answer TEXT, numbers_used TEXT, citations TEXT,
   refused INTEGER NOT NULL, refuse_reason TEXT,
   grounding_status TEXT NOT NULL, latency_ms INTEGER NOT NULL, cache_hit INTEGER NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  violations TEXT                   -- v0.1.25(0006): JSON {g4Missing[], g5Unknown[], g6Words[]} — 거부·PASS 모두, 거부 전 원문은 저장하지 않는다
 );
 CREATE INDEX ix_ans_created ON answer_log (created_at);
 
@@ -495,6 +497,7 @@ CREATE TABLE eval_case_result (
    - 오늘 사용/상한(전역·공급자별), 최근 7일 일별 호출 막대(공급자 적층), 폴백 깊이 분포, 캐시 적중률, 거부 사유 분포
 7. **답변 재현** (`/answers/:id`, 본인 세션만)
    - 질문 → 정규화 → 검색 청크(점수) → 툴 호출·결과 → 프롬프트(버전 링크) → 모델 출력 → 검증 결과(실패 토큰 표시) 순서의 세로 타임라인
+   - 실패 토큰은 `answer_log.violations`(v0.1.25)의 G4 근거 없는 숫자·G5 확인 안 된 인용·G6 금지어를 토큰 하나씩 표시. 거부 전 모델 원문은 없다(저장하지 않는다)
 
 접근성·현장성은 상위 설계서 §8 공통 규약(44px 터치, 큰 숫자, 번들 상한)을 따른다. LLM 텍스트는 **절대 큰 숫자 자리를 차지하지 않는다** — 숫자는 항상 데이터 컴포넌트가, 설명은 그 아래 보조 영역이 맡는다.
 
@@ -592,7 +595,7 @@ CREATE TABLE eval_case_result (
 | 평가 | 자체 하네스(`evals/`): 골든 JSONL + 채점기 TS | 외부 eval 프레임워크는 v0.1에서 쓰지 않는다 — 채점 규칙(그라운딩·거부·툴)이 도메인 특화라 직접 쓰는 편이 짧다 |
 | 관측 | AI Gateway 분석·캐시, Workers Logs(무료 범위), `/budget` 자체 집계 | OpenTelemetry는 v0.1 제외 |
 | 봇 방지 | Cloudflare Turnstile(무료) | `/ask`만 |
-| CI/CD | GitHub Actions: `ci.yml`(push·PR → `pnpm lint`(의존 방향, CLAUDE.md 규약 2)·`pnpm run build:replay`(v0.1.24 — 시험은 빌드하지 않는다)·`pnpm -r test`·`./gradlew test`), `deploy.yml`(main 푸시 → `wrangler deploy`), `weekly-generate.yml`(cron 일 03:00 KST), `daily-explain.yml`(v0.1.23 — cron 00:05 UTC: 설명 재생성·원격 재검증·배치 90, 수동 실행에서 답변 녹화 → `bot/daily-explain` 브랜치에 커밋), `eval-on-prompt-change.yml`(`prompts/**` 변경 PR) | 시크릿은 Actions Secrets |
+| CI/CD | GitHub Actions: `ci.yml`(push·PR → `pnpm lint`(의존 방향, CLAUDE.md 규약 2)·`pnpm run build:replay`(v0.1.24 — 시험은 빌드하지 않는다)·`pnpm -r test`·`./gradlew test`), `deploy.yml`(main 푸시 → `wrangler deploy`), `weekly-generate.yml`(cron 일 03:00 KST), `daily-explain.yml`(v0.1.23 — cron 00:05 UTC: 설명 재생성·원격 재검증·배치 90, 수동 실행에서 답변 녹화 → `bot/daily-explain` 브랜치에 커밋), `eval-on-prompt-change.yml`(`prompts/**` 변경 PR), `capture-public.yml`(v0.1.25 — 수동 실행, 공개 URL 부록 A 12건 캡처 → `bot/capture-public`) | 시크릿은 Actions Secrets |
 
 버전은 구현 시작 시점에 `npm view <pkg> version`·`gradle --version`으로 재확인하고 `package.json`·`gradle/libs.versions.toml`에 고정한다. 본 표는 메이저 라인을 정하는 용도다.
 
