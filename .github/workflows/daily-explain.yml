@@ -52,8 +52,11 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v6
+      # 서드파티 액션은 SHA로 고정(시크릿·contents: write를 쓰는 워크플로)
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - uses: actions/setup-node@v7
         with:
@@ -149,12 +152,14 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false # 쓰기 토큰은 마지막 푸시 단계에만
 
       - name: bot/daily-explain 이어서(main을 합친다 — 충돌이면 Workers AI 호출 전에 멈춘다)
         id: branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # 공개 저장소라 읽기(fetch·ls-remote)는 자격 증명 없이 된다
           if git ls-remote --exit-code --heads origin "$BOT_BRANCH" > /dev/null; then
             git fetch origin "$BOT_BRANCH"
             git checkout -B "$BOT_BRANCH" "origin/$BOT_BRANCH"
@@ -165,7 +170,8 @@ jobs:
           echo "DAY=$(date -u +%F)" >> "$GITHUB_ENV"
           echo "START=$(date -u +%FT%TZ)" >> "$GITHUB_ENV"
 
-      - uses: pnpm/action-setup@v6
+      # 서드파티 액션은 SHA로 고정(시크릿·contents: write를 쓰는 워크플로)
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - uses: actions/setup-node@v7
         with:
@@ -255,6 +261,7 @@ jobs:
         if: always() && steps.branch.outcome == 'success'
         env:
           ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -n "$ACCOUNT" ]; then
@@ -268,4 +275,5 @@ jobs:
             exit 0
           fi
           git commit -m "phase-3: 설명 하루 묶음 $DAY(daily-explain)" -m "$RUN_URL"
-          git push origin "HEAD:$BOT_BRANCH"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" \
+            push origin "HEAD:$BOT_BRANCH"
