@@ -139,6 +139,7 @@
 설계서 §3.4-1, §4.1 캐시 키, §5.4, §6.4 첫 줄, §11 CI/CD를 읽는다.
 
 1. .github/workflows/weekly-generate.yml(cron 매주 월 03:00 KST + workflow_dispatch): world:plan(실호출) → expand → verify → stream 커밋 → D1 재적재(비활성 슬롯 적재 → UPDATE 한 문장 전환, 설계서 §5.1·§5.4) → explain(변경 subject만) → rulebook(변경 시) → evals → deploy. 단계별 실패 시 이전 stream_meta.active 유지(전환 뒤 복구는 `load:d1 --rollback <hash>`, 설계서 §5.4).
+   설명 배치·녹화·재검증 부분은 2026-11-05 .github/workflows/daily-explain.yml(cron 5 0 * * *)로 먼저 만들었다(설계서 v0.1.23) — 여기서는 그 단계를 다시 쓴다.
 2. gen/explain: streamHash가 바뀌면 영향 받은 subject만 재생성(라인 diff). 구 해시 설명은 active 스트림이 아니면 API에서 제외.
 3. 재구축 명령 `pnpm run rebuild --stream <hash>`: D1 비우고 다시 적재 후 전수 재검증. 결정론 테스트(2회 적재 → 동일 체크섬).
 4. Workers Logs에서 /ask 지연·폴백·거부 로그를 구조화(JSON) 출력, /budget에 7일 집계.
