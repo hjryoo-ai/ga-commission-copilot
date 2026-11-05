@@ -38,6 +38,10 @@ jobs:
       - name: pnpm lint
         run: pnpm lint
 
+      # 시험은 빌드하지 않는다 — projection-java 리플레이 CLI를 한 번만 만든다(병렬 시험 파일의 installDist 경쟁, 2026-11-05)
+      - name: projection-java installDist
+        run: pnpm run build:replay
+
       - name: pnpm -r test
         run: pnpm -r test
 

@@ -71,6 +71,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # viewsOf(load:d1·explain·verify:explain)는 빌드하지 않는다 — ci.yml과 같은 스텝
+      - name: projection-java installDist
+        run: pnpm run build:replay
+
       - name: 로컬 D1 준비(마이그레이션 → 스트림 → 사규집 청크 → 시뮬레이션 스텁)
         working-directory: gen
         run: |
@@ -185,6 +189,10 @@ jobs:
           cache: gradle
 
       - run: pnpm install --frozen-lockfile
+
+      # viewsOf(load:d1·explain·verify:explain)는 빌드하지 않는다 — ci.yml과 같은 스텝
+      - name: projection-java installDist
+        run: pnpm run build:replay
 
       - name: 시크릿 확인(값은 출력하지 않는다)
         env:

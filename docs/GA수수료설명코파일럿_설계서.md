@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.23)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.24)
 
 > 변경 이력
+> - v0.1.24 (2026-11-05, CI 수정 — 운영자 지시): §11 CI/CD — 시험은 projection-java를 빌드하지 않는다. `ci.yml`·`daily-explain.yml`은 시험·CLI 전에 `pnpm run build:replay`(`installDist`) 한 번, 로컬 `pnpm -r test`는 gen `pretest`가 같은 빌드를 먼저. `viewsOf`는 산출물이 없으면 명확한 오류로 실패한다. 2026-11-02 이후 CI 실패는 병렬 시험 파일 2개(`explain-stream`·`answer-fixture`)가 각자 `installDist`를 돌려 서로의 bin을 다시 쓴 경쟁(4회 모두 두 파일 실행 구간 겹침, 빈 출력 JSON 파싱).
 > - v0.1.23 (2026-11-05, Phase 7 일부 선행 — 운영자 지시): §11 CI/CD에 `daily-explain.yml`(cron `5 0 * * *` = 09:05 KST + workflow_dispatch) — v0.1.22의 Workers AI 하루 묶음을 Claude Code 세션 예약(세션·컴퓨터가 깨어 있어야 돈다 — 11-04는 놓침) 대신 GitHub Actions로. 순서 ① 답변 녹화(수동 실행에서 고를 때만, 산출물은 artifact — 재판정·시험 기대값은 사람) → ② 설명 단건 재생성(수동 실행 라벨) → ③ 원격 적재·재검증, exit 0이 아니면 배치 전에 멈춤 → ④ 배치 90 → 재판정(`--regrade`, 호출 없음)·본문 점검 → 원격 적재·재검증. 결과(`data/explain`·`docs/evidence/logs`)는 main이 아니라 `bot/daily-explain` 브랜치에 커밋한다(main 푸시·배포는 운영자 — `GITHUB_TOKEN` 푸시는 ci·deploy를 깨우지 않는다), 커밋하는 로그의 계정 ID는 `<account>`. 시크릿 `CLOUDFLARE_BATCH_API_TOKEN`(Workers AI·D1 편집, 녹화는 Vectorize·Workers 스크립트 편집도)·`CLOUDFLARE_ACCOUNT_ID`·`GROQ_API_KEY`(녹화만). 같은 날 두 번 돌아도 원격 `budget_counter`(batch:explain:workers-ai 90)가 막는다. 공개 저장소라 표준 러너 분은 무료. Phase 7 `weekly-generate.yml`은 이 단계를 다시 쓴다.
 > - v0.1.22 (2026-11-03, Phase 4 — 운영자 결정, Phase 5 전 임시): §4.3·§7 규정 검색(질의 임베딩·Vectorize)이 실패하면(Workers AI 4006 — 그날 뉴런 소진 등) 규정 없이 툴만으로 답하고 응답에 `rulesUnavailable: true` — 배치가 뉴런을 다 쓴 날 공개 데모 `/ask`가 500으로 죽지 않게. `<rules>`가 비므로 규정 인용은 G5에서 0건만 통과. 정식 저하 모드(BUDGET 거부·폴백 체인)는 Phase 5 그대로 · Workers AI 호출은 매일 00:05 UTC 한 묶음(답변 녹화 → 설명 재생성 → 원격 재검증 → 배치 90), 낮에는 부르지 않는다(개발 시험은 가짜 임베딩).
 > - v0.1.21 (2026-11-03, Phase 3 3일차·Phase 4 녹화 — 운영자 결정): §4.2 G6 금지 표현에 "회계연도"·"사업연도"(띄어 쓴 꼴 포함 — 한도는 초년도 기준, 데이터에 없는 기간 개념) · G5를 답변의 규정 인용까지: **조항 번호 대조**(인용 article을 "제7조"·"제25조(환수율)"·"7"·"rb-07" → 7로 정규화해 검색된 청크의 조항 번호 집합과 대조 — 조항=청크 1:1(§14.0)이라 동일성 유지, 저장은 정본 표기), 툴 인용은 그대로 키 경로 대조 · G4 토큰화 경계 수정(숫자 뒤 문장 쉼표·마침표 — "900,000, "이 토큰이 안 되던 구멍) · 답변의 거부 아닌 빈 본문은 G1 실패 · §5.4 재판정 `verify:explain --regrade`(저장된 FAIL 행을 현재 검증기로 다시 판정, 통과하면 PASS — LLM 호출 없음)와 이력 버전 위반 분리(활성 버전 PASS 행 위반만 실패).
@@ -591,7 +592,7 @@ CREATE TABLE eval_case_result (
 | 평가 | 자체 하네스(`evals/`): 골든 JSONL + 채점기 TS | 외부 eval 프레임워크는 v0.1에서 쓰지 않는다 — 채점 규칙(그라운딩·거부·툴)이 도메인 특화라 직접 쓰는 편이 짧다 |
 | 관측 | AI Gateway 분석·캐시, Workers Logs(무료 범위), `/budget` 자체 집계 | OpenTelemetry는 v0.1 제외 |
 | 봇 방지 | Cloudflare Turnstile(무료) | `/ask`만 |
-| CI/CD | GitHub Actions: `ci.yml`(push·PR → `pnpm lint`(의존 방향, CLAUDE.md 규약 2)·`pnpm -r test`·`./gradlew test`), `deploy.yml`(main 푸시 → `wrangler deploy`), `weekly-generate.yml`(cron 일 03:00 KST), `daily-explain.yml`(v0.1.23 — cron 00:05 UTC: 설명 재생성·원격 재검증·배치 90, 수동 실행에서 답변 녹화 → `bot/daily-explain` 브랜치에 커밋), `eval-on-prompt-change.yml`(`prompts/**` 변경 PR) | 시크릿은 Actions Secrets |
+| CI/CD | GitHub Actions: `ci.yml`(push·PR → `pnpm lint`(의존 방향, CLAUDE.md 규약 2)·`pnpm run build:replay`(v0.1.24 — 시험은 빌드하지 않는다)·`pnpm -r test`·`./gradlew test`), `deploy.yml`(main 푸시 → `wrangler deploy`), `weekly-generate.yml`(cron 일 03:00 KST), `daily-explain.yml`(v0.1.23 — cron 00:05 UTC: 설명 재생성·원격 재검증·배치 90, 수동 실행에서 답변 녹화 → `bot/daily-explain` 브랜치에 커밋), `eval-on-prompt-change.yml`(`prompts/**` 변경 PR) | 시크릿은 Actions Secrets |
 
 버전은 구현 시작 시점에 `npm view <pkg> version`·`gradle --version`으로 재확인하고 `package.json`·`gradle/libs.versions.toml`에 고정한다. 본 표는 메이저 라인을 정하는 용도다.
 

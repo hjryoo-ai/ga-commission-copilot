@@ -6,6 +6,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "build:replay": "cd projection-java && ./gradlew -q --no-daemon installDist",
     "test": "pnpm -r test",
     "lint": "eslint ."
   },
