@@ -181,13 +181,18 @@ export const canonicalCitations = (cs: readonly Citation[], rows: readonly Ruleb
     return { ...c, article: r.article, chunkId: r.chunk_id };
   });
 
-/** answer_log.violations(0006) 모양 — 토큰 그대로(G4 근거 없는 숫자, G5 확인 안 된 인용 "tool.field"·"article chunkId", G6 금지어·코드). */
+/**
+ * answer_log.violations(0006) 모양 — 토큰 그대로(G4 근거 없는 숫자, G5 확인 안 된 인용 "tool.field"·"article chunkId", G6 금지어·코드).
+ * g1Shape(설계서 v0.1.26): 실패한 답의 모양 오류 사유 코드 — `SHAPE:<키>`(스키마 모양), `EMPTY_BODY`(거부 아닌 빈 본문),
+ * `TOOL_ARG_REJECTED:<툴>`(1단계 툴 인자 검사 거부), `TOOL_IN_STAGE2:<툴>`(2단계가 툴을 더 요청). 진단 기록이다 — 게이트 판정은 바꾸지 않고, PASS면 빈 배열.
+ */
 export interface GroundingViolations {
+  g1Shape: string[];
   g4Missing: string[];
   g5Unknown: string[];
   g6Words: string[];
 }
-export const NO_VIOLATIONS: GroundingViolations = Object.freeze({ g4Missing: [], g5Unknown: [], g6Words: [] }) as GroundingViolations;
+export const NO_VIOLATIONS: GroundingViolations = Object.freeze({ g1Shape: [], g4Missing: [], g5Unknown: [], g6Words: [] }) as GroundingViolations;
 
 /** G4(툴 결과 + 청크 본문의 숫자) · G5(인용: 부른 툴의 키 경로 / 검색된 청크의 조항 번호) · G6(금지어·타 설계사 ID) — 토큰 단위. */
 export function groundAnswerDetail(out: AnswerOutput, results: readonly ToolResult[], rows: readonly RulebookChunkRow[], ownAgentId: string): GroundingViolations {
@@ -200,7 +205,7 @@ export function groundAnswerDetail(out: AnswerOutput, results: readonly ToolResu
       if (!r || !fieldInContext(c.field, contextKeys(r.data as Json))) g5Unknown.push(`${c.tool}.${c.field}`);
     } else if (!citedRow(c, rows)) g5Unknown.push(`${c.article} ${c.chunkId}`);
   }
-  return { g4Missing, g5Unknown, g6Words: forbiddenViolations(out.text, { ownAgentId }) };
+  return { g1Shape: [], g4Missing, g5Unknown, g6Words: forbiddenViolations(out.text, { ownAgentId }) };
 }
 
 /** 위반 토큰 → 사람이 읽는 문장(응답·시험의 violations). */
@@ -249,6 +254,9 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   let violations = shapeProblems(res.json);
   let out = res.json as AnswerOutput;
   const results: ToolResult[] = [];
+  // g1Shape 진단(설계서 v0.1.26) — 판정에는 쓰지 않는다
+  const rejectedTools: string[] = [];
+  let stage2Tools: string[] = [];
   if (violations.length === 0 && !out.refused && out.toolCalls.length > 0) {
     for (const raw of out.toolCalls.slice(0, MAX_TOOL_CALLS)) {
       // 해당 없는 인자(null)는 빼고 검사한다 — agentId 같은 인자는 스키마에도 없고 parseToolCall이 거부한다
@@ -258,11 +266,13 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
       } catch (e) {
         if (!(e instanceof InvalidToolCall)) throw e;
         violations.push(`툴 호출 거부: ${e.message}`);
+        rejectedTools.push(`TOOL_ARG_REJECTED:${String(raw.tool)}`);
       }
     }
     res = await ask("2단계", dataBlock(results));
     violations = shapeProblems(res.json);
     out = res.json as AnswerOutput;
+    if (violations.length === 0) stage2Tools = out.toolCalls.map((t) => `TOOL_IN_STAGE2:${String(t.tool)}`);
   }
 
   let refused: boolean;
@@ -272,6 +282,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   let grounding = NO_VIOLATIONS;
   if (violations.some((v) => v.startsWith("G1"))) {
     [refused, reason, text, groundingStatus] = [true, "NOT_GROUNDED", REFUSAL_TEXT.NOT_GROUNDED, "FAIL"];
+    grounding = { ...NO_VIOLATIONS, g1Shape: [...violations.filter((v) => v.startsWith("G1 ")).map((v) => `SHAPE:${v.slice(3)}`), ...rejectedTools] };
   } else if (out.refused) {
     // 거부 문구는 고정(§4.4) — 모델이 쓴 text는 쓰지 않는다
     reason = out.reason ?? "OUT_OF_SCOPE";
@@ -283,8 +294,10 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     const empty = draft.text.trim() === "" ? ["G1 text 비어 있음(거부 아닌 빈 답)"] : [];
     grounding = groundAnswerDetail(draft, results, rows, q.agentId);
     violations = [...violations.filter((v) => !v.startsWith("툴 호출 거부")), ...empty, ...violationLines(grounding, draft)];
-    if (violations.length) [refused, reason, text, groundingStatus] = [true, "NOT_GROUNDED", REFUSAL_TEXT.NOT_GROUNDED, "FAIL"];
-    else [refused, reason, text, groundingStatus] = [false, null, draft.text, "PASS"];
+    if (violations.length) {
+      [refused, reason, text, groundingStatus] = [true, "NOT_GROUNDED", REFUSAL_TEXT.NOT_GROUNDED, "FAIL"];
+      grounding = { ...grounding, g1Shape: [...(empty.length ? ["EMPTY_BODY"] : []), ...rejectedTools, ...stage2Tools] };
+    } else [refused, reason, text, groundingStatus] = [false, null, draft.text, "PASS"];
   }
 
   const toolCalls = await Promise.all(results.map(async (r) => ({ tool: r.tool, args: r.args, resultHash: await hash16(serialize(r.data)) })));

@@ -18,16 +18,35 @@ export function promptHref(version: string): string | null {
 }
 
 const VIOLATION_GROUPS: readonly { key: keyof Violations; title: string }[] = [
+  { key: "g1Shape", title: "G1 모양 오류" },
   { key: "g4Missing", title: "G4 근거에 없는 숫자" },
   { key: "g5Unknown", title: "G5 확인되지 않은 인용" },
   { key: "g6Words", title: "G6 금지 표현·코드" },
 ];
 
+/** 모양 오류 사유 코드 → 화면 문구(설계서 v0.1.26). 코드 원문은 옆에 작게. */
+const SHAPE_LABEL: Record<string, string> = {
+  EMPTY_BODY: "빈 본문",
+  SHAPE: "응답 모양",
+  TOOL_ARG_REJECTED: "툴 인자 거부",
+  TOOL_IN_STAGE2: "2단계 툴 요청",
+};
+
+function TokenChip({ group, token }: { group: keyof Violations; token: string }) {
+  if (group !== "g1Shape") return <li className="chip violation mono">{token}</li>;
+  const code = token.split(":")[0]!;
+  return (
+    <li className="chip violation">
+      모양 오류 · {SHAPE_LABEL[code] ?? code} <span className="mono small">{token}</span>
+    </li>
+  );
+}
+
 /** 위반 토큰(화면 7 "실패 토큰 표시"): 종류별로 토큰 하나씩. */
 export function ViolationTokens({ v }: { v: Violations | null }) {
   if (!v) return <p className="muted small">위반 기록 없음 — 이 기록이 생기기 전(0006 이전)의 답변입니다.</p>;
-  const groups = VIOLATION_GROUPS.filter((g) => v[g.key].length > 0);
-  if (groups.length === 0) return <p className="muted small" data-testid="violations">위반 없음(G4·G5·G6)</p>;
+  const groups = VIOLATION_GROUPS.filter((g) => (v[g.key] ?? []).length > 0);
+  if (groups.length === 0) return <p className="muted small" data-testid="violations">위반 없음(G1·G4·G5·G6)</p>;
   return (
     <div data-testid="violations">
       {groups.map((g) => (
@@ -35,9 +54,7 @@ export function ViolationTokens({ v }: { v: Violations | null }) {
           <h4>{g.title}</h4>
           <ul className="chips">
             {v[g.key].map((t, i) => (
-              <li key={`${t}-${i}`} className="chip violation mono">
-                {t}
-              </li>
+              <TokenChip key={`${t}-${i}`} group={g.key} token={t} />
             ))}
           </ul>
         </div>

@@ -3,7 +3,7 @@
 - 수행일: 2026-11-01(UTC) — 항목 1·2·3 착수(운영자 지시: 설명 배치와 병행, PHASES Phase 4 항목 1·2·3부터)
 - 기준 문서: 설계서 v0.1.18 §4.1(c)·§4.2·§4.3·§4.4·§5.1·§5.2·§6.3·§6.5·§10, 부록 A·B.1·B.2, PHASES.md Phase 4
 - 도구 버전: node 25.5.0, pnpm 10.28.2, wrangler 4.153.0, vitest 4.1.12, `gpt-tokenizer` 4.0.0(gen devDependency — 2026-08-16 배포판으로 고정, o200k 토큰 수), LLM: Groq `openai/gpt-oss-120b`(사규집 녹화), 임베딩 `@cf/baai/bge-m3`
-- 상태: **항목 1 완료 — 사규집 생성·청킹·D1 적재, 임베딩·Vectorize 업서트(2026-11-02 11:10 UTC, 벡터 40·visibility 인덱스).** 항목 2·3 수용(2026-11-01, 편차 6건 수용). 항목 4 — `/me/ask`·`/answers/{id}`·개발 상한·LLM_TRACE 녹화 경로·`sim_stub` 적재 완료(LLM 없는 경로 시험). 부록 A 12건 녹화(카세트)·항목 5·6과 완료 기준은 아직.
+- 상태: **Phase 4 수용(2026-11-06 운영자) — 판정은 11-04 녹화 10/12(기준 충족). 11-06 공개 캡처 8/12는 실행 간 분산의 첫 측정값(아래 "공개 URL 캡처").** 이하 진행 기록 — **항목 1 완료 — 사규집 생성·청킹·D1 적재, 임베딩·Vectorize 업서트(2026-11-02 11:10 UTC, 벡터 40·visibility 인덱스).** 항목 2·3 수용(2026-11-01, 편차 6건 수용). 항목 4 — `/me/ask`·`/answers/{id}`·개발 상한·LLM_TRACE 녹화 경로·`sim_stub` 적재 완료(LLM 없는 경로 시험). 부록 A 12건 녹화(카세트)·항목 5·6과 완료 기준은 아직.
 
 운영자 조건(2026-11-01): 사규집 40조항 생성과 답변 프롬프트 녹화는 Groq, 임베딩만 Workers AI. `/me/ask`는 활성 설명 배치와 D1 쓰기 예산을 공유하므로 answer_log 적재 시험은 로컬 D1에서만. 푸시는 운영자.
 
@@ -211,6 +211,31 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 
 판정: **통과 10/12**(A-04·A-06 ✗; A-07은 뜻 확인 1건 — 빼도 9). 운영자 기준 A-09·10·11 거부 코드 일치 ✓ + **A-12 정정 답 ✓** + **≥ 9 ✓ → 통과** → PHASES Phase 4 항목 6으로(낮에 — Workers AI 없이). 남은 것(Phase 6 평가 항목): A-04 산식 질문의 get_limit, A-06 월 비교(툴 인용 경로·코드 이름·소리 옮김), A-07 규정 일반 문장을 이 계약에 붙임, A-02 정해진 문장 문구.
 
+## 공개 URL 캡처 — 2026-11-06 11:10~11:23 UTC(`capture-public.yml` run 42208306714)
+
+- 조건 3개 확인 뒤 실행(운영자 2026-11-05 수용): daily-explain 성공(③ exit 0 포함) · 0006 코드 44d8843을 포함한 배포 608477f 성공 · 공개 `/me.promptVersions.answer` = v3. 입력 `expect_answer=v3`. (09:47 KST 일회성 예약은 세션 재시작으로 사라져 운영자 "github 진행확인" 때 실행.)
+- 결과 `docs/evidence/captures/phase-4-public/`(`bot/capture-public` ce61d94 → 운영자 머지 PR #1): `A-xx.ask.json`(응답 원문)·`A-xx.answer.json`(`GET /answers/{id}` = 원격 answer_log 행, violations 포함)·`index.json`. **12/12 HTTP 200**, 공급자 groq, `rulesUnavailable` 없음, 툴 호출 전부 `reproduced: true`. 실행 로그 `capture.log`는 `.gitignore`(`*.log`)에 걸려 커밋되지 않았다 → 다음부터 `capture.txt`.
+- **완료 기준 "answer_log 12행"**(운영자 2026-11-05): 원격 answer_log 12행 — retrieved_chunks(6)·tool_calls·grounding_status·**violations 12/12 기록**.
+
+| 질문 | 11-04 녹화 판정 | 11-06 공개 캡처 | 위반 G4·G5·G6 |
+|---|---|---|---|
+| A-01 | ✓ | ✓ PASS — 1,000,000 → 855,000, 삭감 145,000(제8·15조, `lines.1.limitCutAmt`) | 0·0·0 |
+| A-02 | ✓ | ✗ NOT_GROUNDED — 툴 호출 없음, 세 배열 모두 빈 FAIL(G1 계열 — 당시 스키마에 없음 → v0.1.26 `g1Shape`) | 0·0·0 |
+| A-03 | ✓ | ✓ PASS — 2026-08-01 누적 1,800,000 100% | 0·0·0 |
+| A-04 | ✗ get_limit 없음 | ✗ 같음 — PASS, get_limit 없이 제12조 "월납 보험료에 12배" | 0·0·0 |
+| A-05 | ✓ | ✓ PASS — 1,740,600 | 0·0·0 |
+| A-06 | ✗ NOT_GROUNDED | ✗ 같음 | 0·1(`get_statement.byType.CLAWBACK`)·1(`CODE:FY_COMM`) |
+| A-07 | ✓(뜻 확인 1) | ✓ PASS — 2027년 2월 720,000(규정 일반 문장 없음) | 0·0·0 |
+| A-08 | ✓ | ✓ PASS — 1~6회차 70%·7~12회차 40%·13회차부터 없음 | 0·0·0 |
+| A-09 | ✓ NEEDS_ENGINE | ✓ NEEDS_ENGINE | 0·0·0 |
+| A-10 | ✓ OTHER_AGENT | ✓ OTHER_AGENT | 0·0·0 |
+| A-11 | ✓ OUT_OF_SCOPE | ✓ OUT_OF_SCOPE | 0·0·0 |
+| A-12 | ✓ 정정 답 145,000 | ✗ NOT_GROUNDED — G4 위반 0(200,000을 따르지 않음), G5 `get_statement.lines.0.limitCutAmt`(삭감 라인은 `lines[1]` — 인덱스 오인용). 거부 전 원문은 저장하지 않아 145,000을 썼는지는 확인 불가 | 0·1·0 |
+
+- 요약: 위반 0건 10/12(A-02는 FAIL인데 0건 — G1 계열), 거부 코드별 NOT_GROUNDED 3 · NEEDS_ENGINE 1 · OTHER_AGENT 1 · OUT_OF_SCOPE 1 · BUDGET 0. 운영자 기준으로 읽으면 8/12(A-09·10·11 ✓, A-12 정정 답 ✗).
+- **판정(운영자 2026-11-06, DECISIONS)**: Phase 4 수용 — 완료 판정은 녹화 10/12. 공개 캡처는 **"같은 v3, 같은 데이터, 녹화 vs 공개 2건 불일치(A-02·A-12)"** — 실행 간 분산의 첫 측정값. Phase 6에 "케이스당 반복 실행 n회의 통과율 분포" 측정 항목(PHASES Phase 6 항목 7, 설계서 v0.1.26 §13.1).
+- 후속(운영자 결정): A-12 인덱스 오인용 → 안정 키 인용(`lines[c-…]`, 이력 `postingSeq`)과 G5 키 대조는 answer/v4로, Phase 6 하네스 뒤 첫 프롬프트 PR(지금 만들지 않음). A-02 같은 G1 계열 실패는 violations `g1Shape[]`(`EMPTY_BODY`·`SHAPE:<키>`·`TOOL_ARG_REJECTED:<툴>`·`TOOL_IN_STAGE2:<툴>` — 실패한 답에만, 판정은 그대로) + 화면 7 "모양 오류" 칩 — 다음 캡처부터 원인이 보인다.
+
 ## 원격 마이그레이션 0005(운영자 승인 2026-11-02)
 
 `wrangler d1 migrations apply copilot --remote` — `0005_llm_trace.sql` ✅(3 commands). 확인: `llm_trace`·`ix_llm_trace_hash` 있음, `llm_trace` 0행(원격 env에 `LLM_TRACE`가 없어 쓰지 않는다). 로그 `logs/phase-4-migration-0005-remote.log`(DB id 가림).
@@ -255,6 +280,7 @@ pnpm -r test   → grounding 68 · web 35 · worker 341 · gen 207 통과(2026-1
 pnpm -r test   → grounding 68 · web 35 · worker 342 · gen 207 통과(2026-11-03 — rulesUnavailable 임시 처리까지)
 pnpm -r test   → grounding 68 · web 46 · worker 346 · gen 207 통과(2026-11-05 — /answers 재현 보강·화면 4·7, gen pretest로 build:replay 먼저)
 pnpm -r test   → grounding 68 · web 47 · worker 347 · gen 207 통과(2026-11-05 — answer_log.violations 0006·화면 7 위반 토큰)
+pnpm -r test   → grounding 68 · web 48 · worker 348 · gen 207 통과(2026-11-06 — violations g1Shape·화면 7 모양 오류 칩, CI 608477f 녹색)
 pnpm run lint  → 오류 0
 tsc --noEmit   → gen·worker 오류 0
 ```
@@ -273,7 +299,7 @@ tsc --noEmit   → gen·worker 오류 0
 - [x] §14.1-5 — 조항 단위 1청크 확정(v0.1.17)
 - [x] Workers AI 하루 상한 — 70(운영자 11-01) → 대시보드 실측(회당 98)으로 **90**(운영자 11-02)
 - [x] 원격 `GROQ_API_KEY` — 운영자 지정 파이프로 넣음
-- [ ] 커밋 푸시(자동 모드 권한 정책이 `git push`를 막았다 — 운영자가 푸시. 푸시하면 CI가 배포한다: `/me/ask`가 원격에서 열리고 `answer=v1`이 `/me.promptVersions`에 보인다)
+- [x] 커밋 푸시(자동 모드 권한 정책이 `git push`를 막았다 — 운영자가 푸시. 푸시하면 CI가 배포한다: `/me/ask`가 원격에서 열리고 `answer=v1`이 `/me.promptVersions`에 보인다)
 - [x] 원격 마이그레이션 0005 — 승인(11-02)·적용
 - [x] Vectorize 시험 방식 — (b) 승인(11-02), 점검 스크립트 위
 - [x] Workers AI 대시보드 뉴런 실측 — 70회 = 6,870(11-02)
@@ -286,5 +312,5 @@ tsc --noEmit   → gen·worker 오류 0
 4. **Vectorize 로컬 바인딩이 없다** — **(b) 승인·점검 스크립트로 해소(2026-11-02, 위)**: Miniflare(wrangler 4.153)의 Vectorize 플러그인은 원격 프록시만 있고 로컬 시뮬레이션이 없다(`VECTORIZE_REMOTE_SERVICE_NAME` — 확인). vitest는 `remoteBindings: false`라 `env.VECTORIZE`를 쓸 수 없다. 항목 6 "internal 청크가 어떤 질의에도 반환되지 않음(Vectorize 로컬 바인딩)"의 선택지: (a) 시험에서만 원격 바인딩(실제 인덱스 질의 — 무료 질의 차원 소모, CI에 계정 토큰 필요), (b) 원격 인덱스에 대한 별도 점검 스크립트(질의 N개 × filter visibility=agent → internal id 0건)를 Phase 종료 증거로 + 단위 시험은 D1 재필터, (c) 메타데이터 필터를 흉내 내는 메모리 가짜(필터 동작 자체는 검증 못 함). 권고 (b). 운영자 판단.
 5. ~~**`/me/ask` 임베딩 오류 처리**~~ — **임시 처리(운영자 2026-11-03, 설계서 v0.1.22)**: 임베딩·Vectorize 검색이 실패하면 규정 없이 툴만으로 답하고 응답에 `rulesUnavailable: true`(`<rules>`가 비어 규정 인용은 G5에서 0건만 통과, answer_log retrieved_chunks `[]`). 시험 `answer.test.ts` +1(4006 메시지로 embed 실패 → 툴 답 PASS·규정 인용 G5·정상은 false). 정식 저하 모드(BUDGET 거부·폴백 체인)는 Phase 5. 처음 기록: 4006 등 임베딩 실패가 500으로 나갔다(2026-11-03 v2 재녹화 1차).
 6. ~~**화면 7 "검증 결과(실패 토큰 표시)"를 다 채우지 못한다(2026-11-05)**~~ — **해소: 운영자 결정 (2), 0006 `violations`(위 절)**. 당시 기록: — answer_log에는 검증 위반 목록과 거부 전 모델 원문이 없다(`answer.ts` `violations`는 응답·시험에서만, 거부는 고정 문구로 저장 — 설계서 §4.3·§4.4). 화면은 상태 배지와 "저장하지 않는다" 안내만 보인다. 채우려면 answer_log에 열을 더하는 마이그레이션(위반 목록, 필요하면 거부 전 초안)과 설계서 §5.1 변경이 필요하다 — 운영자 판단 대기(DECISIONS 2026-11-05).
-7. **완료 기준의 실호출 부분** — 운영자 결정(11-05): `capture-public.yml`로, 11-06 00:05 UTC daily-explain 뒤 수동 실행. 캡처 12건의 원격 answer_log 행(violations 포함)이 완료 기준 "answer_log 12행". 당시 기록 — "실호출 12건 수동 확인 캡처"는 공개 `/me/ask`(질문 임베딩 = Workers AI)와 Groq를 부른다. 낮에는 Workers AI를 부르지 않으므로(운영자 2026-11-03) 시점은 운영자 판단. answer_log 12행(retrieved_chunks·tool_calls·grounding_status)은 11-04 v3 녹화로 **로컬 D1**에 있다(위 재현 확인) — 원격 12행은 실호출 캡처 때 생긴다.
+7. ~~**완료 기준의 실호출 부분**~~ — **해소: 11-06 공개 캡처(위 절), Phase 4 수용**. 운영자 결정(11-05): `capture-public.yml`로, 11-06 00:05 UTC daily-explain 뒤 수동 실행. 캡처 12건의 원격 answer_log 행(violations 포함)이 완료 기준 "answer_log 12행". 당시 기록 — "실호출 12건 수동 확인 캡처"는 공개 `/me/ask`(질문 임베딩 = Workers AI)와 Groq를 부른다. 낮에는 Workers AI를 부르지 않으므로(운영자 2026-11-03) 시점은 운영자 판단. answer_log 12행(retrieved_chunks·tool_calls·grounding_status)은 11-04 v3 녹화로 **로컬 D1**에 있다(위 재현 확인) — 원격 12행은 실호출 캡처 때 생긴다.
 8. 상단 칩 "오늘 남은 질문"·"프롬프트"는 아직 자리만(남은 질문 수를 주는 API가 없다 — Phase 5 `/budget`).

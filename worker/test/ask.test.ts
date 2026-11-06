@@ -40,7 +40,7 @@ describe("POST /api/v1/me/ask", () => {
     expect(b.retryAfterSeconds as number).toBeLessThanOrEqual(86_400);
     const row = await env.DB.prepare("SELECT agent_id, provider, refused, refuse_reason, grounding_status, stream_hash FROM answer_log WHERE answer_id = ?").bind(b.answerId).first();
     expect(row).toEqual({ agent_id: "A-1001", provider: "none", refused: 1, refuse_reason: "BUDGET", grounding_status: "NONE", stream_hash: HASH });
-    expect(await env.DB.prepare("SELECT violations FROM answer_log WHERE answer_id = ?").bind(b.answerId).first("violations")).toBe('{"g4Missing":[],"g5Unknown":[],"g6Words":[]}');
+    expect(await env.DB.prepare("SELECT violations FROM answer_log WHERE answer_id = ?").bind(b.answerId).first("violations")).toBe('{"g1Shape":[],"g4Missing":[],"g5Unknown":[],"g6Words":[]}');
     // 상한은 그대로(차감 실패 — UPDATE … WHERE used < ? 영향 행 0)
     expect(await env.DB.prepare("SELECT used FROM budget_counter WHERE scope = 'ask:dev'").first("used")).toBe(ASK_DAILY_CAP_DEFAULT);
   });

@@ -89,14 +89,14 @@ const parseList = (s: unknown): unknown[] => {
   }
 };
 
-/** answer_log.violations → {g4Missing, g5Unknown, g6Words}(문자열 배열만), 없거나 모양이 다르면 null. */
-function parseViolations(s: unknown): { g4Missing: string[]; g5Unknown: string[]; g6Words: string[] } | null {
+/** answer_log.violations → {g1Shape, g4Missing, g5Unknown, g6Words}(문자열 배열만), 없거나 모양이 다르면 null. g1Shape가 없는 행(v0.1.26 이전)은 []. */
+function parseViolations(s: unknown): { g1Shape: string[]; g4Missing: string[]; g5Unknown: string[]; g6Words: string[] } | null {
   if (typeof s !== "string") return null;
   try {
     const v = JSON.parse(s) as Record<string, unknown>;
     const arr = (x: unknown) => (Array.isArray(x) && x.every((t) => typeof t === "string") ? (x as string[]) : null);
-    const [g4Missing, g5Unknown, g6Words] = [arr(v.g4Missing), arr(v.g5Unknown), arr(v.g6Words)];
-    return g4Missing && g5Unknown && g6Words ? { g4Missing, g5Unknown, g6Words } : null;
+    const [g1Shape, g4Missing, g5Unknown, g6Words] = [v.g1Shape === undefined ? [] : arr(v.g1Shape), arr(v.g4Missing), arr(v.g5Unknown), arr(v.g6Words)];
+    return g1Shape && g4Missing && g5Unknown && g6Words ? { g1Shape, g4Missing, g5Unknown, g6Words } : null;
   } catch {
     return null;
   }

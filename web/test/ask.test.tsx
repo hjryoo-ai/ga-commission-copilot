@@ -100,7 +100,7 @@ const replay: AnswerReplay = {
   groundingStatus: "PASS",
   numbersUsed: pass.numbersUsed!,
   citations: pass.citations!,
-  violations: { g4Missing: [], g5Unknown: [], g6Words: [] },
+  violations: { g1Shape: [], g4Missing: [], g5Unknown: [], g6Words: [] },
   retrievedChunks: [
     { chunkId: "rb-07", score: 0.7123, article: "제7조", title: "한도", body: "가상 규정 · 예시값 — 한도 본문", version: "0453f7d205db" },
     { chunkId: "rb-99", score: 0.5 },
@@ -139,7 +139,7 @@ describe("화면 7 답변 재현", () => {
   });
 
   it("거부·검증 실패: 고정 문구, 원문 없음 안내, 위반 토큰을 종류별로 하나씩(설계서 v0.1.25)", () => {
-    const violations = { g4Missing: ["200,000", "numbersUsed:200,000"], g5Unknown: ["get_statement.byType.CLAWBACK"], g6Words: ["CODE:FY_COMM"] };
+    const violations = { g1Shape: [], g4Missing: ["200,000", "numbersUsed:200,000"], g5Unknown: ["get_statement.byType.CLAWBACK"], g6Words: ["CODE:FY_COMM"] };
     const html = renderToStaticMarkup(<ReplayTimeline a={{ ...replay, refused: true, reason: "NOT_GROUNDED", groundingStatus: "FAIL", answer: "근거 고정 문구", numbersUsed: [], citations: [], violations }} />);
     expect(html).toContain("근거로 확인되지 않음");
     expect(html).toContain("근거 고정 문구");
@@ -150,8 +150,17 @@ describe("화면 7 답변 재현", () => {
     for (const t of [...violations.g4Missing, ...violations.g5Unknown, ...violations.g6Words]) expect(html).toContain(`>${t}</li>`);
   });
 
+  it("모양 오류 칩(설계서 v0.1.26): 사유 코드별 문구 + 코드 원문", () => {
+    const html = renderToStaticMarkup(
+      <ReplayTimeline a={{ ...replay, refused: true, reason: "NOT_GROUNDED", groundingStatus: "FAIL", violations: { g1Shape: ["EMPTY_BODY", "TOOL_IN_STAGE2:get_deferrals", "SHAPE:citations", "TOOL_ARG_REJECTED:get_limit"], g4Missing: [], g5Unknown: [], g6Words: [] } }} />,
+    );
+    expect(html).toContain("G1 모양 오류");
+    for (const t of ["모양 오류 · 빈 본문", "모양 오류 · 2단계 툴 요청", "모양 오류 · 응답 모양", "모양 오류 · 툴 인자 거부", "TOOL_IN_STAGE2:get_deferrals"]) expect(html).toContain(t);
+    expect(html).not.toContain("위반 없음");
+  });
+
   it("위반 없음·0006 이전 답변(null)", () => {
-    expect(renderToStaticMarkup(<ReplayTimeline a={replay} />)).toContain("위반 없음(G4·G5·G6)");
+    expect(renderToStaticMarkup(<ReplayTimeline a={replay} />)).toContain("위반 없음(G1·G4·G5·G6)");
     expect(renderToStaticMarkup(<ReplayTimeline a={{ ...replay, violations: null }} />)).toContain("0006 이전");
   });
 });

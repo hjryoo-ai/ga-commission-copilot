@@ -69,9 +69,9 @@ jobs:
           {
             echo "### 공개 URL 캡처"
             echo
-            echo '| 질문 | HTTP | 거부 | 사유 | 검증 | 버전 | 위반(G4·G5·G6 수) |'
+            echo '| 질문 | HTTP | 거부 | 사유 | 검증 | 버전 | 위반(G1·G4·G5·G6 수) |'
             echo '|---|---|---|---|---|---|---|'
-            node -e 'const x=require(process.argv[1]);for(const c of x.cases){const v=c.violations;console.log(`| ${c.case} | ${c.httpStatus} | ${c.refused} | ${c.reason??""} | ${c.groundingStatus??""} | ${c.promptVersion??""} | ${v?[v.g4Missing.length,v.g5Unknown.length,v.g6Words.length].join("·"):"없음"} |`)}' "$PWD/$OUT/index.json"
+            node -e 'const x=require(process.argv[1]);for(const c of x.cases){const v=c.violations;console.log(`| ${c.case} | ${c.httpStatus} | ${c.refused} | ${c.reason??""} | ${c.groundingStatus??""} | ${c.promptVersion??""} | ${v?[(v.g1Shape??[]).length,v.g4Missing.length,v.g5Unknown.length,v.g6Words.length].join("·"):"없음"} |`)}' "$PWD/$OUT/index.json"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 커밋·bot/capture-public 푸시

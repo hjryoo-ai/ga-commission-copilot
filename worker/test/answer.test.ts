@@ -111,7 +111,7 @@ describe("답변 파이프라인", () => {
     expect(await logRow(r.answerId)).toMatchObject({ refused: 1, refuse_reason: "NOT_GROUNDED", grounding_status: "FAIL", answer: REFUSAL_TEXT.NOT_GROUNDED });
     // 0006(설계서 v0.1.25): 위반 토큰만 — 거부 전 원문("300,000원이 맞습니다")은 어느 열에도 없다
     const row = (await logRow(r.answerId))!;
-    expect(JSON.parse(row.violations as string)).toEqual({ g4Missing: ["300,000", "numbersUsed:300,000"], g5Unknown: [], g6Words: [] });
+    expect(JSON.parse(row.violations as string)).toEqual({ g1Shape: [], g4Missing: ["300,000", "numbersUsed:300,000"], g5Unknown: [], g6Words: [] });
     expect(Object.values(row).some((v) => typeof v === "string" && v.includes("맞습니다"))).toBe(false);
   });
 
@@ -128,9 +128,9 @@ describe("답변 파이프라인", () => {
     const rule = await answerQuestion(fail(() => out({ text: "환수율은 규정에 따릅니다.", citations: [{ kind: "rule", tool: "", field: "", article: "제25조", chunkId: "" }] })), q(), ENV, "환수율?");
     expect(rule).toMatchObject({ refused: true, reason: "NOT_GROUNDED", rulesUnavailable: true });
     expect(rule.violations).toEqual(["G5 규정 인용 제25조 "]);
-    expect(JSON.parse((await logRow(rule.answerId))!.violations as string)).toEqual({ g4Missing: [], g5Unknown: ["제25조 "], g6Words: [] });
+    expect(JSON.parse((await logRow(rule.answerId))!.violations as string)).toEqual({ g1Shape: [], g4Missing: [], g5Unknown: ["제25조 "], g6Words: [] });
     // PASS·모델 거부도 빈 배열로 기록(거부·PASS 모두)
-    expect(JSON.parse((await logRow(r.answerId))!.violations as string)).toEqual({ g4Missing: [], g5Unknown: [], g6Words: [] });
+    expect(JSON.parse((await logRow(r.answerId))!.violations as string)).toEqual({ g1Shape: [], g4Missing: [], g5Unknown: [], g6Words: [] });
     // 정상이면 false
     expect((await answerQuestion(deps(out({ refused: true, reason: "OUT_OF_SCOPE" })), q(), ENV, "날씨?")).rulesUnavailable).toBe(false);
   });
@@ -140,6 +140,8 @@ describe("답변 파이프라인", () => {
     const r = await answerQuestion(d, q(), ENV, "한도로 빠진 금액은 언제 받나요?");
     expect(r).toMatchObject({ refused: true, reason: "NOT_GROUNDED", text: REFUSAL_TEXT.NOT_GROUNDED, groundingStatus: "FAIL" });
     expect(r.violations).toEqual(["G1 text 비어 있음(거부 아닌 빈 답)"]);
+    // g1Shape(설계서 v0.1.26): 빈 본문 + 2단계가 툴을 더 요청 — 2026-11-03 녹화 A-02와 같은 모양
+    expect(JSON.parse((await logRow(r.answerId))!.violations as string)).toEqual({ g1Shape: ["EMPTY_BODY", "TOOL_IN_STAGE2:get_deferrals"], g4Missing: [], g5Unknown: [], g6Words: [] });
   });
 
   it("데이터 코드 이름(G6 codes — 운영자 2026-11-02)을 쓰면 NOT_GROUNDED", async () => {
@@ -147,7 +149,7 @@ describe("답변 파이프라인", () => {
     const r = await answerQuestion(d, q(), ENV, "8월 시책은 왜 덜 나왔어요?");
     expect(r).toMatchObject({ refused: true, reason: "NOT_GROUNDED", text: REFUSAL_TEXT.NOT_GROUNDED, groundingStatus: "FAIL" });
     expect(r.violations).toEqual(["G6 CODE:DEFER_AFTER_FY"]);
-    expect(JSON.parse((await logRow(r.answerId))!.violations as string)).toEqual({ g4Missing: [], g5Unknown: [], g6Words: ["CODE:DEFER_AFTER_FY"] });
+    expect(JSON.parse((await logRow(r.answerId))!.violations as string)).toEqual({ g1Shape: [], g4Missing: [], g5Unknown: [], g6Words: ["CODE:DEFER_AFTER_FY"] });
   });
 
   it("규정 숫자는 검색된 청크 본문에 있으면 통과(A-08형), 인용한 청크가 검색되지 않았으면 G5", async () => {
@@ -208,6 +210,26 @@ describe("답변 파이프라인", () => {
     expect(r).toMatchObject({ refused: true, reason: "NOT_GROUNDED", groundingStatus: "FAIL" });
     expect(shapeProblems({ text: "x" })).toContain("G1 refused");
     expect(r.violations.length).toBeGreaterThan(0);
+    const g1 = JSON.parse((await logRow(r.answerId))!.violations as string) as { g1Shape: string[] };
+    expect(g1.g1Shape.length).toBeGreaterThan(0);
+    expect(g1.g1Shape.every((t) => t.startsWith("SHAPE:"))).toBe(true);
+    expect(g1.g1Shape).toContain("SHAPE:refused");
+  });
+
+  it("g1Shape TOOL_ARG_REJECTED: 1단계 툴 인자가 검사에 걸리고 답이 실패하면 사유로 남는다, PASS면 g1Shape는 비어 있다(진단 — 판정 그대로)", async () => {
+    // agentId 인자는 parseToolCall이 거부 → 툴 결과 없음 → 2단계 빈 본문 → FAIL
+    const bad = await answerQuestion(deps(out({ toolCalls: [{ ...tc("get_statement", { ym: "202608" }), args: { ym: "202608", agentId: "A-1009" } } as AnswerOutput["toolCalls"][number]] }), () => out({ text: "" })), q(), ENV, "B설계사 8월?");
+    expect(bad).toMatchObject({ refused: true, reason: "NOT_GROUNDED", groundingStatus: "FAIL" });
+    expect(JSON.parse((await logRow(bad.answerId))!.violations as string).g1Shape).toEqual(["EMPTY_BODY", "TOOL_ARG_REJECTED:get_statement"]);
+    // 같은 거부가 있어도 답이 통과하면 PASS 그대로, g1Shape 비어 있음
+    const ok = await answerQuestion(
+      deps(out({ toolCalls: [tc("get_statement", { ym: "202608" }), tc("get_limit", { policyNo: "x" })] }), () => out({ text: "2026년 8월 실지급액은 1,740,600원입니다.", numbersUsed: ["1,740,600원"], citations: [{ kind: "tool", tool: "get_statement", field: "net", article: "", chunkId: "" }] })),
+      q(),
+      ENV,
+      "8월 실수령?",
+    );
+    expect(ok.groundingStatus).toBe("PASS");
+    expect(JSON.parse((await logRow(ok.answerId))!.violations as string).g1Shape).toEqual([]);
   });
 
   it("topK는 6, 정규화는 공백·끝 문장부호·숫자 쉼표", () => {

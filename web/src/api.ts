@@ -189,6 +189,8 @@ export interface AskResult extends Common {
 }
 
 export interface Violations {
+  /** 설계서 v0.1.26: 모양 오류 사유 코드(EMPTY_BODY·SHAPE:<키>·TOOL_ARG_REJECTED:<툴>·TOOL_IN_STAGE2:<툴>). v0.1.26 이전 행은 []. */
+  g1Shape: string[];
   g4Missing: string[];
   g5Unknown: string[];
   g6Words: string[];

@@ -1,7 +1,7 @@
 # 공개 URL 부록 A 12건 캡처(설계서 v0.1.25 §11 capture-public.yml, 운영자 2026-11-05 — Phase 4 완료 기준 "실호출 12건 수동 확인 캡처"·"answer_log 12행").
 #   python3 -X utf8 -I gen/scripts/capture-public.py <base URL> <출력 디렉터리> [기대 answer 버전(v3)]
 # 데모 1(A-1001) 세션 → GET /me로 활성 answer 버전 확인(다르면 묻기 전에 멈춘다) → 12문항 POST /me/ask(60초 간격 — Groq TPM 8K)
-# → 각 답의 GET /answers/{id}(원격 answer_log 행 — violations 열 포함)를 <case>.ask.json·<case>.answer.json으로, 요약은 index.json.
+# → 각 답의 GET /answers/{id}(원격 answer_log 행 — violations 열 포함, g1Shape는 설계서 v0.1.26부터)를 <case>.ask.json·<case>.answer.json으로, 요약은 index.json.
 # 시크릿을 쓰지 않는다(공개 데모 세션). 쿠키는 파일에 남기지 않는다.
 import json, os, sys, time, urllib.error, urllib.request
 
