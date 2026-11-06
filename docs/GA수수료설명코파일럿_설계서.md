@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.25)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.26)
 
 > 변경 이력
+> - v0.1.26 (2026-11-06, Phase 4 수용 — 운영자 결정): §5.1 `answer_log.violations`에 `g1Shape[]`(사유 코드 `EMPTY_BODY`·`SHAPE`·`TOOL_ARG_REJECTED`·`TOOL_IN_STAGE2` — JSON 열이라 마이그레이션 없음) · §8-7 화면 7 "모양 오류" 칩 · §13.1 Phase 6 측정 항목에 **케이스당 반복 실행 n회의 통과율 분포**(Phase 4 수용 때 같은 v3·같은 데이터에서 녹화 10/12 vs 공개 캡처 8/12 — A-02·A-12 불일치가 첫 측정값) · 답변 인용은 다음 프롬프트(answer/v4, Phase 6 하네스 뒤 첫 프롬프트 PR)부터 배열 인덱스가 아니라 안정 키(`lines[c-…]`, 이력 `postingSeq`)로 — 툴 결과 형식·G5 대조도 키로(DECISIONS 2026-11-06, 지금은 만들지 않는다) · §11 `daily-explain.yml` cron `23 0 * * *`(00:23 UTC — 11-06 첫 예약 실행이 00:05 예약에 05:33 시작).
 > - v0.1.25 (2026-11-05, Phase 4 항목 5 — 운영자 결정): §5.1 `answer_log.violations`(마이그레이션 0006, TEXT JSON `{g4Missing[], g5Unknown[], g6Words[]}`) — 거부·PASS 모두 기록(위반이 없으면 빈 배열, 0006 이전 행은 NULL). 거부 전 모델 원문은 저장하지 않는다(로컬 녹화 `llm_trace`만) · §8-7 화면 7은 위반 목록을 토큰 단위로 표시 · §7 `GET /answers/{id}`에 `violations`·`normalizedQuestion`, 툴은 저장된 인자로 다시 실행해 `result`·`reproduced`(resultHash 대조), 검색 청크 본문(visibility=agent) · §11 `capture-public.yml`(workflow_dispatch — 공개 URL에 부록 A 12건 `/me/ask`, 응답 JSON·answerId·재현 응답을 `bot/capture-public` 브랜치에 커밋, Phase 4 완료 기준 "answer_log 12행"은 이 캡처의 원격 행).
 > - v0.1.24 (2026-11-05, CI 수정 — 운영자 지시): §11 CI/CD — 시험은 projection-java를 빌드하지 않는다. `ci.yml`·`daily-explain.yml`은 시험·CLI 전에 `pnpm run build:replay`(`installDist`) 한 번, 로컬 `pnpm -r test`는 gen `pretest`가 같은 빌드를 먼저. `viewsOf`는 산출물이 없으면 명확한 오류로 실패한다. 2026-11-02 이후 CI 실패는 병렬 시험 파일 2개(`explain-stream`·`answer-fixture`)가 각자 `installDist`를 돌려 서로의 bin을 다시 쓴 경쟁(4회 모두 두 파일 실행 구간 겹침, 빈 출력 JSON 파싱).
 > - v0.1.23 (2026-11-05, Phase 7 일부 선행 — 운영자 지시): §11 CI/CD에 `daily-explain.yml`(cron `5 0 * * *` = 09:05 KST + workflow_dispatch) — v0.1.22의 Workers AI 하루 묶음을 Claude Code 세션 예약(세션·컴퓨터가 깨어 있어야 돈다 — 11-04는 놓침) 대신 GitHub Actions로. 순서 ① 답변 녹화(수동 실행에서 고를 때만, 산출물은 artifact — 재판정·시험 기대값은 사람) → ② 설명 단건 재생성(수동 실행 라벨) → ③ 원격 적재·재검증, exit 0이 아니면 배치 전에 멈춤 → ④ 배치 90 → 재판정(`--regrade`, 호출 없음)·본문 점검 → 원격 적재·재검증. 결과(`data/explain`·`docs/evidence/logs`)는 main이 아니라 `bot/daily-explain` 브랜치에 커밋한다(main 푸시·배포는 운영자 — `GITHUB_TOKEN` 푸시는 ci·deploy를 깨우지 않는다), 커밋하는 로그의 계정 ID는 `<account>`. 시크릿 `CLOUDFLARE_BATCH_API_TOKEN`(Workers AI·D1 편집, 녹화는 Vectorize·Workers 스크립트 편집도)·`CLOUDFLARE_ACCOUNT_ID`·`GROQ_API_KEY`(녹화만). 같은 날 두 번 돌아도 원격 `budget_counter`(batch:explain:workers-ai 90)가 막는다. 공개 저장소라 표준 러너 분은 무료. Phase 7 `weekly-generate.yml`은 이 단계를 다시 쓴다.
@@ -314,7 +315,7 @@ CREATE TABLE answer_log (           -- 런타임 답변 전건 (거부 포함)
   refused INTEGER NOT NULL, refuse_reason TEXT,
   grounding_status TEXT NOT NULL, latency_ms INTEGER NOT NULL, cache_hit INTEGER NOT NULL,
   created_at TEXT NOT NULL,
-  violations TEXT                   -- v0.1.25(0006): JSON {g4Missing[], g5Unknown[], g6Words[]} — 거부·PASS 모두, 거부 전 원문은 저장하지 않는다
+  violations TEXT                   -- v0.1.25(0006): JSON {g1Shape[], g4Missing[], g5Unknown[], g6Words[]}(g1Shape는 v0.1.26) — 거부·PASS 모두, 거부 전 원문은 저장하지 않는다
 );
 CREATE INDEX ix_ans_created ON answer_log (created_at);
 
@@ -497,7 +498,7 @@ CREATE TABLE eval_case_result (
    - 오늘 사용/상한(전역·공급자별), 최근 7일 일별 호출 막대(공급자 적층), 폴백 깊이 분포, 캐시 적중률, 거부 사유 분포
 7. **답변 재현** (`/answers/:id`, 본인 세션만)
    - 질문 → 정규화 → 검색 청크(점수) → 툴 호출·결과 → 프롬프트(버전 링크) → 모델 출력 → 검증 결과(실패 토큰 표시) 순서의 세로 타임라인
-   - 실패 토큰은 `answer_log.violations`(v0.1.25)의 G4 근거 없는 숫자·G5 확인 안 된 인용·G6 금지어를 토큰 하나씩 표시. 거부 전 모델 원문은 없다(저장하지 않는다)
+   - 실패 토큰은 `answer_log.violations`(v0.1.25)의 G1 모양 오류(사유 코드, v0.1.26)·G4 근거 없는 숫자·G5 확인 안 된 인용·G6 금지어를 토큰 하나씩 표시. 거부 전 모델 원문은 없다(저장하지 않는다)
 
 접근성·현장성은 상위 설계서 §8 공통 규약(44px 터치, 큰 숫자, 번들 상한)을 따른다. LLM 텍스트는 **절대 큰 숫자 자리를 차지하지 않는다** — 숫자는 항상 데이터 컴포넌트가, 설명은 그 아래 보조 영역이 맡는다.
 
@@ -595,7 +596,7 @@ CREATE TABLE eval_case_result (
 | 평가 | 자체 하네스(`evals/`): 골든 JSONL + 채점기 TS | 외부 eval 프레임워크는 v0.1에서 쓰지 않는다 — 채점 규칙(그라운딩·거부·툴)이 도메인 특화라 직접 쓰는 편이 짧다 |
 | 관측 | AI Gateway 분석·캐시, Workers Logs(무료 범위), `/budget` 자체 집계 | OpenTelemetry는 v0.1 제외 |
 | 봇 방지 | Cloudflare Turnstile(무료) | `/ask`만 |
-| CI/CD | GitHub Actions: `ci.yml`(push·PR → `pnpm lint`(의존 방향, CLAUDE.md 규약 2)·`pnpm run build:replay`(v0.1.24 — 시험은 빌드하지 않는다)·`pnpm -r test`·`./gradlew test`), `deploy.yml`(main 푸시 → `wrangler deploy`), `weekly-generate.yml`(cron 일 03:00 KST), `daily-explain.yml`(v0.1.23 — cron 00:05 UTC: 설명 재생성·원격 재검증·배치 90, 수동 실행에서 답변 녹화 → `bot/daily-explain` 브랜치에 커밋), `eval-on-prompt-change.yml`(`prompts/**` 변경 PR), `capture-public.yml`(v0.1.25 — 수동 실행, 공개 URL 부록 A 12건 캡처 → `bot/capture-public`) | 시크릿은 Actions Secrets |
+| CI/CD | GitHub Actions: `ci.yml`(push·PR → `pnpm lint`(의존 방향, CLAUDE.md 규약 2)·`pnpm run build:replay`(v0.1.24 — 시험은 빌드하지 않는다)·`pnpm -r test`·`./gradlew test`), `deploy.yml`(main 푸시 → `wrangler deploy`), `weekly-generate.yml`(cron 일 03:00 KST), `daily-explain.yml`(v0.1.23 — cron 00:23 UTC(v0.1.26): 설명 재생성·원격 재검증·배치 90, 수동 실행에서 답변 녹화 → `bot/daily-explain` 브랜치에 커밋), `eval-on-prompt-change.yml`(`prompts/**` 변경 PR), `capture-public.yml`(v0.1.25 — 수동 실행, 공개 URL 부록 A 12건 캡처 → `bot/capture-public`) | 시크릿은 Actions Secrets |
 
 버전은 구현 시작 시점에 `npm view <pkg> version`·`gradle --version`으로 재확인하고 `package.json`·`gradle/libs.versions.toml`에 고정한다. 본 표는 메이저 라인을 정하는 용도다.
 
@@ -665,6 +666,8 @@ CREATE TABLE eval_case_result (
 | 거부 정확도 | 거부가 정답인 15문항에서 사유 코드까지 일치한 비율 + 거부가 오답인 45문항에서 거부하지 않은 비율 | 결정론 |
 | 툴 정확도 | 기대 툴·인자(월, 증권번호)가 호출된 비율 | 결정론 |
 | 내용 일치 | 기대 답변의 **핵심 사실 3개**(예: "한도 초과=145,000", "정책=DEFER_AFTER_FY", "지급 예정월=데이터 없음")가 답변에 있는지 | 결정론(정규화 문자열·숫자 매칭). LLM-as-judge는 쓰지 않는다 — 무료 한도와 재현성 때문 |
+
+**실행 간 분산(v0.1.26)**: 같은 프롬프트·같은 데이터라도 실행마다 답이 갈린다(Phase 4: 녹화 10/12 vs 공개 캡처 8/12). Phase 6 하네스는 케이스당 n회 반복 실행해 **케이스별 통과율 분포**(n회 중 통과 횟수)를 함께 기록한다 — 4축 점수는 한 번의 실행이 아니라 이 분포의 요약으로 읽는다. n과 집계 방식은 Phase 6에서 무료 한도(Groq TPD)를 보고 `evals/THRESHOLDS.md`에 정한다.
 
 통과 기준(프롬프트 승격 게이트, §6.3): 그라운딩 ≥ 97%, 거부 정확도 ≥ 90%, 툴 정확도 ≥ 90%, 내용 일치 ≥ 85%, 직전 활성 버전 대비 어느 축도 3%p 이상 하락 없음. 수치는 Phase 6에서 첫 런 결과를 보고 조정하되, 조정 이력은 `evals/THRESHOLDS.md`에 남긴다.
 

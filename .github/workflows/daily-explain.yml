@@ -1,5 +1,5 @@
 # 설계서 v0.1.23 §11 CI/CD·§12 Phase 7 — weekly-generate.yml 중 설명 배치·녹화·재검증 부분을 먼저(운영자 2026-11-05).
-# Workers AI 하루 묶음(DECISIONS 2026-11-03): 매일 00:05 UTC(09:05 KST)에 한 번만 Workers AI를 부른다. 낮에는 부르지 않는다.
+# Workers AI 하루 묶음(DECISIONS 2026-11-03): 매일 00:23 UTC(09:23 KST — 운영자 2026-11-06)에 한 번만 Workers AI를 부른다. 낮에는 부르지 않는다.
 #   ① 답변 녹화(수동 실행 record_answer=true일 때만 — 산출물은 artifact, 재판정·시험 기대값은 사람이)
 #   ② 설명 단건 재생성(수동 실행 regenerate 라벨)
 #   ③ 원격 적재·재검증 — exit 0이 아니면 배치 전에 멈춘다
@@ -14,7 +14,7 @@ name: daily-explain
 
 on:
   schedule:
-    - cron: "5 0 * * *" # 00:05 UTC = 09:05 KST
+    - cron: "23 0 * * *" # 00:23 UTC = 09:23 KST(설계서 v0.1.26 — 11-06 첫 예약 실행은 00:05 예약에 05:33 시작)
   workflow_dispatch:
     inputs:
       record_answer:
