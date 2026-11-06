@@ -1,0 +1,134 @@
+{
+ "case": "A-12",
+ "httpStatus": 200,
+ "answer": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "0f4b84f5-a616-4e1c-808d-f220562c2971",
+  "question": "8월 시책 중 한도로 깎인 금액이 200,000원 맞죠?",
+  "normalizedQuestion": "8월 시책 중 한도로 깎인 금액이 200000원 맞죠",
+  "answer": "근거 데이터로 확인되지 않는 내용이 포함되어 답변을 보류했습니다. 라인 상세에서 직접 확인해 주세요.",
+  "refused": true,
+  "reason": "NOT_GROUNDED",
+  "groundingStatus": "FAIL",
+  "numbersUsed": [],
+  "violations": {
+   "g4Missing": [],
+   "g5Unknown": [
+    "get_statement.lines.0.limitCutAmt"
+   ],
+   "g6Words": []
+  },
+  "citations": [],
+  "retrievedChunks": [
+   {
+    "chunkId": "rb-0453f7d205db-a40-1",
+    "score": 0.48955676,
+    "article": "제40조",
+    "title": "시행일",
+    "body": "제40조(시행일) — 가상 규정 · 예시값\n1. 이 규정은 2025년 7월 1일부터 시행한다.\n2. 수수료 한도 조항은 제12조부터 제18조까지이며, 2026년 7월 1일 이후 체결된 계약에 적용한다.\n3. 분급 조항은 제19조부터 제23조까지이며, 2027년 1월 1일 이후 체결된 계약에 적용한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a08-1",
+    "score": 0.47697496,
+    "article": "제8조",
+    "title": "시책",
+    "body": "제8조(시책) — 가상 규정 · 예시값\n1. 회사가 정한 기간에 정한 상품을 체결하면 정액의 시책을 지급할 수 있다.\n2. 시책은 수수료 한도의 적용 대상이며, 한도를 넘는 부분은 제15조에 따라 처리한다.\n3. 시책 기간·대상 상품·금액은 내부 시책표로 관리한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a15-1",
+    "score": 0.47398928,
+    "article": "제15조",
+    "title": "한도 초과분의 처리",
+    "body": "제15조(한도 초과분의 처리) — 가상 규정 · 예시값\n1. 한도를 초과한 수수료는 상품에 정한 방식에 따라 삭감하거나 초년도 종료 후로 이연한다.\n2. 삭감과 이연 중 어느 방식인지는 수수료 명세의 한도 삭감 정책 항목에 표시한다.\n3. 한도를 초과한 부분을 제외한 금액만 해당 달에 지급한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a12-1",
+    "score": 0.46832466,
+    "article": "제12조",
+    "title": "수수료 한도의 산정",
+    "body": "제12조(수수료 한도의 산정) — 가상 규정 · 예시값\n1. 계약별 수수료 한도는 월납 보험료에 12배를 곱한 금액으로 한다.\n2. 배수는 12배(1200%)로 표기한다.\n3. 각 계약의 한도는 한도 원장으로 관리한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a13-1",
+    "score": 0.4618697,
+    "article": "제13조",
+    "title": "한도의 적용 시기",
+    "body": "제13조(한도의 적용 시기) — 가상 규정 · 예시값\n1. 수수료 한도는 2026년 7월 1일 이후 체결된 계약부터 적용한다.\n2. 그 이전에 체결된 계약에는 한도가 적용되지 않는다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a23-1",
+    "score": 0.45619425,
+    "article": "제23조",
+    "title": "해약 시 분급의 취소",
+    "body": "제23조(해약 시 분급의 취소) — 가상 규정 · 예시값\n1. 계약이 해약되거나 원 계약 수수료가 취소되면 아직 지급하지 않은 분급 예정분과 보류분은 취소한다.\n2. 이미 지급한 분급분의 환수는 제24조부터 제28조까지에 따른다.",
+    "version": "0453f7d205db"
+   }
+  ],
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3",
+    "result": {
+     "found": true,
+     "closeYm": "202608",
+     "status": "PAID",
+     "gross": 1800000,
+     "clawbackOffset": 0,
+     "adjustment": 0,
+     "withholdingTax": 59400,
+     "net": 1740600,
+     "paidAmount": 1740600,
+     "paidAt": "2026-09-10T01:00:00Z",
+     "receivableOffset": 0,
+     "carriedReceivable": 0,
+     "byType": {
+      "FY_COMM": 945000,
+      "INCENTIVE": 855000
+     },
+     "lineCount": 2,
+     "lines": [
+      {
+       "calcId": "1",
+       "commType": "FY_COMM",
+       "amount": 945000,
+       "productKey": "WHOLE-LIFE-20Y",
+       "policyMasked": "*********0001"
+      },
+      {
+       "calcId": "2",
+       "commType": "INCENTIVE",
+       "amount": 855000,
+       "limitCutAmt": 145000,
+       "limitCutPolicy": "DEFER_AFTER_FY",
+       "requested": 1000000,
+       "productKey": "WHOLE-LIFE-20Y",
+       "policyMasked": "*********0001"
+      }
+     ]
+    },
+    "truncated": false,
+    "reproduced": true
+   }
+  ],
+  "promptVersion": "answer/v3",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "fallbackDepth": 0,
+  "latencyMs": 2955,
+  "createdAt": "2026-11-06T11:23:04.501Z",
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

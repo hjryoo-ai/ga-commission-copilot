@@ -1,0 +1,162 @@
+{
+ "case": "A-03",
+ "httpStatus": 200,
+ "answer": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "4b28be36-cb3f-4501-a2b4-5fd824af601d",
+  "question": "0001 계약 한도는 언제 다 찼나요?",
+  "normalizedQuestion": "0001 계약 한도는 언제 다 찼나요",
+  "answer": "0001 계약의 수수료 한도는 2026년 8월 1일에 100%에 도달했습니다. 해당 일자에 누적 지급액이 1,800,000원으로 한도 전체가 사용된 것으로 확인됩니다.",
+  "refused": false,
+  "reason": null,
+  "groundingStatus": "PASS",
+  "numbersUsed": [
+   "2026-08-01"
+  ],
+  "violations": {
+   "g4Missing": [],
+   "g5Unknown": [],
+   "g6Words": []
+  },
+  "citations": [
+   {
+    "kind": "tool",
+    "tool": "get_limit",
+    "field": "history.1.utilizationAfter",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "retrievedChunks": [
+   {
+    "chunkId": "rb-0453f7d205db-a13-1",
+    "score": 0.5415889,
+    "article": "제13조",
+    "title": "한도의 적용 시기",
+    "body": "제13조(한도의 적용 시기) — 가상 규정 · 예시값\n1. 수수료 한도는 2026년 7월 1일 이후 체결된 계약부터 적용한다.\n2. 그 이전에 체결된 계약에는 한도가 적용되지 않는다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a40-1",
+    "score": 0.50717616,
+    "article": "제40조",
+    "title": "시행일",
+    "body": "제40조(시행일) — 가상 규정 · 예시값\n1. 이 규정은 2025년 7월 1일부터 시행한다.\n2. 수수료 한도 조항은 제12조부터 제18조까지이며, 2026년 7월 1일 이후 체결된 계약에 적용한다.\n3. 분급 조항은 제19조부터 제23조까지이며, 2027년 1월 1일 이후 체결된 계약에 적용한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a12-1",
+    "score": 0.49035597,
+    "article": "제12조",
+    "title": "수수료 한도의 산정",
+    "body": "제12조(수수료 한도의 산정) — 가상 규정 · 예시값\n1. 계약별 수수료 한도는 월납 보험료에 12배를 곱한 금액으로 한다.\n2. 배수는 12배(1200%)로 표기한다.\n3. 각 계약의 한도는 한도 원장으로 관리한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a15-1",
+    "score": 0.47002977,
+    "article": "제15조",
+    "title": "한도 초과분의 처리",
+    "body": "제15조(한도 초과분의 처리) — 가상 규정 · 예시값\n1. 한도를 초과한 수수료는 상품에 정한 방식에 따라 삭감하거나 초년도 종료 후로 이연한다.\n2. 삭감과 이연 중 어느 방식인지는 수수료 명세의 한도 삭감 정책 항목에 표시한다.\n3. 한도를 초과한 부분을 제외한 금액만 해당 달에 지급한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a17-1",
+    "score": 0.4572271,
+    "article": "제17조",
+    "title": "한도의 재산정",
+    "body": "제17조(한도의 재산정) — 가상 규정 · 예시값\n1. 감액 등으로 월납 보험료가 변경되는 경우 해당 일자에 한도를 다시 산정한다.\n2. 재산정 후 누적 지급액이 새 한도를 초과하더라도 이미 지급된 금액은 이 조항에 따라 회수하지 않는다.\n3. 재산정 내역은 한도 원장 이력에 기록한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a25-1",
+    "score": 0.4544907,
+    "article": "제25조",
+    "title": "환수율",
+    "body": "제25조(환수율) — 가상 규정 · 예시값\n1. 1회차부터 6회차까지는 환수율이 70%이다.\n2. 7회차부터 12회차까지는 환수율이 40%이다.\n3. 13회차부터는 환수가 없다.",
+    "version": "0453f7d205db"
+   }
+  ],
+  "toolCalls": [
+   {
+    "tool": "get_limit",
+    "args": {
+     "policyNo": "0001"
+    },
+    "resultHash": "10b4df4c0b952aa9",
+    "result": {
+     "found": true,
+     "ledger": {
+      "ledgerId": "1",
+      "policyMasked": "*********0001",
+      "contractDate": "2026-08-01",
+      "monthlyPremium": 150000,
+      "limitMultiple": "12",
+      "limitAmount": 1800000,
+      "accumPaid": 1080000,
+      "remaining": 720000,
+      "utilization": "60.0%",
+      "stage": "OK",
+      "cutTotal": 0,
+      "deferredTotal": 145000
+     },
+     "history": [
+      {
+       "kind": "POST",
+       "calcId": "1",
+       "amount": 945000,
+       "accumAfter": 945000,
+       "limitAfter": 1800000,
+       "utilizationAfter": "52.5%",
+       "occurredAt": "2026-08-01T00:00:00Z"
+      },
+      {
+       "kind": "POST",
+       "calcId": "2",
+       "amount": 855000,
+       "accumAfter": 1800000,
+       "limitAfter": 1800000,
+       "utilizationAfter": "100.0%",
+       "occurredAt": "2026-08-01T00:00:00Z"
+      },
+      {
+       "kind": "POST",
+       "calcId": "6",
+       "amount": -720000,
+       "accumAfter": 1080000,
+       "limitAfter": 1800000,
+       "utilizationAfter": "60.0%",
+       "occurredAt": "2027-02-15T00:30:00Z"
+      }
+     ],
+     "limitCuts": [
+      {
+       "calcId": "2",
+       "closeYm": "202608",
+       "commType": "INCENTIVE",
+       "amount": 855000,
+       "limitCutAmt": 145000,
+       "limitCutPolicy": "DEFER_AFTER_FY",
+       "requested": 1000000
+      }
+     ],
+     "deferrals": []
+    },
+    "truncated": false,
+    "reproduced": true
+   }
+  ],
+  "promptVersion": "answer/v3",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "fallbackDepth": 0,
+  "latencyMs": 3000,
+  "createdAt": "2026-11-06T11:13:18.741Z",
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

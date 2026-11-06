@@ -1,0 +1,69 @@
+{
+ "case": "A-01",
+ "question": "8월 시책이 100만 원인데 왜 85만 5천 원만 들어왔나요?",
+ "httpStatus": 200,
+ "secs": 7.1,
+ "response": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "d8fc9e50-c4cc-48f9-86c6-07dc99352ca3",
+  "refused": false,
+  "reason": null,
+  "text": "2026년 8월에 지급된 시책(인센티브) 금액은 855,000원이며, 이는 원래 요청하신 1,000,000원에서 한도 초과분 145,000원이 삭감된 결과입니다. 한도 초과분은 제15조에 따라 삭감 처리됩니다. 시책 자체는 제8조에 따라 정액으로 지급될 수 있습니다.",
+  "numbersUsed": [
+   "855000",
+   "1000000",
+   "145000"
+  ],
+  "citations": [
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제8조",
+    "chunkId": "rb-0453f7d205db-a08-1"
+   },
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제15조",
+    "chunkId": "rb-0453f7d205db-a15-1"
+   },
+   {
+    "kind": "tool",
+    "tool": "get_statement",
+    "field": "lines.1.amount",
+    "article": "",
+    "chunkId": ""
+   },
+   {
+    "kind": "tool",
+    "tool": "get_statement",
+    "field": "lines.1.limitCutAmt",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3"
+   }
+  ],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3",
+  "groundingStatus": "PASS",
+  "cacheHit": false,
+  "latencyMs": 6122,
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

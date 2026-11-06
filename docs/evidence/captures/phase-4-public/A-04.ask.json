@@ -1,0 +1,36 @@
+{
+ "case": "A-04",
+ "question": "한도 산식이 뭔가요?",
+ "httpStatus": 200,
+ "secs": 2.5,
+ "response": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "b06d009f-e80e-4a3e-a238-5e6d1c771a0c",
+  "refused": false,
+  "reason": null,
+  "text": "한도는 계약별 월납 보험료에 12배를 곱한 금액으로 산정됩니다.",
+  "numbersUsed": [],
+  "citations": [
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제12조",
+    "chunkId": "rb-0453f7d205db-a12-1"
+   }
+  ],
+  "toolCalls": [],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3",
+  "groundingStatus": "PASS",
+  "cacheHit": false,
+  "latencyMs": 1526,
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

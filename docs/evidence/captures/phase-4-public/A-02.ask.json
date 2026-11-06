@@ -1,0 +1,28 @@
+{
+ "case": "A-02",
+ "question": "한도로 빠진 14만 5천 원은 언제 받나요?",
+ "httpStatus": 200,
+ "secs": 3.4,
+ "response": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "107e1038-2aa4-4ffe-9457-d880ff3d9163",
+  "refused": true,
+  "reason": "NOT_GROUNDED",
+  "text": "근거 데이터로 확인되지 않는 내용이 포함되어 답변을 보류했습니다. 라인 상세에서 직접 확인해 주세요.",
+  "numbersUsed": [],
+  "citations": [],
+  "toolCalls": [],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3",
+  "groundingStatus": "FAIL",
+  "cacheHit": false,
+  "latencyMs": 2432,
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

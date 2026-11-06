@@ -1,0 +1,36 @@
+{
+ "case": "A-08",
+ "question": "해약 환수율은 어떻게 정해지나요?",
+ "httpStatus": 200,
+ "secs": 2.6,
+ "response": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "0e887a1f-76ec-4c1a-8e54-c92af0a9be4c",
+  "refused": false,
+  "reason": null,
+  "text": "해약 시 환수율은 계약 회차에 따라 정해집니다. 1회차부터 6회차까지는 70%, 7회차부터 12회차까지는 40%, 13회차 이후에는 환수가 없습니다.",
+  "numbersUsed": [],
+  "citations": [
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제25조",
+    "chunkId": "rb-0453f7d205db-a25-1"
+   }
+  ],
+  "toolCalls": [],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3",
+  "groundingStatus": "PASS",
+  "cacheHit": false,
+  "latencyMs": 1677,
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

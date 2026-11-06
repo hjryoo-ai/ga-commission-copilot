@@ -1,0 +1,46 @@
+{
+ "case": "A-03",
+ "question": "0001 계약 한도는 언제 다 찼나요?",
+ "httpStatus": 200,
+ "secs": 3.9,
+ "response": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "4b28be36-cb3f-4501-a2b4-5fd824af601d",
+  "refused": false,
+  "reason": null,
+  "text": "0001 계약의 수수료 한도는 2026년 8월 1일에 100%에 도달했습니다. 해당 일자에 누적 지급액이 1,800,000원으로 한도 전체가 사용된 것으로 확인됩니다.",
+  "numbersUsed": [
+   "2026-08-01"
+  ],
+  "citations": [
+   {
+    "kind": "tool",
+    "tool": "get_limit",
+    "field": "history.1.utilizationAfter",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "toolCalls": [
+   {
+    "tool": "get_limit",
+    "args": {
+     "policyNo": "0001"
+    },
+    "resultHash": "10b4df4c0b952aa9"
+   }
+  ],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3",
+  "groundingStatus": "PASS",
+  "cacheHit": false,
+  "latencyMs": 3000,
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

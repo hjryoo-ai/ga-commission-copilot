@@ -1,0 +1,43 @@
+{
+ "case": "A-06",
+ "question": "2026년 8월하고 2027년 2월은 뭐가 달라졌어요?",
+ "httpStatus": 200,
+ "secs": 4.1,
+ "response": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "1b834a80-6abd-4034-a4b9-dbda72651f9c",
+  "refused": true,
+  "reason": "NOT_GROUNDED",
+  "text": "근거 데이터로 확인되지 않는 내용이 포함되어 답변을 보류했습니다. 라인 상세에서 직접 확인해 주세요.",
+  "numbersUsed": [],
+  "citations": [],
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3"
+   },
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202702"
+    },
+    "resultHash": "0bb5c91359a4de37"
+   }
+  ],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3",
+  "groundingStatus": "FAIL",
+  "cacheHit": false,
+  "latencyMs": 3134,
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

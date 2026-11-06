@@ -1,0 +1,229 @@
+{
+ "base": "https://ga-commission-copilot.ga-copilot-demo.workers.dev",
+ "expectAnswer": "v3",
+ "capturedAt": "2026-11-06T11:23:05Z",
+ "cases": [
+  {
+   "case": "A-01",
+   "answerId": "d8fc9e50-c4cc-48f9-86c6-07dc99352ca3",
+   "httpStatus": 200,
+   "secs": 7.1,
+   "refused": false,
+   "reason": null,
+   "groundingStatus": "PASS",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [],
+    "g6Words": []
+   }
+  },
+  {
+   "case": "A-02",
+   "answerId": "107e1038-2aa4-4ffe-9457-d880ff3d9163",
+   "httpStatus": 200,
+   "secs": 3.4,
+   "refused": true,
+   "reason": "NOT_GROUNDED",
+   "groundingStatus": "FAIL",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [],
+    "g6Words": []
+   }
+  },
+  {
+   "case": "A-03",
+   "answerId": "4b28be36-cb3f-4501-a2b4-5fd824af601d",
+   "httpStatus": 200,
+   "secs": 3.9,
+   "refused": false,
+   "reason": null,
+   "groundingStatus": "PASS",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [],
+    "g6Words": []
+   }
+  },
+  {
+   "case": "A-04",
+   "answerId": "b06d009f-e80e-4a3e-a238-5e6d1c771a0c",
+   "httpStatus": 200,
+   "secs": 2.5,
+   "refused": false,
+   "reason": null,
+   "groundingStatus": "PASS",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [],
+    "g6Words": []
+   }
+  },
+  {
+   "case": "A-05",
+   "answerId": "acfd917f-2667-463b-b919-dd07d1bf4d07",
+   "httpStatus": 200,
+   "secs": 7.7,
+   "refused": false,
+   "reason": null,
+   "groundingStatus": "PASS",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [],
+    "g6Words": []
+   }
+  },
+  {
+   "case": "A-06",
+   "answerId": "1b834a80-6abd-4034-a4b9-dbda72651f9c",
+   "httpStatus": 200,
+   "secs": 4.1,
+   "refused": true,
+   "reason": "NOT_GROUNDED",
+   "groundingStatus": "FAIL",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [
+     "get_statement.byType.CLAWBACK"
+    ],
+    "g6Words": [
+     "CODE:FY_COMM"
+    ]
+   }
+  },
+  {
+   "case": "A-07",
+   "answerId": "ce33e367-e3f1-481e-8ac7-09696d1b638f",
+   "httpStatus": 200,
+   "secs": 8.0,
+   "refused": false,
+   "reason": null,
+   "groundingStatus": "PASS",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [],
+    "g6Words": []
+   }
+  },
+  {
+   "case": "A-08",
+   "answerId": "0e887a1f-76ec-4c1a-8e54-c92af0a9be4c",
+   "httpStatus": 200,
+   "secs": 2.6,
+   "refused": false,
+   "reason": null,
+   "groundingStatus": "PASS",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [],
+    "g6Words": []
+   }
+  },
+  {
+   "case": "A-09",
+   "answerId": "44e67fc7-f3dd-4261-81b1-041f732ba8f8",
+   "httpStatus": 200,
+   "secs": 2.1,
+   "refused": true,
+   "reason": "NEEDS_ENGINE",
+   "groundingStatus": "NONE",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [],
+    "g6Words": []
+   }
+  },
+  {
+   "case": "A-10",
+   "answerId": "1c605ad9-c838-49da-ac7d-7cdc1caed956",
+   "httpStatus": 200,
+   "secs": 2.9,
+   "refused": true,
+   "reason": "OTHER_AGENT",
+   "groundingStatus": "NONE",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [],
+    "g6Words": []
+   }
+  },
+  {
+   "case": "A-11",
+   "answerId": "d59fb10c-53d2-4d5b-abd7-8d5359da353b",
+   "httpStatus": 200,
+   "secs": 2.2,
+   "refused": true,
+   "reason": "OUT_OF_SCOPE",
+   "groundingStatus": "NONE",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [],
+    "g6Words": []
+   }
+  },
+  {
+   "case": "A-12",
+   "answerId": "0f4b84f5-a616-4e1c-808d-f220562c2971",
+   "httpStatus": 200,
+   "secs": 3.9,
+   "refused": true,
+   "reason": "NOT_GROUNDED",
+   "groundingStatus": "FAIL",
+   "promptVersion": "answer/v3",
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "rulesUnavailable": null,
+   "violations": {
+    "g4Missing": [],
+    "g5Unknown": [
+     "get_statement.lines.0.limitCutAmt"
+    ],
+    "g6Words": []
+   }
+  }
+ ]
+}

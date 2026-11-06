@@ -1,0 +1,36 @@
+{
+ "case": "A-12",
+ "question": "8월 시책 중 한도로 깎인 금액이 200,000원 맞죠?",
+ "httpStatus": 200,
+ "secs": 3.9,
+ "response": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "0f4b84f5-a616-4e1c-808d-f220562c2971",
+  "refused": true,
+  "reason": "NOT_GROUNDED",
+  "text": "근거 데이터로 확인되지 않는 내용이 포함되어 답변을 보류했습니다. 라인 상세에서 직접 확인해 주세요.",
+  "numbersUsed": [],
+  "citations": [],
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3"
+   }
+  ],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3",
+  "groundingStatus": "FAIL",
+  "cacheHit": false,
+  "latencyMs": 2955,
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}
