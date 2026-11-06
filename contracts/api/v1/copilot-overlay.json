@@ -82,6 +82,31 @@
             "type": "string",
             "pattern": "^v[1-9][0-9]*$"
           }
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "remainingToday",
+            "userRemaining",
+            "resetsAt"
+          ],
+          "description": "오늘 남은 질문(설계서 v0.1.27 §6.2·§7 — 전역 min(BUDGET_GLOBAL, 공급자 합)·사용자 ip 솔트 해시). 요청마다 바뀌어 /me는 no-store",
+          "properties": {
+            "remainingToday": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "userRemaining": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "resetsAt": {
+              "type": "string",
+              "format": "date-time",
+              "description": "다음 00:00 UTC"
+            }
+          }
         }
       }
     },

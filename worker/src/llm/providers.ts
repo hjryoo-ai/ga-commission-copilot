@@ -1,10 +1,10 @@
-// 런타임 LLM 공급자(설계서 §4.3·§6.2·§10.2, PHASES Phase 4 항목 3 — Phase 4는 Groq만, 폴백 체인은 Phase 5).
+// 런타임 LLM 공급자(설계서 §4.3·§6.2·§10.2, PHASES Phase 4 항목 3·Phase 5 항목 2). 폴백 체인 groq → workers-ai → openrouter(v0.1.27).
 // OpenAI 호환 Chat Completions를 fetch 한 번으로(SDK 없음, §11), 8초 타임아웃. 요청 본문은 gen/providers/groq.ts requestBody와 같은 모양(temperature 0·reasoning_effort low·json_schema strict).
 // 키는 wrangler secret GROQ_API_KEY(규약 10). 값은 로그·응답에 남기지 않는다.
 // LLM_TRACE=1(로컬 .dev.vars 전용)이면 traced()가 원문 요청·응답을 D1 llm_trace에 쓴다 — 답변 VCR 녹화(운영자 2026-11-01). 원격에는 그 env가 없다.
 import { insertLlmTrace } from "../db/ScopedQuery";
 
-export type ProviderName = "groq";
+export type ProviderName = "groq" | "workers-ai" | "openrouter";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -24,6 +24,8 @@ export interface StructuredResponse {
   provider: ProviderName;
   model: string;
   usage: { prompt_tokens?: number; completion_tokens?: number } | null;
+  /** 폴백 체인에서 답한 공급자의 순번(0 = groq, 1 = workers-ai, 2 = openrouter — answer_log.fallback_depth). 체인 밖 단일 공급자는 없음. */
+  fallbackDepth?: number;
 }
 
 /** 공급자 오류. status 429·5xx·0(타임아웃·네트워크)은 Phase 5 폴백 대상, 그 밖은 요청 문제. */
@@ -44,6 +46,10 @@ export interface Provider {
 
 export const TIMEOUT_MS = 8_000;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+/** 설계서 §6.2·D-7: 폴백 모델. Groq 모델 이름(프롬프트 model_hint)을 공급자별 이름으로 바꾼다. */
+export const WORKERS_AI_MODEL = "@cf/openai/gpt-oss-120b";
+export const OPENROUTER_MODEL = "openrouter/free";
 
 export function requestBody(req: StructuredRequest): object {
   return {
@@ -62,37 +68,120 @@ export function parseContent(content: string): unknown {
   return JSON.parse(fenced ? fenced[1]! : content);
 }
 
-export function groq(env: Pick<Env, "GROQ_API_KEY">, fetcher: typeof fetch = fetch): Provider {
+/** 본문 문자열 → JSON(빈 본문·JSON 아님은 502 — 폴백 대상). */
+function jsonOf(name: ProviderName, content: string | null | undefined): unknown {
+  if (!content) throw new ProviderError(`${name}: 빈 응답`, 502);
+  try {
+    return parseContent(content);
+  } catch {
+    throw new ProviderError(`${name}: JSON 아님`, 502);
+  }
+}
+
+/** OpenAI 호환 Chat Completions(Groq·OpenRouter). url은 AI Gateway 경유 URL로 바꿀 수 있다(Phase 5 항목 3). */
+function openAiCompatible(name: "groq" | "openrouter", url: string, key: string | undefined, model: string | null, fetcher: typeof fetch, headers: Record<string, string> = {}): Provider {
   return {
-    name: "groq",
+    name,
     async structured(req) {
-      const key = env.GROQ_API_KEY;
-      if (!key) throw new ProviderError("GROQ_API_KEY 없음", 0);
+      if (!key) throw new ProviderError(`${name}: 키 없음`, 0);
+      const body = model ? { ...requestBody(req), model } : requestBody(req);
       let res: Response;
       try {
-        res = await fetcher(GROQ_URL, {
+        res = await fetcher(url, {
           method: "POST",
-          headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-          body: JSON.stringify(requestBody(req)),
+          headers: { authorization: `Bearer ${key}`, "content-type": "application/json", ...headers },
+          body: JSON.stringify(body),
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });
       } catch (e) {
-        throw new ProviderError(`groq: ${(e as Error).name === "TimeoutError" ? `${TIMEOUT_MS}ms 타임아웃` : "네트워크 오류"}`, 0);
+        throw new ProviderError(`${name}: ${(e as Error).name === "TimeoutError" ? `${TIMEOUT_MS}ms 타임아웃` : "네트워크 오류"}`, 0);
       }
       if (!res.ok) {
         const retry = res.headers.get("retry-after");
-        throw new ProviderError(`groq ${res.status}`, res.status, retry ? Number(retry) : null);
+        throw new ProviderError(`${name} ${res.status}`, res.status, retry ? Number(retry) : null);
       }
-      const body = (await res.json()) as { model: string; usage?: StructuredResponse["usage"]; choices: { message: { content: string | null } }[] };
-      const content = body.choices[0]?.message.content;
-      if (!content) throw new ProviderError("groq: 빈 응답", 502);
-      let json: unknown;
+      const b = (await res.json()) as { model: string; usage?: StructuredResponse["usage"]; choices: { message: { content: string | null } }[] };
+      return { json: jsonOf(name, b.choices[0]?.message.content), provider: name, model: b.model, usage: b.usage ?? null };
+    },
+  };
+}
+
+export function groq(env: Pick<Env, "GROQ_API_KEY">, fetcher: typeof fetch = fetch, url = GROQ_URL): Provider {
+  return openAiCompatible("groq", url, env.GROQ_API_KEY, null, fetcher);
+}
+
+/** 설계서 §6.2 3순위 — OpenRouter 무료 라우터. 키는 wrangler secret OPENROUTER_API_KEY(규약 10). */
+export function openrouter(env: Pick<Env, "OPENROUTER_API_KEY">, fetcher: typeof fetch = fetch, url = OPENROUTER_URL): Provider {
+  return openAiCompatible("openrouter", url, env.OPENROUTER_API_KEY, OPENROUTER_MODEL, fetcher, { "x-title": "ga-commission-copilot" });
+}
+
+/** Workers AI 결과의 본문 — 문서가 응답 모양을 밝히지 않아(2026-11-06 확인) OpenAI 모양(choices)과 네이티브 모양(response) 둘 다 받는다. 실호출 확인은 폴백 상한이 열리는 11-08 뒤. */
+export function workersAiContent(r: unknown): { json: unknown; usage: StructuredResponse["usage"] } {
+  const o = (r ?? {}) as { choices?: { message?: { content?: string | null } }[]; response?: unknown; usage?: StructuredResponse["usage"] };
+  if (Array.isArray(o.choices)) return { json: jsonOf("workers-ai", o.choices[0]?.message?.content), usage: o.usage ?? null };
+  if (typeof o.response === "string") return { json: jsonOf("workers-ai", o.response), usage: o.usage ?? null };
+  if (o.response && typeof o.response === "object") return { json: o.response, usage: o.usage ?? null };
+  throw new ProviderError("workers-ai: 알 수 없는 응답 모양", 502);
+}
+
+/** 설계서 §6.2 2순위 — AI 바인딩(@cf/openai/gpt-oss-120b). 하루 뉴런 소진(3036·4006)은 429로 바꿔 체인이 다음으로 넘어가게 한다. */
+export function workersAi(ai: Pick<Ai, "run">): Provider {
+  return {
+    name: "workers-ai",
+    async structured(req) {
+      let r: unknown;
       try {
-        json = parseContent(content);
-      } catch {
-        throw new ProviderError("groq: JSON 아님", 502);
+        const run = ai.run as unknown as (model: string, input: object, opts?: object) => Promise<unknown>;
+        r = await Promise.race([
+          run(WORKERS_AI_MODEL, {
+            messages: req.messages,
+            temperature: 0,
+            max_tokens: req.maxCompletionTokens,
+            response_format: { type: "json_schema", json_schema: { name: req.schemaName, schema: req.schema, strict: true } },
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new ProviderError(`workers-ai: ${TIMEOUT_MS}ms 타임아웃`, 0)), TIMEOUT_MS)),
+        ]);
+      } catch (e) {
+        if (e instanceof ProviderError) throw e;
+        const m = (e as Error).message ?? "";
+        throw new ProviderError(`workers-ai: ${m.slice(0, 200)}`, /\b(3036|4006)\b|neurons|rate limit/i.test(m) ? 429 : 502);
       }
-      return { json, provider: "groq", model: body.model, usage: body.usage ?? null };
+      const { json, usage } = workersAiContent(r);
+      return { json, provider: "workers-ai", model: WORKERS_AI_MODEL, usage };
+    },
+  };
+}
+
+/** 폴백 체인에서 시도할 공급자가 하나도 없다(모두 상한 0 또는 그날 소진) — 저하 ①(429 BUDGET). */
+export class ProvidersExhausted extends Error {}
+
+/** 429·5xx·0(타임아웃·네트워크)만 다음 공급자로(설계서 §6.2). 그 밖의 4xx는 요청 문제라 그대로 던진다. */
+export const isFallbackable = (e: ProviderError) => e.status === 0 || e.status === 429 || e.status >= 500;
+
+/**
+ * 설계서 v0.1.27 §6.2 폴백 체인: 순서대로, reserve(공급자 예산 1 차감)가 거절하면 시도에 넣지 않고 건너뛴다.
+ * 실제 시도는 최대 maxAttempts(2)개 — 실패 요청도 공급자 RPD를 쓰므로. 답한 공급자의 체인 순번을 fallbackDepth로.
+ */
+export function fallbackChain(providers: readonly Provider[], reserve: (name: ProviderName) => Promise<boolean>, maxAttempts = 2): Provider {
+  return {
+    name: providers[0]!.name,
+    async structured(req) {
+      let attempts = 0;
+      let last: ProviderError | null = null;
+      for (const [i, p] of providers.entries()) {
+        if (attempts >= maxAttempts) break;
+        if (!(await reserve(p.name))) continue;
+        attempts++;
+        try {
+          return { ...(await p.structured(req)), fallbackDepth: i };
+        } catch (e) {
+          if (!(e instanceof ProviderError) || !isFallbackable(e)) throw e;
+          console.warn(`[fallback] ${p.name} ${e.status}: ${e.message}`);
+          last = e;
+        }
+      }
+      if (attempts === 0) throw new ProvidersExhausted("시도할 공급자 없음 — 모두 오늘 상한");
+      throw last!;
     },
   };
 }

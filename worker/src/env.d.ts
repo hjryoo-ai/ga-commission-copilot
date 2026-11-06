@@ -9,8 +9,8 @@ declare namespace Cloudflare {
     GROQ_API_KEY?: string;
     /** 로컬 녹화 전용(.dev.vars) — "1"이면 llm_trace에 원문을 쓴다. wrangler.jsonc vars에 두지 않는다 */
     LLM_TRACE?: string;
-    /** 개발용 /me/ask 하루 하드 상한(기본 20 — Phase 4, 예산은 Phase 5) */
-    ASK_DAILY_CAP?: string;
+    /** 설계서 §6.2 3순위 폴백 — OpenRouter 무료 라우터(v0.1.27) */
+    OPENROUTER_API_KEY?: string;
   }
 }
 
@@ -24,5 +24,5 @@ interface Env {
   POLICY_KEY_SECRET?: string;
   GROQ_API_KEY?: string;
   LLM_TRACE?: string;
-  ASK_DAILY_CAP?: string;
+  OPENROUTER_API_KEY?: string;
 }

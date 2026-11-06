@@ -174,10 +174,13 @@ describe("캐시(설계서 v0.1.12 §7)", () => {
 
   it("다른 데모 설계사는 ETag가 다르고, 남의 자원은 ETag가 맞아도 304가 아니라 404", async () => {
     const two = await login(app, 2);
-    const etag2 = (await get("/api/v1/me", two)).headers.get("ETag");
+    const etag2 = (await get("/api/v1/me/limits", two)).headers.get("ETag");
     expect(etag2).toBe(`W/"${HASH}.2"`);
-    expect((await get("/api/v1/me", one, { "If-None-Match": etag2! })).status).toBe(200);
+    expect((await get("/api/v1/me/limits", one, { "If-None-Match": etag2! })).status).toBe(200);
     await rejected(await get("/api/v1/me/earnings/lines/1", two, { "If-None-Match": etag2! }), 404);
+    // /me는 오늘 남은 질문(설계서 v0.1.27)이 요청마다 바뀌어 ETag·304 없이 no-store
+    const me = await get("/api/v1/me", two, { "If-None-Match": etag2! });
+    expect([me.status, me.headers.get("ETag"), me.headers.get("Cache-Control")]).toEqual([200, null, "no-store"]);
   });
 });
 

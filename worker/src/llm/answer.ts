@@ -75,8 +75,10 @@ export interface AnswerResult {
   /** G4·G5·G6 위반 토큰(설계서 v0.1.25 — answer_log.violations, 화면 7). 거부·PASS면 빈 배열. */
   grounding: GroundingViolations;
   latencyMs: number;
-  /** 규정 검색(임베딩·Vectorize)이 실패해 규정 없이 툴만으로 답했다(운영자 2026-11-03 — Phase 5 전 임시, 설계서 v0.1.22 §4.3). */
+  /** 규정 검색(임베딩·Vectorize)이 실패해 규정 없이 툴만으로 답했다 — 저하 ③(설계서 v0.1.27 §6.2, v0.1.22 임시 처리를 정식으로). */
   rulesUnavailable: boolean;
+  /** 폴백 체인 순번(0 = groq, 1 = workers-ai, 2 = openrouter) — 두 번의 LLM 호출 중 깊은 쪽. LLM을 안 불렀으면 0. */
+  fallbackDepth: number;
 }
 
 /** Cloudflare 바인딩으로 만든 기본 의존성(Workers AI 임베딩 · Vectorize · D1). */
@@ -251,6 +253,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     });
 
   let res = await ask("1단계", "");
+  let depth = res.fallbackDepth ?? 0;
   let violations = shapeProblems(res.json);
   let out = res.json as AnswerOutput;
   const results: ToolResult[] = [];
@@ -270,6 +273,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
       }
     }
     res = await ask("2단계", dataBlock(results));
+    depth = Math.max(depth, res.fallbackDepth ?? 0);
     violations = shapeProblems(res.json);
     out = res.json as AnswerOutput;
     if (violations.length === 0) stage2Tools = out.toolCalls.map((t) => `TOOL_IN_STAGE2:${String(t.tool)}`);
@@ -309,7 +313,8 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     numbersUsed: refused ? [] : out.numbersUsed,
     citations: refused ? [] : canonicalCitations(out.citations, rows),
     promptVersion,
-    provider: deps.provider.name,
+    // 답한 공급자(폴백이면 groq가 아니다) — 2단계가 있으면 2단계 응답의 공급자
+    provider: res.provider,
     model: res.model,
     groundingStatus,
     retrievedChunks,
@@ -318,6 +323,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     violations,
     grounding,
     latencyMs: deps.now().getTime() - started,
+    fallbackDepth: depth,
   };
   await logAnswer(deps, q, qText, result);
   return result;
@@ -332,7 +338,7 @@ async function logAnswer(deps: Pick<AnswerDeps, "now">, q: ScopedQuery, question
     promptVersion: r.promptVersion,
     provider: r.provider,
     model: r.model,
-    fallbackDepth: 0,
+    fallbackDepth: r.fallbackDepth,
     retrievedChunks: JSON.stringify(r.retrievedChunks.map((c) => [c.chunkId, c.score])),
     toolCalls: JSON.stringify(r.toolCalls),
     answer: r.text,
@@ -369,6 +375,7 @@ export async function refuseWithoutLlm(deps: Pick<AnswerDeps, "now" | "newId">, 
     grounding: NO_VIOLATIONS,
     latencyMs: 0,
     rulesUnavailable: false,
+    fallbackDepth: 0,
   };
   await logAnswer(deps, q, qText, r);
   return r;

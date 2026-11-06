@@ -48,6 +48,11 @@ export function ok(c: Context<AppEnv>, body: object): Response {
   return c.json({ ...common(s), ...body, disclaimer: DISCLAIMER }, 200, headers);
 }
 
+/** ok()와 같은 공통 필드지만 ETag·304 없이 no-store — 요청마다 값이 바뀌는 응답(/me의 오늘 남은 질문 — 설계서 v0.1.27). */
+export function fresh(c: Context<AppEnv>, body: object, degraded = false): Response {
+  return c.json({ ...common(c.get("scope")), ...(degraded ? { dataStatus: "DEGRADED" as const } : {}), ...body, disclaimer: DISCLAIMER }, 200, { "Cache-Control": "no-store", Vary: "Cookie" });
+}
+
 export const YM = /^[0-9]{4}(0[1-9]|1[0-2])$/;
 
 /** 선택 필드는 값이 없으면 뺀다(상위 §7 — null을 보내지 않는다). */

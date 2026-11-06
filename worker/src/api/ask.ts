@@ -1,31 +1,30 @@
 // 자유 질문·답변 재현 API(설계서 §4.3·§4.4·§7, PHASES Phase 4 항목 4).
-//   POST /api/v1/me/ask {question}  → 답변 파이프라인(llm/answer.ts). 예산은 Phase 5 — 지금은 개발용 하드 상한 ASK_DAILY_CAP(기본 20/일, budget_counter scope ask:dev).
+//   POST /api/v1/me/ask {question}  → 답변 파이프라인(llm/answer.ts). 예산(설계서 v0.1.27 §6.2 — llm/budget.ts): 사용자(ip 솔트 해시)·전역 1씩,
+//                                     공급자는 폴백 체인(groq → workers-ai → openrouter)이 호출마다 1씩. 저하 모드 ①②③은 아래.
 //   GET  /api/v1/answers/{id}       → 이 설계사의 answer_log 한 행(화면 7 답변 재현). LLM을 부르지 않는다 —
 //                                     툴은 저장된 인자로 다시 실행해(읽기 전용·결정론) 결과와 resultHash 일치 여부를, 검색 청크는 본문을 붙인다.
-// 상한에 닿으면 LLM을 부르지 않고 429 + BUDGET 고정 문구 + retryAfterSeconds(다음 00:00 UTC까지 — §7 저하 모드 응답 모양, 거부도 answer_log에 남는다 — §4.4).
+// 저하 ①: 예산 소진(사용자·전역·시도할 공급자 전부) → LLM 없이 429 + BUDGET 고정 문구 + retryAfterSeconds(다음 00:00 UTC) — 거부도 answer_log에 남는다(§4.4).
+// 저하 ②: 시도한 공급자가 모두 429·5xx·타임아웃 → 503. 저하 ③: 규정 검색 불가 → 툴만으로 답하고 rulesUnavailable·dataStatus DEGRADED.
 import type { Context } from "hono";
 import { Hono } from "hono";
-import { reserveBudget, rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
-import { answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm } from "../llm/answer";
-import { groq, ProviderError, traced } from "../llm/providers";
+import { rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
+import { type AnswerResult, answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm } from "../llm/answer";
+import { anyProviderLeft, budgetCaps, reserveProvider, reserveQuestion, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
+import { fallbackChain, groq, openrouter, ProviderError, ProvidersExhausted, traced, workersAi } from "../llm/providers";
 import { type AppEnv, common, DISCLAIMER, invalidRequest, notFound, problem } from "./http";
 import { InvalidToolCall, parseToolCall, runTool, serialize } from "../tools";
 import { requireSession } from "./session";
 
-export const ASK_DAILY_CAP_DEFAULT = 20;
 const QUESTION_MAX = 500;
 const ANSWER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-export function askDailyCap(env: { ASK_DAILY_CAP?: string }): number {
-  const v = env.ASK_DAILY_CAP;
-  if (v === undefined || v === "") return ASK_DAILY_CAP_DEFAULT;
-  return /^(0|[1-9][0-9]{0,3})$/.test(v) ? Number(v) : ASK_DAILY_CAP_DEFAULT;
+/** 답변 응답은 질문마다 다르다 — 캐시하지 않는다(no-store). 공통 필드·고정 문구는 읽기 API와 같다. degraded면 dataStatus DEGRADED(저하 ③). */
+function answerJson(c: Context<AppEnv>, body: object, status: 200 | 429 = 200, degraded = false): Response {
+  return c.json({ ...common(c.get("scope")), ...(degraded ? { dataStatus: "DEGRADED" } : {}), ...body, disclaimer: DISCLAIMER }, status, { "Cache-Control": "no-store", Vary: "Cookie" });
 }
 
-/** 답변 응답은 질문마다 다르다 — 캐시하지 않는다(no-store). 공통 필드·고정 문구는 읽기 API와 같다. */
-function answerJson(c: Context<AppEnv>, body: object, status: 200 | 429 = 200): Response {
-  return c.json({ ...common(c.get("scope")), ...body, disclaimer: DISCLAIMER }, status, { "Cache-Control": "no-store", Vary: "Cookie" });
-}
+/** 요청자 IP(Cloudflare가 붙이는 헤더). 없으면(로컬·시험) 한 묶음으로 센다. 원문은 userScope 안에서 해시만 남는다. */
+export const clientIp = (c: Context<AppEnv>) => c.req.header("CF-Connecting-IP") ?? "local";
 
 /** 다음 00:00 UTC까지 초(예산 카운터의 날 경계). */
 export function secondsToUtcMidnight(now: Date): number {
@@ -41,24 +40,30 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
   if (!question || question.length > QUESTION_MAX || Object.keys(body ?? {}).some((k) => k !== "question")) return invalidRequest(c);
 
   const now = new Date();
-  const day = now.toISOString().slice(0, 10);
-  const deps = cloudflareDeps(c.env, traced(groq(c.env), c.env, c.env.DB));
-  let r;
-  if (!(await reserveBudget(c.env.DB, "ask:dev", day, askDailyCap(c.env)))) {
-    r = await refuseWithoutLlm(deps, q, c.env, question, "BUDGET");
-    return answerJson(c, { answerId: r.answerId, refused: true, reason: "BUDGET", text: r.text, retryAfterSeconds: secondsToUtcMidnight(now), promptVersion: r.promptVersion }, 429);
-  } else {
-    try {
-      r = await answerQuestion(deps, q, c.env, question);
-    } catch (e) {
-      // Phase 4는 Groq만 — 공급자 실패(429·5xx·타임아웃)는 폴백 없이 503(폴백·저하 모드는 Phase 5)
-      if (e instanceof ProviderError) {
-        // 녹화 2026-11-04 A-02 503의 원인(429 TPM 추정)이 남지 않았다 — 상태·메시지만 남긴다(키·본문 없음)
-        console.warn(`[ask] provider error ${e.status}: ${e.message}`);
-        return problem(c, 503, "INTERNAL_ERROR");
-      }
-      throw e;
+  const day = utcDay(now);
+  const caps = withKeys(budgetCaps(c.env), c.env);
+  const chain = fallbackChain([groq(c.env), workersAi(c.env.AI), openrouter(c.env)], (name) => reserveProvider(c.env.DB, caps, name, day));
+  const deps = cloudflareDeps(c.env, traced(chain, c.env, c.env.DB));
+  const budgetRefusal = async () => {
+    const b = await refuseWithoutLlm(deps, q, c.env, question, "BUDGET");
+    return answerJson(c, { answerId: b.answerId, refused: true, reason: "BUDGET", text: b.text, retryAfterSeconds: secondsToUtcMidnight(now), promptVersion: b.promptVersion }, 429);
+  };
+  // 저하 ① — 시도할 공급자가 하나도 없으면 임베딩도 부르지 않는다(읽기만, 차감 없음 — 경합으로 그 뒤 소진되면 체인이 ProvidersExhausted)
+  if (!anyProviderLeft(await usageOn(c.env.DB, caps, day))) return budgetRefusal();
+  // 저하 ① — 사용자·전역(질문 1건에 1)
+  if (!(await reserveQuestion(c.env.DB, caps, await userScope(c.env.SESSION_SECRET, clientIp(c), day), day)).ok) return budgetRefusal();
+  let r: AnswerResult;
+  try {
+    r = await answerQuestion(deps, q, c.env, question);
+  } catch (e) {
+    // 저하 ① — 시도할 공급자가 모두 오늘 상한(Workers AI는 설명 배치 중 0)
+    if (e instanceof ProvidersExhausted) return budgetRefusal();
+    if (e instanceof ProviderError) {
+      // 저하 ② — 시도한 공급자가 모두 실패(상태·메시지만 남긴다, 키·본문 없음)
+      console.warn(`[ask] provider error ${e.status}: ${e.message}`);
+      return problem(c, 503, "INTERNAL_ERROR");
     }
+    throw e;
   }
   return answerJson(c, {
     answerId: r.answerId,
@@ -74,9 +79,10 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
     groundingStatus: r.groundingStatus,
     cacheHit: false,
     latencyMs: r.latencyMs,
-    // 규정 검색 실패 시에만(임시 — 운영자 2026-11-03, 설계서 v0.1.22 §7): 규정 없이 툴만으로 답했다
+    fallbackDepth: r.fallbackDepth,
+    // 저하 ③(설계서 v0.1.27): 규정 없이 툴만으로 답했다
     ...(r.rulesUnavailable ? { rulesUnavailable: true } : {}),
-  });
+  }, 200, r.rulesUnavailable);
 }
 
 const parseList = (s: unknown): unknown[] => {

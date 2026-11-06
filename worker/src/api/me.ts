@@ -5,9 +5,10 @@ import { Hono } from "hono";
 import { DEMO_TENANT, type ScopedQuery } from "../db/ScopedQuery";
 import { DerivedNumbers, type LimitStage } from "../domain/DerivedNumbers";
 import { activePromptVersion, explanationOf, promptVersions } from "./explain";
-import { type AppEnv, compact, invalidRequest, notFound, ok, YM } from "./http";
+import { budgetCaps, usageOn, userScope, userUsed, utcDay, withKeys } from "../llm/budget";
+import { type AppEnv, compact, fresh, invalidRequest, notFound, ok, YM } from "./http";
 import { policyKeys, policyMasked } from "./policy";
-import { postAsk } from "./ask";
+import { clientIp, postAsk } from "./ask";
 import { requireSession } from "./session";
 import { DEMO_TENANT_CONFIG } from "./tenant";
 
@@ -251,12 +252,21 @@ me.post("/ask", postAsk);
 
 me.get("/", async (c) => {
   const { q, agentId } = c.get("scope");
-  const [p, first, last] = await Promise.all([
+  // 설계서 v0.1.27 §7: 오늘 남은 질문(전역·이 사용자) — 요청마다 바뀌어 ETag 대신 no-store(fresh)
+  const now = new Date();
+  const day = utcDay(now);
+  const caps = withKeys(budgetCaps(c.env), c.env);
+  const user = await userScope(c.env.SESSION_SECRET, clientIp(c), day);
+  const [p, first, last, usage, mine] = await Promise.all([
     q.first<{ name: string; grade: string | null; org_path: string; status: string }>("agent_profile", { columns: ["name", "grade", "org_path", "status"] }),
     q.first<{ close_ym: string }>("earnings_month", { columns: ["close_ym"], orderBy: "close_ym" }),
     q.first<{ close_ym: string }>("earnings_month", { columns: ["close_ym"], orderBy: "close_ym DESC" }),
+    usageOn(c.env.DB, caps, day),
+    userUsed(c.env.DB, user, day),
   ]);
-  return ok(
+  const remainingToday = Math.max(0, usage.global.cap - usage.global.used);
+  const userRemaining = Math.max(0, caps.user - mine);
+  return fresh(
     c,
     compact({
       agentId,
@@ -268,7 +278,9 @@ me.get("/", async (c) => {
       tenant: DEMO_TENANT_CONFIG,
       months: first && last ? { from: first.close_ym, to: last.close_ym } : undefined,
       promptVersions: promptVersions(c.env),
+      budget: { remainingToday, userRemaining, resetsAt: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString() },
     }),
+    remainingToday === 0,
   );
 });
 
