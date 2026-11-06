@@ -440,6 +440,16 @@ footer {
   margin-top: 8px;
 }
 
+/* 사람 확인(설계서 v0.1.29): Turnstile 위젯(고정 크기 300×65 — 좁은 화면에서 넘치지 않게 가로 스크롤 대신 축소 허용) */
+.human-check {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 .ask textarea {
   font: inherit;
   padding: 10px;

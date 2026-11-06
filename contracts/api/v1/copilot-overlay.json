@@ -107,6 +107,27 @@
               "description": "다음 00:00 UTC"
             }
           }
+        },
+        "turnstile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "required",
+            "verified"
+          ],
+          "description": "사람 확인(설계서 v0.1.29 §9 — Turnstile). required = 이 환경이 /ask에 사람 확인 쿠키를 요구하는가, verified = 이 요청에 유효한 쿠키가 있는가(24시간), siteKey = 위젯 사이트 키(공개 값, required일 때만)",
+          "properties": {
+            "required": {
+              "type": "boolean"
+            },
+            "verified": {
+              "type": "boolean"
+            },
+            "siteKey": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       }
     },

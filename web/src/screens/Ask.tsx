@@ -1,14 +1,16 @@
 // 화면 4 자유 질문(설계서 §8-4, PHASES Phase 4 항목 5): 입력창 + 예시 질문 칩 6개 · 답변 카드(본문·인용·툴 호출 펼침·공급자·모델·지연·재현 링크)
 // · 거부 카드(사유별 고정 문구 — 서버 text 그대로 + 대안 동선) · 예산 소진(429 BUDGET)이면 입력창 비활성 + 남은 시간.
+// · 사람 확인(설계서 v0.1.29 — /me turnstile.required이고 아직 아니면 위젯, 끝나기 전 입력창 비활성) · 분당 한도(429 RATE_LIMITED)는 그 질문에 남은 초.
 // 화면은 답의 숫자를 계산·대조하지 않는다(검증은 서버 G4~G6). LLM 본문은 큰 숫자 자리에 두지 않는다.
-import { type FormEvent, useState } from "react";
-import { api, type AskResult, questionsLeft, Unauthenticated } from "../api";
+import { type FormEvent, useCallback, useState } from "react";
+import { api, type AskResult, HumanCheckRequired, questionsLeft, RateLimited, Unauthenticated } from "../api";
 import { DISCLAIMER } from "../disclaimer";
 import { EXAMPLE_QUESTIONS } from "../examples";
 import { waitText } from "../format";
 import { GROUNDING_LABEL, REFUSE_LABEL } from "../labels";
 import { Link, navigate, paths } from "../router";
 import { Badge, Status, useLoad } from "../ui";
+import { HumanCheck } from "./HumanCheck";
 import { Shell } from "./Shell";
 
 const QUESTION_MAX = 500;
@@ -107,7 +109,7 @@ export function AnswerCard({ r }: { r: AskResult }) {
   );
 }
 
-type Exchange = { question: string } & ({ state: "pending" } | { state: "ok"; r: AskResult } | { state: "error" });
+type Exchange = { question: string } & ({ state: "pending" } | { state: "ok"; r: AskResult } | { state: "error" } | { state: "rate"; seconds: number } | { state: "human" });
 
 export function Ask() {
   const me = useLoad(() => api.me(), []);
@@ -118,7 +120,12 @@ export function Ask() {
   // 설계서 v0.1.27: 불러올 때 이미 남은 질문이 0이면 처음부터 비활성(다음 00:00 UTC까지)
   const loadedOut = me.state === "ok" && me.data.budget && questionsLeft(me.data.budget) === 0 ? Math.max(0, (Date.parse(me.data.budget.resetsAt) - Date.now()) / 1000) : null;
   const out = budgetOut ?? loadedOut;
-  const disabled = pending || out !== null;
+  // 사람 확인: 불러온 값(verified) 또는 이 화면에서 마친 뒤(true)·403을 받은 뒤(false)
+  const [human, setHuman] = useState<boolean | null>(null);
+  const turnstile = me.state === "ok" ? me.data.turnstile : undefined;
+  const needsHuman = Boolean(turnstile?.required && turnstile.siteKey) && !(human ?? turnstile?.verified);
+  const onVerified = useCallback(() => setHuman(true), []);
+  const disabled = pending || out !== null || needsHuman;
 
   async function send(q: string) {
     const text = q.trim();
@@ -132,6 +139,11 @@ export function Ask() {
       done({ question: text, state: "ok", r });
     } catch (e) {
       if (e instanceof Unauthenticated) return navigate(paths.select(), true);
+      if (e instanceof RateLimited) return done({ question: text, state: "rate", seconds: e.retryAfterSeconds });
+      if (e instanceof HumanCheckRequired) {
+        setHuman(false);
+        return done({ question: text, state: "human" });
+      }
       // 공급자 실패(503 Unavailable)·그 밖의 오류 — 둘 다 "잠시 후 다시"
       done({ question: text, state: "error" });
     }
@@ -145,6 +157,7 @@ export function Ask() {
   return (
     <Shell asOf={me.state === "ok" ? me.data.asOf : undefined} title="자유 질문">
       <Status s={me} />
+      {needsHuman && turnstile?.siteKey && <HumanCheck siteKey={turnstile.siteKey} onVerified={onVerified} />}
       <form className="ask" onSubmit={onSubmit} aria-label="질문">
         <label htmlFor="question" className="small muted">
           내 명세·한도·분급·사규에 관해 묻습니다. 계산·예측·고객 제시용 문구는 답하지 않습니다.
@@ -174,6 +187,8 @@ export function Ask() {
             <p className="question">Q. {x.question}</p>
             {x.state === "pending" && <p className="muted">답하는 중…</p>}
             {x.state === "error" && <p className="muted">잠시 후 다시 시도하세요</p>}
+            {x.state === "rate" && <p className="muted">질문이 잦습니다 — {x.seconds}초 뒤 다시 질문하세요.</p>}
+            {x.state === "human" && <p className="muted">사람 확인이 만료되었습니다 — 위에서 다시 확인한 뒤 질문하세요.</p>}
             {x.state === "ok" && <AnswerCard r={x.r} />}
           </div>
         ))}

@@ -1,11 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import type { AnswerReplay, AskResult } from "../src/api";
+import { describe, expect, it, vi } from "vitest";
+import { type AnswerReplay, type AskResult, api, HumanCheckRequired, RateLimited } from "../src/api";
 import { App } from "../src/App";
 import { EXAMPLE_QUESTIONS } from "../src/examples";
 import { waitText } from "../src/format";
 import { match } from "../src/router";
 import { AnswerCard } from "../src/screens/Ask";
+import { HumanCheck, TURNSTILE_SCRIPT } from "../src/screens/HumanCheck";
 import { promptHref, ReplayTimeline } from "../src/screens/AnswerReplay";
 
 // PHASES Phase 4 항목 5 — 화면 4(자유 질문)·7(답변 재현). LLM을 부르지 않는다: 응답 모양을 손으로 만든 정적 렌더.
@@ -162,5 +163,28 @@ describe("화면 7 답변 재현", () => {
   it("위반 없음·0006 이전 답변(null)", () => {
     expect(renderToStaticMarkup(<ReplayTimeline a={replay} />)).toContain("위반 없음(G1·G4·G5·G6)");
     expect(renderToStaticMarkup(<ReplayTimeline a={{ ...replay, violations: null }} />)).toContain("0006 이전");
+  });
+});
+
+describe("화면 4 사람 확인·분당 한도(설계서 v0.1.29 — PHASES Phase 5 항목 5)", () => {
+  it("HumanCheck: 안내 문구와 위젯 자리, 스크립트는 Turnstile 공식 경로(명시적 렌더)", () => {
+    const html = renderToStaticMarkup(<HumanCheck siteKey="0x4AAAAAAF2LyuLvbqeCCVE5" onVerified={() => {}} />);
+    expect(html).toContain('data-testid="human-check"');
+    expect(html).toContain("사람 확인");
+    expect(TURNSTILE_SCRIPT).toBe("https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit");
+  });
+
+  it("api.ask: 403 → HumanCheckRequired, problem+json 429 → RateLimited(Retry-After), 본문 429(BUDGET)는 거부 답 그대로", async () => {
+    const reply = (status: number, body: object, headers: Record<string, string> = {}) => vi.fn(async () => new Response(JSON.stringify(body), { status, headers }));
+    vi.stubGlobal("fetch", reply(403, { code: "TURNSTILE_REQUIRED", message: "사람 확인을 먼저 마치세요" }, { "Content-Type": "application/problem+json" }));
+    await expect(api.ask("q")).rejects.toBeInstanceOf(HumanCheckRequired);
+    vi.stubGlobal("fetch", reply(429, { code: "RATE_LIMITED", message: "m" }, { "Content-Type": "application/problem+json", "Retry-After": "17" }));
+    await expect(api.ask("q")).rejects.toMatchObject({ retryAfterSeconds: 17 });
+    await expect(api.ask("q")).rejects.toBeInstanceOf(RateLimited);
+    vi.stubGlobal("fetch", reply(429, { ...pass, refused: true, reason: "BUDGET", retryAfterSeconds: 100 }, { "Content-Type": "application/json" }));
+    expect((await api.ask("q")).reason).toBe("BUDGET");
+    vi.stubGlobal("fetch", reply(403, {}));
+    await expect(api.turnstile("tok")).rejects.toBeInstanceOf(HumanCheckRequired);
+    vi.unstubAllGlobals();
   });
 });

@@ -15,7 +15,7 @@ export interface Scope {
 
 export type AppEnv = { Bindings: Env; Variables: { scope: Scope } };
 
-type ProblemCode = "UNAUTHENTICATED" | "NOT_FOUND" | "INVALID_REQUEST" | "INTERNAL_ERROR" | "RATE_LIMITED";
+type ProblemCode = "UNAUTHENTICATED" | "NOT_FOUND" | "INVALID_REQUEST" | "INTERNAL_ERROR" | "RATE_LIMITED" | "TURNSTILE_REQUIRED";
 
 // 사유와 무관하게 같은 바이트(상위 §7 거부·형식)
 const MESSAGES: Record<ProblemCode, string> = {
@@ -24,9 +24,10 @@ const MESSAGES: Record<ProblemCode, string> = {
   INVALID_REQUEST: "요청 형식이 올바르지 않습니다",
   INTERNAL_ERROR: "잠시 후 다시 시도하세요",
   RATE_LIMITED: "질문이 잦습니다 — 1분 뒤 다시 시도하세요",
+  TURNSTILE_REQUIRED: "사람 확인을 먼저 마치세요",
 };
 
-export function problem(c: Context, status: 400 | 401 | 404 | 429 | 500 | 503, code: ProblemCode, headers: Record<string, string> = {}): Response {
+export function problem(c: Context, status: 400 | 401 | 403 | 404 | 429 | 500 | 503, code: ProblemCode, headers: Record<string, string> = {}): Response {
   return c.body(JSON.stringify({ code, message: MESSAGES[code] }), status, { ...headers, "Content-Type": "application/problem+json", "Cache-Control": "no-store" });
 }
 

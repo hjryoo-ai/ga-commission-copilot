@@ -11,6 +11,8 @@ declare namespace Cloudflare {
     LLM_TRACE?: string;
     /** 설계서 §6.2 3순위 폴백 — OpenRouter 무료 라우터(v0.1.27) */
     OPENROUTER_API_KEY?: string;
+    /** 설계서 v0.1.29 §9 — Turnstile Siteverify 비밀(없으면 사람 확인을 검사하지 않는다) */
+    TURNSTILE_SECRET?: string;
   }
 }
 
@@ -25,4 +27,5 @@ interface Env {
   GROQ_API_KEY?: string;
   LLM_TRACE?: string;
   OPENROUTER_API_KEY?: string;
+  TURNSTILE_SECRET?: string;
 }

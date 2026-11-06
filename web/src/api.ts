@@ -52,6 +52,14 @@ export interface Me extends Common {
   promptVersions?: Record<string, string>;
   /** 설계서 v0.1.27 §7: 오늘 남은 질문(전역·이 사용자). */
   budget?: MeBudget;
+  /** 설계서 v0.1.29 §9: 사람 확인(Turnstile) — required면 화면 4가 위젯을 그리고, verified면 24시간 쿠키가 있다. */
+  turnstile?: MeTurnstile;
+}
+
+export interface MeTurnstile {
+  required: boolean;
+  verified: boolean;
+  siteKey?: string;
 }
 
 export interface MeBudget {
@@ -246,6 +254,16 @@ export interface BudgetReport {
 /** 공급자 실패(503) — 화면은 "잠시 후 다시". */
 export class Unavailable extends Error {}
 
+/** 사람 확인 쿠키가 없거나 만료(403 TURNSTILE_REQUIRED) — 화면은 위젯을 다시 그린다. */
+export class HumanCheckRequired extends Error {}
+
+/** 분당 질문 한도(429 RATE_LIMITED — 설계서 v0.1.29 §7). retryAfterSeconds = Retry-After(다음 분까지). */
+export class RateLimited extends Error {
+  constructor(readonly retryAfterSeconds: number) {
+    super("RATE_LIMITED");
+  }
+}
+
 /** 세션이 없거나 스트림이 바뀌어 무효(401) — 화면은 설계사 선택으로. */
 export class Unauthenticated extends Error {}
 export class NotFound extends Error {}
@@ -271,13 +289,22 @@ export const api = {
   limit: (ledgerId: string) => call<LimitDetail>(`/api/v1/me/limits/${encodeURIComponent(ledgerId)}`),
   budget: () => call<BudgetReport>("/api/v1/budget"),
   answer: (answerId: string) => call<AnswerReplay>(`/api/v1/answers/${encodeURIComponent(answerId)}`),
-  /** 429(예산 소진 BUDGET)는 오류가 아니라 거부 답 — 본문을 그대로 돌려준다. */
+  /** 429(예산 소진 BUDGET)는 오류가 아니라 거부 답 — 본문을 그대로 돌려준다. 같은 429라도 problem+json RATE_LIMITED(분당 한도)는 RateLimited. */
   async ask(question: string): Promise<AskResult> {
     const res = await fetch("/api/v1/me/ask", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
     if (res.status === 401) throw new Unauthenticated();
+    if (res.status === 403) throw new HumanCheckRequired();
     if (res.status === 503) throw new Unavailable();
+    if (res.status === 429 && (res.headers.get("Content-Type") ?? "").startsWith("application/problem+json")) throw new RateLimited(Number(res.headers.get("Retry-After")) || 60);
     if (!res.ok && res.status !== 429) throw new Error(`${res.status}`);
     return (await res.json()) as AskResult;
+  },
+  /** Turnstile 토큰 → 서버 Siteverify → 24시간 쿠키(설계서 v0.1.29). 403이면 HumanCheckRequired. */
+  async turnstile(token: string): Promise<void> {
+    const res = await fetch("/api/v1/me/turnstile", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
+    if (res.status === 401) throw new Unauthenticated();
+    if (res.status === 403) throw new HumanCheckRequired();
+    if (!res.ok) throw new Error(`${res.status}`);
   },
 };
 

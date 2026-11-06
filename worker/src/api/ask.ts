@@ -4,7 +4,7 @@
 //   GET  /api/v1/answers/{id}       → 이 설계사의 answer_log 한 행(화면 7 답변 재현). LLM을 부르지 않는다 —
 //                                     툴은 저장된 인자로 다시 실행해(읽기 전용·결정론) 결과와 resultHash 일치 여부를, 검색 청크는 본문을 붙인다.
 // 저하 ①: 예산 소진(사용자·전역·시도할 공급자 전부) → LLM 없이 429 + BUDGET 고정 문구 + retryAfterSeconds(다음 00:00 UTC) — 거부도 answer_log에 남는다(§4.4).
-// 순서(설계서 v0.1.29): 레이트 리밋(분당 3) → 답 단위 재사용(24시간 같은 키 — LLM·임베딩·예산 0) → 예산 → LLM(AI Gateway 경유).
+// 순서(설계서 v0.1.29): 사람 확인(Turnstile 쿠키) → 레이트 리밋(분당 3) → 답 단위 재사용(24시간 같은 키 — LLM·임베딩·예산 0) → 예산 → LLM(AI Gateway 경유).
 // 저하 ②: 시도한 공급자가 모두 429·5xx·타임아웃 → 503. 저하 ③: 규정 검색 불가 → 툴만으로 답하고 rulesUnavailable·dataStatus DEGRADED.
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -15,6 +15,7 @@ import { fallbackChain, type GatewayRunner, groq, openrouter, ProviderError, Pro
 import { type AppEnv, common, DISCLAIMER, invalidRequest, notFound, problem } from "./http";
 import { InvalidToolCall, parseToolCall, runTool, serialize } from "../tools";
 import { requireSession } from "./session";
+import { humanVerified } from "./turnstile";
 
 const QUESTION_MAX = 500;
 const ANSWER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -40,6 +41,8 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
   const question = typeof body?.question === "string" ? body.question.trim() : "";
   if (!question || question.length > QUESTION_MAX || Object.keys(body ?? {}).some((k) => k !== "question")) return invalidRequest(c);
 
+  // Turnstile(설계서 v0.1.29 §9): TURNSTILE_SECRET이 있는 환경이면 24시간 사람 확인 쿠키가 있어야 한다
+  if (!(await humanVerified(c))) return problem(c, 403, "TURNSTILE_REQUIRED");
   const now = new Date();
   const day = utcDay(now);
   const user = await userScope(c.env.SESSION_SECRET, clientIp(c), day);
