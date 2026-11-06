@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.28)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.29)
 
 > 변경 이력
+> - v0.1.29 (2026-11-06, Phase 5 항목 3·5·레이트 리밋 — 운영자 값·결정): §6.4 **AI Gateway `copilot`** — Groq·OpenRouter 호출은 AI 바인딩의 `gateway("copilot").run()`(유니버설 요청 — 바인딩이 인증하므로 인증 게이트웨이에 토큰을 따로 두지 않는다, 코드·설정에 계정 ID 없음), Workers AI는 `AI.run(…, {gateway})`. 캐시 키는 정규화 질문+agentId+streamHash+promptVersion의 해시에 **단계(1·2)를 붙여** LLM 호출마다(같은 키로 단계 2가 단계 1 응답을 받지 않게), TTL 24시간. 게이트웨이 자체 오류(`AiGatewayError`)면 그 공급자를 직접 URL로 한 번 더(게이트웨이 설정 문제로 /ask가 멈추지 않게) · **"캐시 히트는 예산 미차감"은 답 단위 재사용으로**: 게이트웨이 히트는 호출 뒤에야 알 수 있어 예산을 미리 차감하는 순서와 맞지 않으므로, 예산 검사 전에 answer_log에서 같은 키(이 설계사·활성 스트림·활성 프롬프트·정규화 질문)의 24시간 안 답(PASS, 또는 범위 밖·다른 설계사·엔진 필요 거부 — FAIL·BUDGET 제외)을 찾아 그대로 돌려준다(새 answer_log 행 `cache_hit=1`, LLM·임베딩·예산 0, `stat:cache:hit`) · §9 **Turnstile**(사이트 키 공개 var `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`): 화면 4 위젯 토큰 → `POST /api/v1/me/turnstile` → Siteverify(토큰 300초·1회용) 성공이면 24시간 서명 쿠키(HMAC `SESSION_SECRET`) — `/ask`는 쿠키가 없으면 403. `TURNSTILE_SECRET`이 없는 환경(로컬·시험)은 검사하지 않는다 · §7 **레이트 리밋**: WAF 규칙은 zone 기능이라 `*.workers.dev`에 걸 수 없고, Workers Rate Limiting 바인딩은 무료 플랜 포함 여부가 공식 문서에 없어(2026-11-06 확인 — 바인딩 문서·Workers 가격·한도 페이지) 쓰지 않는다 → Worker 안 분 단위 제한 `budget_counter` 범위 `rl:ip:<솔트 해시>:<yyyymmddHHMM>` 상한 3(같은 단일 UPDATE), 넘으면 429 `RATE_LIMITED`·`Retry-After`(다음 분까지). 하루 지난 `rl:` 행은 Worker Cron Trigger(매일 00:17 UTC, 무료 5개/계정)가 지운다 · §10.1 Turnstile·Cron Trigger·Rate Limiting 바인딩 행.
 > - v0.1.28 (2026-11-06, Phase 5 항목 6): §7 공개 `GET /api/v1/budget`의 분포(폴백 깊이·거부 사유·캐시 적중·규정 검색 저하)는 answer_log를 설계사 경계 없이 모으지 않고(규약 3) **`budget_counter`의 `stat:<이름>` 범위**(`stat:depth:0|1|2`·`stat:refuse:<사유 소문자>`·`stat:cache:hit|miss`·`stat:degraded:rules`)로 센다 — 같은 단일 UPDATE, 질문 1건에 1~3행 쓰기. 응답 `{today, days[7], fallbackDepth, refusals, cache, degraded, caps}`, 사용자 키(`ip:…`)는 내보내지 않는다, no-store. `/me`는 오늘 남은 질문 때문에 ETag·304 없이 no-store.
 > - v0.1.27 (2026-11-06, Phase 5 시작 — 운영자 결정): §6.2 **Workers AI 뉴런은 설명 배치와 런타임 폴백이 나눠 쓴다** — 하루 10,000뉴런에 배치 90회(실측 회당 98 → 약 8,820)와 폴백 80회(약 7,840)가 함께 들어가지 않으므로 **배치가 끝날 때까지(11-08 예상) 폴백 상한 0, 그 뒤 80**(`BUDGET_WORKERS_AI` — 전환은 배치 591/591 확인 뒤 커밋). 전역 상한은 `min(BUDGET_GLOBAL, 공급자 상한 합)` — 배치 중 55+0+15=70 · 폴백 체인 Groq → Workers AI `@cf/openai/gpt-oss-120b` → OpenRouter `openrouter/free`(상한 0인 공급자는 건너뛰고, 시도는 최대 2개) · **저하 모드를 정식으로**(v0.1.22 임시 처리 대체): ① 예산 소진(전역·사용자·시도할 공급자 전부) → 429 `BUDGET`, ② 시도한 공급자가 모두 429·5xx·타임아웃 → 503(일시 — 예산과 별개), ③ 규정 검색(임베딩·Vectorize) 실패 → 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`, 화면에 안내. 세 경우 모두 사전 생성 설명·캐시 히트는 그대로 · Phase 4 개발 상한 `ASK_DAILY_CAP`(`ask:dev`)은 §6.2 범위(`global`·`ip:<일일 솔트 해시>`·`provider:<이름>`)로 대체 · 사용자 범위 키는 IP를 날마다 바뀌는 솔트(`SESSION_SECRET`에서 HMAC으로 유도 — 새 시크릿 없음)로 해시, 원문 IP는 저장하지 않는다 · AI Gateway URL은 AI 바인딩의 `gateway(id).getUrl()`로 얻는다(코드·설정에 계정 ID 없음).
 > - v0.1.26 (2026-11-06, Phase 4 수용 — 운영자 결정): §5.1 `answer_log.violations`에 `g1Shape[]`(사유 코드 `EMPTY_BODY`·`SHAPE`·`TOOL_ARG_REJECTED`·`TOOL_IN_STAGE2` — JSON 열이라 마이그레이션 없음) · §8-7 화면 7 "모양 오류" 칩 · §13.1 Phase 6 측정 항목에 **케이스당 반복 실행 n회의 통과율 분포**(Phase 4 수용 때 같은 v3·같은 데이터에서 녹화 10/12 vs 공개 캡처 8/12 — A-02·A-12 불일치가 첫 측정값) · 답변 인용은 다음 프롬프트(answer/v4, Phase 6 하네스 뒤 첫 프롬프트 PR)부터 배열 인덱스가 아니라 안정 키(`lines[c-…]`, 이력 `postingSeq`)로 — 툴 결과 형식·G5 대조도 키로(DECISIONS 2026-11-06, 지금은 만들지 않는다) · §11 `daily-explain.yml` cron `23 0 * * *`(00:23 UTC — 11-06 첫 예약 실행이 00:05 예약에 05:33 시작).
@@ -410,7 +411,8 @@ CREATE TABLE eval_case_result (
 | 층 | 키 | TTL | 효과 |
 |---|---|---|---|
 | 사전 생성 설명(D1) | `streamHash+promptVersion+subject` | 스트림 교체 시 무효 | Q1~Q3 런타임 LLM 호출 0 |
-| AI Gateway 캐시 | 정규화 질문+agentId+streamHash+promptVersion | 24시간 | 같은 데모 설계사에 같은 질문 반복(평가자 다수)에 대응 |
+| AI Gateway 캐시 | 정규화 질문+agentId+streamHash+promptVersion(+단계 1·2, v0.1.29) | 24시간 | 같은 데모 설계사에 같은 질문 반복(평가자 다수)에 대응 — LLM 호출 단위 |
+| 답 단위 재사용(v0.1.29) | 같은 키 — answer_log(이 설계사·활성 스트림·활성 프롬프트·정규화 질문, PASS 또는 범위 밖·다른 설계사·엔진 필요 거부) | 24시간 | 예산 검사 전에 찾아 그대로 돌려준다 — LLM·임베딩·예산 0("캐시 히트는 예산 미차감"), answer_log에 `cache_hit=1` 행 |
 | 응답 ETag | `asOf.streamHash` | — | 화면 재방문 시 304 |
 
 정규화: 공백·조사·숫자 표기 통일 후 해시. 의미 유사 질문의 캐시 병합(임베딩 거리 기반)은 v0.1에서 하지 않는다 — 다른 질문에 같은 답을 돌려주는 위험이 절약보다 크다.
@@ -473,7 +475,7 @@ CREATE TABLE eval_case_result (
 
 **저하 모드 응답**: `/ask`는 200이 아닌 **429**에 `{refused: true, reason: "BUDGET", retryAfterSeconds, text: 고정 문구}`를 돌려주고, 나머지 엔드포인트는 평소와 같다. 프론트는 429를 오류가 아닌 상태로 렌더링한다.
 
-**레이트 리밋(예산과 별도)**: `/ask`는 IP당 분당 3회(Cloudflare WAF 무료 규칙). 정적 자산은 Static Assets로 분리해 일일 100,000 요청 한도에 들어가지 않게 한다(공식 문서: 정적 자산 요청은 무료·무제한, Phase 0 확인). `/api/*`는 Worker가 먼저 받으므로 일일 한도 초과 시 Error 1027(Workers limits 문서) 또는 429(Static Assets 문서)가 되며 — 두 공식 문서가 다르게 적고 있으므로 프론트는 **둘 다** 저하 모드 신호로 처리하고, 사전 생성 설명은 ETag 캐시로 보여준다(Phase 5).
+**레이트 리밋(예산과 별도)**: `/ask`는 IP당 분당 3회 — v0.1.29: WAF 규칙은 zone 기능이라 `*.workers.dev`에 걸 수 없어 Worker 안에서 센다(`budget_counter` `rl:ip:<솔트 해시>:<yyyymmddHHMM>` 상한 3, 넘으면 429 `RATE_LIMITED`·`Retry-After`, 하루 지난 행은 Cron Trigger가 삭제). 정적 자산은 Static Assets로 분리해 일일 100,000 요청 한도에 들어가지 않게 한다(공식 문서: 정적 자산 요청은 무료·무제한, Phase 0 확인). `/api/*`는 Worker가 먼저 받으므로 일일 한도 초과 시 Error 1027(Workers limits 문서) 또는 429(Static Assets 문서)가 되며 — 두 공식 문서가 다르게 적고 있으므로 프론트는 **둘 다** 저하 모드 신호로 처리하고, 사전 생성 설명은 ETag 캐시로 보여준다(Phase 5).
 
 ---
 
@@ -533,6 +535,8 @@ CREATE TABLE eval_case_result (
 | Vectorize 한계 | 벡터당 최대 1,536차원(float32), 인덱스당 2,000만 벡터, 메타데이터 10KiB/벡터 | — | https://developers.cloudflare.com/vectorize/platform/limits/ (갱신 2026-08-05) |
 | Workers AI | 10,000뉴런/일, 00:00 UTC 리셋. 초과 시 실패(Free) 또는 $0.011/1,000뉴런(Paid). 일부 모델(kimi-k2.6, kimi-k2.7-code, glm-5.2/5.3/5.3-flash, deepseek-v4 계열)은 결제 수단 필요 | 실패 | https://developers.cloudflare.com/workers-ai/platform/pricing/ (갱신 2026-10-20) |
 | Workers KV | 저장 1GB, 읽기 100,000/일, **쓰기·삭제·목록 1,000/일** | — | https://www.cloudflare.com/plans.md — D-6의 근거 |
+| Turnstile (v0.1.29) | Free: 위젯 20개, 위젯당 호스트 이름 10개, 챌린지(트래픽·검증 요청) 무제한, 무료. Siteverify 토큰은 생성 뒤 300초 유효·1회만 검증 | — | https://developers.cloudflare.com/turnstile/plans/ (갱신 2026-08-14), https://developers.cloudflare.com/turnstile/get-started/server-side-validation/ (2026-11-06 열람) |
+| Workers Cron Triggers·Rate Limiting 바인딩 (v0.1.29) | Cron Triggers: Free 5개/계정, Cron 실행당 CPU 10ms. Rate Limiting 바인딩(`ratelimits`, 기간 10·60초, 위치별 근사): **무료 플랜 포함 여부가 공식 문서에 없다** — 쓰지 않는다 | — | https://developers.cloudflare.com/workers/platform/limits/ , https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/ (2026-11-06 열람) |
 | AI Gateway | 핵심 기능(분석·캐시·레이트리밋) 전 플랜 무료, DLP 무료. 로그는 계정 기준: 첫 게이트웨이를 2026-09-24 이후 만든 계정은 Workers Logs 요금·보존, 그 전 계정은 Legacy Logs. Free 게이트웨이 10개/계정 | 로그 저장 중단 | https://developers.cloudflare.com/ai-gateway/reference/pricing/ (표시 갱신 2026-10-15), https://developers.cloudflare.com/ai-gateway/reference/limits/ (표시 갱신 2026-09-24) |
 | 로그·트레이스 (Workers Logs·AI Gateway 로그 공통) | **2026-12-01부터** 모든 로그·트레이스 통합 요금. Free: 수집 0.5GB/일, 7일 보존. 기존 Free 고객 자동 이전, 수집 과금은 그 날 이후 데이터만 | 수집 중단 | https://developers.cloudflare.com/observability/pricing/ (갱신 2026-10-25) |
 
