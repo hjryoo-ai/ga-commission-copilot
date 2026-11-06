@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.26)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.27)
 
 > 변경 이력
+> - v0.1.27 (2026-11-06, Phase 5 시작 — 운영자 결정): §6.2 **Workers AI 뉴런은 설명 배치와 런타임 폴백이 나눠 쓴다** — 하루 10,000뉴런에 배치 90회(실측 회당 98 → 약 8,820)와 폴백 80회(약 7,840)가 함께 들어가지 않으므로 **배치가 끝날 때까지(11-08 예상) 폴백 상한 0, 그 뒤 80**(`BUDGET_WORKERS_AI` — 전환은 배치 591/591 확인 뒤 커밋). 전역 상한은 `min(BUDGET_GLOBAL, 공급자 상한 합)` — 배치 중 55+0+15=70 · 폴백 체인 Groq → Workers AI `@cf/openai/gpt-oss-120b` → OpenRouter `openrouter/free`(상한 0인 공급자는 건너뛰고, 시도는 최대 2개) · **저하 모드를 정식으로**(v0.1.22 임시 처리 대체): ① 예산 소진(전역·사용자·시도할 공급자 전부) → 429 `BUDGET`, ② 시도한 공급자가 모두 429·5xx·타임아웃 → 503(일시 — 예산과 별개), ③ 규정 검색(임베딩·Vectorize) 실패 → 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`, 화면에 안내. 세 경우 모두 사전 생성 설명·캐시 히트는 그대로 · Phase 4 개발 상한 `ASK_DAILY_CAP`(`ask:dev`)은 §6.2 범위(`global`·`ip:<일일 솔트 해시>`·`provider:<이름>`)로 대체 · 사용자 범위 키는 IP를 날마다 바뀌는 솔트(`SESSION_SECRET`에서 HMAC으로 유도 — 새 시크릿 없음)로 해시, 원문 IP는 저장하지 않는다 · AI Gateway URL은 AI 바인딩의 `gateway(id).getUrl()`로 얻는다(코드·설정에 계정 ID 없음).
 > - v0.1.26 (2026-11-06, Phase 4 수용 — 운영자 결정): §5.1 `answer_log.violations`에 `g1Shape[]`(사유 코드 `EMPTY_BODY`·`SHAPE`·`TOOL_ARG_REJECTED`·`TOOL_IN_STAGE2` — JSON 열이라 마이그레이션 없음) · §8-7 화면 7 "모양 오류" 칩 · §13.1 Phase 6 측정 항목에 **케이스당 반복 실행 n회의 통과율 분포**(Phase 4 수용 때 같은 v3·같은 데이터에서 녹화 10/12 vs 공개 캡처 8/12 — A-02·A-12 불일치가 첫 측정값) · 답변 인용은 다음 프롬프트(answer/v4, Phase 6 하네스 뒤 첫 프롬프트 PR)부터 배열 인덱스가 아니라 안정 키(`lines[c-…]`, 이력 `postingSeq`)로 — 툴 결과 형식·G5 대조도 키로(DECISIONS 2026-11-06, 지금은 만들지 않는다) · §11 `daily-explain.yml` cron `23 0 * * *`(00:23 UTC — 11-06 첫 예약 실행이 00:05 예약에 05:33 시작).
 > - v0.1.25 (2026-11-05, Phase 4 항목 5 — 운영자 결정): §5.1 `answer_log.violations`(마이그레이션 0006, TEXT JSON `{g4Missing[], g5Unknown[], g6Words[]}`) — 거부·PASS 모두 기록(위반이 없으면 빈 배열, 0006 이전 행은 NULL). 거부 전 모델 원문은 저장하지 않는다(로컬 녹화 `llm_trace`만) · §8-7 화면 7은 위반 목록을 토큰 단위로 표시 · §7 `GET /answers/{id}`에 `violations`·`normalizedQuestion`, 툴은 저장된 인자로 다시 실행해 `result`·`reproduced`(resultHash 대조), 검색 청크 본문(visibility=agent) · §11 `capture-public.yml`(workflow_dispatch — 공개 URL에 부록 A 12건 `/me/ask`, 응답 JSON·answerId·재현 응답을 `bot/capture-public` 브랜치에 커밋, Phase 4 완료 기준 "answer_log 12행"은 이 캡처의 원격 행).
 > - v0.1.24 (2026-11-05, CI 수정 — 운영자 지시): §11 CI/CD — 시험은 projection-java를 빌드하지 않는다. `ci.yml`·`daily-explain.yml`은 시험·CLI 전에 `pnpm run build:replay`(`installDist`) 한 번, 로컬 `pnpm -r test`는 gen `pretest`가 같은 빌드를 먼저. `viewsOf`는 산출물이 없으면 명확한 오류로 실패한다. 2026-11-02 이후 CI 실패는 병렬 시험 파일 2개(`explain-stream`·`answer-fixture`)가 각자 `installDist`를 돌려 서로의 bin을 다시 쓴 경쟁(4회 모두 두 파일 실행 구간 겹침, 빈 출력 JSON 파싱).
@@ -222,7 +223,7 @@ ga-commission-copilot/
   → 예산 검사 (전역·사용자, §6.2)              [소진: 저하 모드 응답]
   → 정규화 + AI Gateway 캐시 키 (agentId, streamHash, promptVersion, question)
   → 질의 임베딩 @cf/baai/bge-m3                [Workers AI, ~0.1 뉴런]
-  → Vectorize topK=6, filter {visibility: 'agent'}  [v0.1.22 임시: 임베딩·검색 실패면 규정 없이 툴만 — rulesUnavailable]
+  → Vectorize topK=6, filter {visibility: 'agent'}  [저하 ③(v0.1.27): 임베딩·검색 실패면 규정 없이 툴만 — rulesUnavailable·DEGRADED]
   → LLM 1회: 구조화 출력 {toolCalls[], draft?}  [Groq → Workers AI → OpenRouter]
   → 툴 실행 (D1 읽기 전용, agentId 강제 바인딩)
   → 툴 결과가 있으면 LLM 1회 더: 최종 답변 {text, numbersUsed[], citations[], refused, reason}
@@ -390,12 +391,12 @@ CREATE TABLE eval_case_result (
 |---|---|---|
 | 전역 런타임 LLM 호출 | **150** (= 공급자별 상한의 합, §10.4) | Groq TPD 200K 역산 약 55회 + Workers AI 80회 + OpenRouter 15회. TPM 8K가 빡빡하므로 프롬프트 ≤ 3K 토큰, 동시 2건 |
 | 사용자(IP 해시) | **10** | 한 사람이 전역 예산을 다 쓰지 못하게 |
-| Workers AI 폴백 | **80** | 10,000뉴런/일 ÷ gpt-oss-120b 호출당 약 91뉴런(입력 2K+출력 0.4K 기준) ≈ 110회, 임베딩·여유 제외 |
+| Workers AI 폴백 | **80**(설명 배치 중 **0**, v0.1.27) | 10,000뉴런/일 ÷ gpt-oss-120b 호출당 약 98뉴런(배치 실측 — v0.1.19) ≈ 100회, 임베딩·여유 제외. **설명 배치(90회 ≈ 8,820뉴런)와 같은 계정 뉴런을 나눠 쓴다** — 둘이 한날에 들어가지 않으므로 배치가 끝날 때까지(11-08 예상) 0, 배치 591/591 확인 뒤 80으로 바꾸는 커밋(`BUDGET_WORKERS_AI`) |
 | OpenRouter 폴백 | **15** (상한 40) | 미결제 계정 50 RPD |
 
-폴백 순서: `groq(openai/gpt-oss-120b)` → `workers-ai(@cf/openai/gpt-oss-120b)` → `openrouter(:free 라우터)` → 저하 모드. 429·5xx·타임아웃(8초)에서 다음 공급자로 넘어가며, 같은 요청은 최대 2개 공급자까지만 시도한다(실패 요청도 RPD를 소모한다). 공급자별 `budget_counter`를 따로 세고, `/budget`에 공급자별 사용·폴백 깊이 분포를 표시한다. 카운터 갱신은 D1 `UPDATE ... SET used = used + 1 WHERE used < ?` 한 문장으로 원자적으로 하고, 영향 행이 0이면 소진이다.
+폴백 순서: `groq(openai/gpt-oss-120b)` → `workers-ai(@cf/openai/gpt-oss-120b)` → `openrouter(openrouter/free)` → 저하 모드. 상한이 0이거나 그날 소진된 공급자는 시도에 넣지 않는다(시도 2개 상한에도 세지 않음). 전역 상한은 `min(BUDGET_GLOBAL, 공급자 상한 합)`이라 배치 중에는 70(55+0+15)이다(v0.1.27). 환경변수 `BUDGET_GLOBAL=150`·`BUDGET_USER=10`·`BUDGET_GROQ=55`·`BUDGET_WORKERS_AI=0→80`·`BUDGET_OPENROUTER=15`. 전역·사용자는 질문 1건에 1, 공급자는 HTTP 호출마다 1(답 하나에 LLM 2회면 2) — 캐시 히트는 어느 것도 차감하지 않는다. 429·5xx·타임아웃(8초)에서 다음 공급자로 넘어가며, 같은 요청은 최대 2개 공급자까지만 시도한다(실패 요청도 RPD를 소모한다). 공급자별 `budget_counter`를 따로 세고, `/budget`에 공급자별 사용·폴백 깊이 분포를 표시한다. 카운터 갱신은 D1 `UPDATE ... SET used = used + 1 WHERE used < ?` 한 문장으로 원자적으로 하고, 영향 행이 0이면 소진이다.
 
-**저하 모드**: 사전 생성 설명(Q1~Q3)과 AI Gateway 캐시 히트는 예산과 무관하게 계속 제공. 자유 질문은 `BUDGET` 거부. 화면 상단에 "오늘 남은 질문 n회" 칩을 항상 표시해 소진이 갑작스럽지 않게 한다.
+**저하 모드**(v0.1.27 정식 — v0.1.22 임시 처리 대체): 사전 생성 설명(Q1~Q3)과 AI Gateway 캐시 히트는 예산과 무관하게 계속 제공. 자유 질문은 세 경우로 나눈다 — ① **예산 소진**(전역·사용자, 또는 시도할 공급자가 모두 그날 상한) → 429 `BUDGET`(LLM 호출 없음, answer_log에 거부로), ② **공급자 실패**(시도한 공급자 2개가 모두 429·5xx·타임아웃) → 503(예산 소진이 아니라 일시 장애 — 화면은 "잠시 후 다시"), ③ **규정 검색 불가**(질의 임베딩·Vectorize 실패 — 계정 뉴런 소진 4006 등) → 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`(규정 인용은 G5에서 0건만 통과), 화면 4는 답 카드에 안내를 단다. 화면 상단에 "오늘 남은 질문 n회" 칩을 항상 표시해 소진이 갑작스럽지 않게 한다.
 
 ### 6.3 프롬프트 버전 관리
 
@@ -432,7 +433,7 @@ CREATE TABLE eval_case_result (
 | `GET /api/v1/me/earnings/lines/{calcId}` | 라인 상세 + `explanation {text, citedFields, numbersUsed, groundingStatus, promptVersion}` (없으면 `null`, `FAIL`이면 `{groundingStatus, promptVersion}`만 — 텍스트를 내보내지 않는다, v0.1.14) | — |
 | `GET /api/v1/me/limits` / `/{ledgerId}` | 한도 카드·상세 + `explanation`(kind=LIMIT) | — |
 | `GET /api/v1/me/earnings/{ym}/diff` | 전월 대비 설명(kind=MONTH_DIFF) | — |
-| `POST /api/v1/me/ask {question}` | §4.3 결과: `{answerId, text, citations[], toolCalls[], refused, reason, provider, model, promptVersion, cacheHit, latencyMs}`. Phase 4(예산 전)는 개발 하드 상한 `ASK_DAILY_CAP`(기본 20/일, `budget_counter` scope `ask:dev`) — 닿으면 LLM 없이 429 `BUDGET`(v0.1.18) | 1 (캐시 히트·거부 시 0)  v0.1.22(Phase 5 전 임시): 규정 검색이 실패하면 규정 없이 툴만으로 답하고 `rulesUnavailable: true`를 더한다(정식 저하 모드는 Phase 5). |
+| `POST /api/v1/me/ask {question}` | §4.3 결과: `{answerId, text, citations[], toolCalls[], refused, reason, provider, model, promptVersion, cacheHit, latencyMs, fallbackDepth}`. 예산(v0.1.27 — §6.2 `global`·`ip:<솔트 해시>`·`provider:<이름>`)이 소진되면 LLM 없이 429 `BUDGET`·`retryAfterSeconds`(Phase 4 개발 상한 `ASK_DAILY_CAP`·`ask:dev`는 v0.1.27에서 대체) | 1 (캐시 히트·거부 시 0)  규정 검색이 실패하면 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`(§6.2 저하 ③ — v0.1.22 임시 처리를 v0.1.27에서 정식으로). |
 | `GET /api/v1/answers/{answerId}` | 재현 뷰: 검색 청크·툴 결과·검증 결과 전문 (본인 세션만) | — |
 | `GET /api/v1/evals` / `/{runId}` | 평가 런 목록·케이스별 결과 (공개) | — |
 | `GET /api/v1/budget` | 오늘·최근 7일 공급자별 사용, 폴백 깊이 분포, 캐시 적중률 (공개) | — |
