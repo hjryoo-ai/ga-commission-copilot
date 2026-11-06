@@ -73,6 +73,16 @@ describe("POST /api/v1/me/ask", () => {
     expect(await env.DB.prepare("SELECT used FROM budget_counter WHERE scope = 'stat:refuse:budget'").first("used")).toBe(1);
   });
 
+  it("PHASES Phase 5 항목 7: 소진 뒤에도 설명·명세 API는 200(저하 모드는 자유 질문만), /me 남은 질문 0·DEGRADED", async () => {
+    await env.DB.prepare("INSERT INTO budget_counter (scope, day, used) VALUES ('global', ?, ?)").bind(today(), budgetCaps(env).global).run();
+    const one = await login(app, 1);
+    expect((await ask(one, { question: "8월 실수령은?" })).status).toBe(429);
+    const get = (path: string) => app.fetch(new Request(`https://example.com${path}`, { headers: { Cookie: one } }));
+    for (const path of ["/api/v1/me/earnings/lines/1", "/api/v1/me/limits", "/api/v1/me/earnings/202608/diff"]) expect((await get(path)).status, path).toBe(200);
+    const me = (await (await get("/api/v1/me")).json()) as { budget: { remainingToday: number }; dataStatus: string };
+    expect([me.budget.remainingToday, me.dataStatus]).toEqual([0, "DEGRADED"]);
+  });
+
   it("retryAfterSeconds = 다음 00:00 UTC까지", () => {
     expect(secondsToUtcMidnight(new Date("2026-11-01T23:59:00Z"))).toBe(60);
     expect(secondsToUtcMidnight(new Date("2026-11-01T00:00:00Z"))).toBe(86_400);
