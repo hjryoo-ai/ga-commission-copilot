@@ -38,10 +38,14 @@ function loadTurnstile(): Promise<TurnstileApi> {
 
 type CheckState = "idle" | "checking" | "failed";
 
-/** 화면 4 입력창 위 — 확인이 끝나면 onVerified. 실패하면 다시 시도할 수 있게 위젯을 초기화한다. */
+/**
+ * 화면 4 입력창 위 — 확인이 끝나면 onVerified. 서버가 거부하면 위젯을 자동으로 다시 돌리지 않고 "다시 확인" 버튼을 둔다
+ * (자동 통과 모드에서 거부 → 초기화 → 자동 통과 → 거부가 끝없이 돌지 않게 — 2026-11-06 로컬 시험 키에서 확인).
+ */
 export function HumanCheck({ siteKey, onVerified }: { siteKey: string; onVerified(): void }) {
   const box = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<CheckState>("idle");
+  const widget = useRef<{ ts: TurnstileApi; id: string } | null>(null);
   useEffect(() => {
     let id: string | undefined;
     let ts: TurnstileApi | undefined;
@@ -58,26 +62,41 @@ export function HumanCheck({ siteKey, onVerified }: { siteKey: string; onVerifie
             api.turnstile(token).then(onVerified, (e: unknown) => {
               if (e instanceof Unauthenticated) return navigate(paths.select(), true);
               setState("failed");
-              t.reset(id);
               if (!(e instanceof HumanCheckRequired)) console.warn("turnstile 확인 실패");
             });
           },
           "error-callback": () => setState("failed"),
           "expired-callback": () => t.reset(id),
         });
+        widget.current = { ts: t, id };
       })
       .catch(() => alive && setState("failed"));
     return () => {
       alive = false;
+      widget.current = null;
       if (ts && id) ts.remove(id);
     };
   }, [siteKey, onVerified]);
   return (
     <div className="human-check" data-testid="human-check">
-      <p className="small muted">질문하기 전에 사람 확인을 한 번 마치세요(24시간 유지).</p>
+      <p className="small muted">질문하기 전에 사람 확인을 한 번 마치세요(같은 네트워크에서 24시간 유지).</p>
       <div ref={box} />
       {state === "checking" && <p className="small muted">확인하는 중…</p>}
-      {state === "failed" && <p className="small muted">확인하지 못했습니다 — 다시 시도하세요.</p>}
+      {state === "failed" && (
+        <p className="small muted">
+          확인하지 못했습니다.{" "}
+          <button
+            type="button"
+            className="linklike"
+            onClick={() => {
+              setState("idle");
+              widget.current?.ts.reset(widget.current.id);
+            }}
+          >
+            다시 확인
+          </button>
+        </p>
+      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 // Turnstile 봇 방지(설계서 v0.1.29 §9·§10.1, PHASES Phase 5 항목 5).
 //   POST /api/v1/me/turnstile {token} → Siteverify(토큰 300초·1회용) 성공이면 24시간 서명 쿠키 → /ask는 그 쿠키가 있어야 받는다.
 // TURNSTILE_SECRET(wrangler secret)이 없는 환경(로컬·시험)은 검사하지 않는다. 사이트 키는 공개 값(wrangler.jsonc var TURNSTILE_SITE_KEY).
-// 쿠키 서명 키는 SESSION_SECRET에서 용도를 붙여 유도한다(세션 쿠키 값을 옮겨 붙여도 맞지 않게). 토큰·비밀은 로그·응답에 남기지 않는다.
+// 쿠키 서명 키 = SESSION_SECRET + 용도 + 요청 IP — 세션 쿠키 값을 옮겨 붙여도, 한 번 푼 쿠키를 다른 IP(봇 여러 대)에서 다시 써도 맞지 않는다.
+// IP는 서명 키에만 쓰고 쿠키·로그에 남기지 않는다. IP가 바뀌면(모바일 망 전환 등) 다시 확인한다. 토큰·비밀은 로그·응답에 남기지 않는다.
 import type { Context } from "hono";
 import { getSignedCookie, setSignedCookie } from "hono/cookie";
 import { type AppEnv, invalidRequest, problem } from "./http";
@@ -16,7 +17,8 @@ export type TurnstileEnv = Pick<Env, "TURNSTILE_SECRET" | "TURNSTILE_SITE_KEY" |
 
 export const turnstileRequired = (env: Pick<Env, "TURNSTILE_SECRET">) => Boolean(env.TURNSTILE_SECRET);
 
-const cookieKey = (secret: string) => `${secret}\u001fturnstile`;
+const cookieKey = (secret: string, ip: string) => `${secret}\u001fturnstile\u001f${ip}`;
+const requestIp = (c: Context<AppEnv>) => c.req.header("CF-Connecting-IP") ?? "local";
 
 export interface SiteverifyResult {
   success: boolean;
@@ -45,7 +47,7 @@ export async function humanVerified(c: Context<AppEnv>, now = Date.now()): Promi
   if (!turnstileRequired(c.env)) return true;
   const secret = c.env.SESSION_SECRET;
   if (!secret) return false;
-  const v = await getSignedCookie(c, cookieKey(secret), COOKIE);
+  const v = await getSignedCookie(c, cookieKey(secret, requestIp(c)), COOKIE);
   if (typeof v !== "string" || !/^[0-9]{13}$/.test(v)) return false;
   return Number(v) > now;
 }
@@ -79,6 +81,6 @@ export async function postTurnstile(c: Context<AppEnv>, fetcher: typeof fetch = 
     return problem(c, 403, "TURNSTILE_REQUIRED");
   }
   const exp = Date.now() + HUMAN_MAX_AGE_S * 1000;
-  await setSignedCookie(c, COOKIE, String(exp), cookieKey(session), { httpOnly: true, secure: true, sameSite: "Lax", path: "/", maxAge: HUMAN_MAX_AGE_S });
+  await setSignedCookie(c, COOKIE, String(exp), cookieKey(session, requestIp(c)), { httpOnly: true, secure: true, sameSite: "Lax", path: "/", maxAge: HUMAN_MAX_AGE_S });
   return c.json({ verified: true, required: true, expiresAt: new Date(exp).toISOString() }, 200, { "Cache-Control": "no-store" });
 }

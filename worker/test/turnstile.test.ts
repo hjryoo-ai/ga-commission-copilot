@@ -101,6 +101,18 @@ describe("TURNSTILE_SECRET 있는 환경", () => {
     expect((await fetchWith(withSecret, "/api/v1/me/turnstile", { method: "POST", body: JSON.stringify({ token: "t" }) })).status).toBe(401);
   });
 
+  it("쿠키는 확인한 IP에서만 — 같은 쿠키를 다른 IP에서 보내면 403(한 번 푼 쿠키를 봇 여러 대가 나눠 쓰지 못하게)", async () => {
+    verifyReply({ success: true });
+    const fromA = { "CF-Connecting-IP": "203.0.113.7" };
+    const res = await fetchWith(withSecret, "/api/v1/me/turnstile", { method: "POST", cookie: session, headers: fromA, body: JSON.stringify({ token: "tok" }) });
+    const both = `${session}; ${humanCookie(res).split(";")[0]}`;
+    vi.restoreAllMocks();
+    const me = async (ip: string) => ((await (await fetchWith(withSecret, "/api/v1/me", { cookie: both, headers: { "CF-Connecting-IP": ip } })).json()) as { turnstile: { verified: boolean } }).turnstile.verified;
+    expect([await me("203.0.113.7"), await me("198.51.100.9")]).toEqual([true, false]);
+    const other = await fetchWith(withSecret, "/api/v1/me/ask", { method: "POST", cookie: both, headers: { "CF-Connecting-IP": "198.51.100.9" }, body: JSON.stringify({ question: "8월?" }) });
+    expect(other.status).toBe(403);
+  });
+
   it("위조·만료·세션 쿠키 값을 옮겨 붙인 쿠키는 통과하지 않는다", async () => {
     verifyReply({ success: true });
     const set = humanCookie(await verify(session)).split(";")[0]!;

@@ -450,6 +450,17 @@ footer {
   overflow: hidden;
 }
 
+.linklike {
+  font: inherit;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 44px;
+}
+
 .ask textarea {
   font: inherit;
   padding: 10px;
