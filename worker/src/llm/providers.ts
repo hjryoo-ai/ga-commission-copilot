@@ -1,6 +1,9 @@
 // 런타임 LLM 공급자(설계서 §4.3·§6.2·§10.2, PHASES Phase 4 항목 3·Phase 5 항목 2). 폴백 체인 groq → workers-ai → openrouter(v0.1.27).
 // OpenAI 호환 Chat Completions를 fetch 한 번으로(SDK 없음, §11), 8초 타임아웃. 요청 본문은 gen/providers/groq.ts requestBody와 같은 모양(temperature 0·reasoning_effort low·json_schema strict).
 // 키는 wrangler secret GROQ_API_KEY(규약 10). 값은 로그·응답에 남기지 않는다.
+// AI Gateway(설계서 v0.1.29 §6.4): AI_GATEWAY_ID가 있으면 Groq·OpenRouter는 AI 바인딩 gateway(id).run()(유니버설 요청 — 바인딩이 인증,
+// 계정 ID·게이트웨이 토큰 없음), Workers AI는 run(…, {gateway}). 캐시 키는 요청의 cacheKey(requestBody 밖 — 카세트 해시가 바뀌지 않는다), TTL 24시간.
+// 게이트웨이 자체 오류(던짐·게이트웨이 형식 오류 본문·404 경로)면 그 공급자를 직접 한 번 더 — 게이트웨이 설정 때문에 /ask가 멈추지 않게.
 // LLM_TRACE=1(로컬 .dev.vars 전용)이면 traced()가 원문 요청·응답을 D1 llm_trace에 쓴다 — 답변 VCR 녹화(운영자 2026-11-01). 원격에는 그 env가 없다.
 import { insertLlmTrace } from "../db/ScopedQuery";
 
@@ -17,6 +20,8 @@ export interface StructuredRequest {
   schemaName: string;
   schema: object;
   maxCompletionTokens: number;
+  /** AI Gateway 캐시 키(설계서 v0.1.29) — requestBody·requestHash에 넣지 않는다. 없으면 게이트웨이 기본 키(요청 본문). */
+  cacheKey?: string;
 }
 
 export interface StructuredResponse {
@@ -26,6 +31,8 @@ export interface StructuredResponse {
   usage: { prompt_tokens?: number; completion_tokens?: number } | null;
   /** 폴백 체인에서 답한 공급자의 순번(0 = groq, 1 = workers-ai, 2 = openrouter — answer_log.fallback_depth). 체인 밖 단일 공급자는 없음. */
   fallbackDepth?: number;
+  /** 게이트웨이 응답 헤더 cf-aig-cache-status(HIT·MISS) — 게이트웨이를 거치지 않았으면 없음. */
+  gatewayCache?: string;
 }
 
 /** 공급자 오류. status 429·5xx·0(타임아웃·네트워크)은 Phase 5 폴백 대상, 그 밖은 요청 문제. */
@@ -50,6 +57,21 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 /** 설계서 §6.2·D-7: 폴백 모델. Groq 모델 이름(프롬프트 model_hint)을 공급자별 이름으로 바꾼다. */
 export const WORKERS_AI_MODEL = "@cf/openai/gpt-oss-120b";
 export const OPENROUTER_MODEL = "openrouter/free";
+/** 설계서 §6.4: 게이트웨이 캐시 24시간. */
+export const GATEWAY_CACHE_TTL_S = 86_400;
+
+/** gateway(id).run만 쓴다(시험은 가짜). 부를 때 만든다 — 게이트웨이를 안 쓰는 경로(시험·로컬)는 바인딩을 건드리지 않는다. */
+export type GatewayRunner = () => Pick<AiGateway, "run">;
+
+/** 게이트웨이 자체 오류 본문({success:false, error:[{code,message}]} — Cloudflare API 형식, 2026-11-06 점검의 401 code 2009). 공급자 오류 본문(error가 객체)과 다르다. */
+async function isGatewayErrorBody(res: Response): Promise<boolean> {
+  try {
+    const b = (await res.clone().json()) as { success?: unknown; error?: unknown };
+    return b.success === false && Array.isArray(b.error);
+  } catch {
+    return false;
+  }
+}
 
 export function requestBody(req: StructuredRequest): object {
   return {
@@ -79,40 +101,62 @@ function jsonOf(name: ProviderName, content: string | null | undefined): unknown
 }
 
 /** OpenAI 호환 Chat Completions(Groq·OpenRouter). url은 AI Gateway 경유 URL로 바꿀 수 있다(Phase 5 항목 3). */
-function openAiCompatible(name: "groq" | "openrouter", url: string, key: string | undefined, model: string | null, fetcher: typeof fetch, headers: Record<string, string> = {}): Provider {
+function openAiCompatible(
+  name: "groq" | "openrouter",
+  url: string,
+  key: string | undefined,
+  model: string | null,
+  fetcher: typeof fetch,
+  headers: Record<string, string> = {},
+  gateway: GatewayRunner | null = null,
+): Provider {
   return {
     name,
     async structured(req) {
       if (!key) throw new ProviderError(`${name}: 키 없음`, 0);
       const body = model ? { ...requestBody(req), model } : requestBody(req);
-      let res: Response;
-      try {
-        res = await fetcher(url, {
-          method: "POST",
-          headers: { authorization: `Bearer ${key}`, "content-type": "application/json", ...headers },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(TIMEOUT_MS),
-        });
-      } catch (e) {
-        throw new ProviderError(`${name}: ${(e as Error).name === "TimeoutError" ? `${TIMEOUT_MS}ms 타임아웃` : "네트워크 오류"}`, 0);
+      const hdrs = { authorization: `Bearer ${key}`, "content-type": "application/json", ...headers };
+      const failed = (e: unknown) => new ProviderError(`${name}: ${(e as Error).name === "TimeoutError" ? `${TIMEOUT_MS}ms 타임아웃` : "네트워크 오류"}`, 0);
+      const direct = async () => {
+        try {
+          return await fetcher(url, { method: "POST", headers: hdrs, body: JSON.stringify(body), signal: AbortSignal.timeout(TIMEOUT_MS) });
+        } catch (e) {
+          throw failed(e);
+        }
+      };
+      let res: Response | null = null;
+      if (gateway) {
+        const cache = req.cacheKey ? { "cf-aig-cache-key": req.cacheKey, "cf-aig-cache-ttl": GATEWAY_CACHE_TTL_S } : {};
+        try {
+          res = await gateway().run({ provider: name, endpoint: "chat/completions", headers: { ...hdrs, ...cache }, query: body }, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+        } catch (e) {
+          if ((e as Error).name === "TimeoutError") throw failed(e);
+          console.warn(`[gateway] ${name} 게이트웨이 오류 — 직접 1회: ${String((e as Error).message).slice(0, 120)}`);
+        }
+        if (res && !res.ok && (res.status === 404 || (await isGatewayErrorBody(res)))) {
+          console.warn(`[gateway] ${name} 게이트웨이 ${res.status} — 직접 1회`);
+          res = null;
+        }
       }
+      res ??= await direct();
       if (!res.ok) {
         const retry = res.headers.get("retry-after");
         throw new ProviderError(`${name} ${res.status}`, res.status, retry ? Number(retry) : null);
       }
       const b = (await res.json()) as { model: string; usage?: StructuredResponse["usage"]; choices: { message: { content: string | null } }[] };
-      return { json: jsonOf(name, b.choices[0]?.message.content), provider: name, model: b.model, usage: b.usage ?? null };
+      const cacheStatus = res.headers.get("cf-aig-cache-status");
+      return { json: jsonOf(name, b.choices[0]?.message.content), provider: name, model: b.model, usage: b.usage ?? null, ...(cacheStatus ? { gatewayCache: cacheStatus } : {}) };
     },
   };
 }
 
-export function groq(env: Pick<Env, "GROQ_API_KEY">, fetcher: typeof fetch = fetch, url = GROQ_URL): Provider {
-  return openAiCompatible("groq", url, env.GROQ_API_KEY, null, fetcher);
+export function groq(env: Pick<Env, "GROQ_API_KEY">, fetcher: typeof fetch = fetch, url = GROQ_URL, gateway: GatewayRunner | null = null): Provider {
+  return openAiCompatible("groq", url, env.GROQ_API_KEY, null, fetcher, {}, gateway);
 }
 
 /** 설계서 §6.2 3순위 — OpenRouter 무료 라우터. 키는 wrangler secret OPENROUTER_API_KEY(규약 10). */
-export function openrouter(env: Pick<Env, "OPENROUTER_API_KEY">, fetcher: typeof fetch = fetch, url = OPENROUTER_URL): Provider {
-  return openAiCompatible("openrouter", url, env.OPENROUTER_API_KEY, OPENROUTER_MODEL, fetcher, { "x-title": "ga-commission-copilot" });
+export function openrouter(env: Pick<Env, "OPENROUTER_API_KEY">, fetcher: typeof fetch = fetch, url = OPENROUTER_URL, gateway: GatewayRunner | null = null): Provider {
+  return openAiCompatible("openrouter", url, env.OPENROUTER_API_KEY, OPENROUTER_MODEL, fetcher, { "x-title": "ga-commission-copilot" }, gateway);
 }
 
 /** Workers AI 결과의 본문 — 문서가 응답 모양을 밝히지 않아(2026-11-06 확인) OpenAI 모양(choices)과 네이티브 모양(response) 둘 다 받는다. 실호출 확인은 폴백 상한이 열리는 11-08 뒤. */
@@ -125,22 +169,34 @@ export function workersAiContent(r: unknown): { json: unknown; usage: Structured
 }
 
 /** 설계서 §6.2 2순위 — AI 바인딩(@cf/openai/gpt-oss-120b). 하루 뉴런 소진(3036·4006)은 429로 바꿔 체인이 다음으로 넘어가게 한다. */
-export function workersAi(ai: Pick<Ai, "run">): Provider {
+/** AI 바인딩이 던진 게이트웨이 자체 오류(이름·메시지에 gateway) — 모델 오류(3036·4006 등)와 가른다. */
+const isGatewayError = (e: unknown) => /gateway/i.test(`${(e as Error)?.name ?? ""} ${(e as Error)?.message ?? ""}`) && !/\b(3036|4006)\b|neurons/i.test((e as Error)?.message ?? "");
+
+export function workersAi(ai: Pick<Ai, "run">, gatewayId: string | null = null): Provider {
   return {
     name: "workers-ai",
     async structured(req) {
       let r: unknown;
+      const run = ai.run as unknown as (model: string, input: object, opts?: object) => Promise<unknown>;
+      const input = {
+        messages: req.messages,
+        temperature: 0,
+        max_tokens: req.maxCompletionTokens,
+        response_format: { type: "json_schema", json_schema: { name: req.schemaName, schema: req.schema, strict: true } },
+      };
+      const once = (opts?: object) =>
+        Promise.race([run(WORKERS_AI_MODEL, input, opts), new Promise((_, reject) => setTimeout(() => reject(new ProviderError(`workers-ai: ${TIMEOUT_MS}ms 타임아웃`, 0)), TIMEOUT_MS))]);
       try {
-        const run = ai.run as unknown as (model: string, input: object, opts?: object) => Promise<unknown>;
-        r = await Promise.race([
-          run(WORKERS_AI_MODEL, {
-            messages: req.messages,
-            temperature: 0,
-            max_tokens: req.maxCompletionTokens,
-            response_format: { type: "json_schema", json_schema: { name: req.schemaName, schema: req.schema, strict: true } },
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new ProviderError(`workers-ai: ${TIMEOUT_MS}ms 타임아웃`, 0)), TIMEOUT_MS)),
-        ]);
+        if (!gatewayId) r = await once();
+        else {
+          try {
+            r = await once({ gateway: { id: gatewayId, cacheTtl: GATEWAY_CACHE_TTL_S, ...(req.cacheKey ? { cacheKey: req.cacheKey } : {}) } });
+          } catch (e) {
+            if (!isGatewayError(e)) throw e;
+            console.warn(`[gateway] workers-ai 게이트웨이 오류 — 직접 1회: ${String((e as Error).message).slice(0, 120)}`);
+            r = await once();
+          }
+        }
       } catch (e) {
         if (e instanceof ProviderError) throw e;
         const m = (e as Error).message ?? "";

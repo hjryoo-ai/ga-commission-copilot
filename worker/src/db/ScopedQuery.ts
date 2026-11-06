@@ -297,6 +297,20 @@ export class ScopedQuery {
       .run();
   }
 
+  /**
+   * 답 단위 재사용 후보(설계서 v0.1.29 §6.4): 이 설계사·활성 스트림·같은 프롬프트·같은 정규화 질문의 since 이후 원래 답(cache_hit 0) 중 최신.
+   * PASS, 또는 모델 거부 중 범위 밖·다른 설계사·엔진 필요만 — FAIL·BUDGET은 다시 묻게 둔다. 규정 검색 없이 답한 행(retrieved_chunks '[]' — 저하 ③)도 뺀다.
+   * 조회는 ix_ans_created(created_at 범위 — 하루 질문 수로 묶인다)를 탄다.
+   */
+  async reusableAnswer(normalizedQuestion: string, promptVersion: string, since: string): Promise<Record<string, unknown> | null> {
+    return this.db
+      .prepare(
+        "SELECT * FROM answer_log WHERE created_at >= ? AND tenant_id = ? AND agent_id = ? AND stream_hash = ? AND prompt_version = ? AND normalized_question = ? AND cache_hit = 0 AND retrieved_chunks <> '[]' AND (grounding_status = 'PASS' OR (refused = 1 AND refuse_reason IN ('OUT_OF_SCOPE', 'OTHER_AGENT', 'NEEDS_ENGINE'))) ORDER BY created_at DESC LIMIT 1",
+      )
+      .bind(since, this.tenantId, this.agentId, this.stream.streamHash, promptVersion, normalizedQuestion)
+      .first<Record<string, unknown>>();
+  }
+
   /** 답변 로그 한 행(GET /answers/{id} — 이 설계사 행만). */
   async answerLog(answerId: string): Promise<Record<string, unknown> | null> {
     return this.db.prepare("SELECT * FROM answer_log WHERE tenant_id = ? AND agent_id = ? AND answer_id = ?").bind(this.tenantId, this.agentId, answerId).first<Record<string, unknown>>();

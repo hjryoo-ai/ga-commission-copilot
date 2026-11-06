@@ -243,13 +243,17 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   const retrievedChunks = matches.filter((m) => byId.has(m.id)).map((m) => ({ chunkId: m.id, score: m.score }));
 
   const session = prompt.body.includes("{{session}}") ? await sessionBlock(q, prompt.body.includes("한도 삭감이 있었던 계약")) : "";
-  const ask = (stage: string, data: string) =>
+  // AI Gateway 캐시 키(설계서 v0.1.29 §6.4): 정규화 질문+agentId+streamHash+promptVersion + 단계. 2단계는 툴 결과 해시도 붙인다 —
+  // 1단계 캐시가 먼저 만료돼 툴 호출이 달라졌을 때 옛 2단계 답이 돌아오지 않게.
+  const keyBase = await answerCacheKey(normalizeQuestion(qText), q.agentId, q.stream.streamHash, promptVersion);
+  const ask = async (stage: string, data: string) =>
     deps.provider.structured({
       model: prompt.modelHint,
       messages: [{ role: "user", content: render(prompt.body, { stage, session, rules: rulesBlock(rows), data, question: qText }) }],
       schemaName: "answer",
       schema: prompt.outputSchema,
       maxCompletionTokens: MAX_COMPLETION_TOKENS,
+      cacheKey: data ? `${keyBase}:2:${await hash16(data)}` : `${keyBase}:1`,
     });
 
   let res = await ask("1단계", "");
@@ -329,8 +333,61 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   return result;
 }
 
+/** 게이트웨이 캐시 키 앞부분(설계서 §6.4 표 — 단계는 호출하는 쪽이 붙인다). */
+export async function answerCacheKey(normalizedQuestion: string, agentId: string, streamHash: string, promptVersion: string): Promise<string> {
+  return `ans:${await hash16([normalizedQuestion, agentId, streamHash, promptVersion].join("\u001f"))}`;
+}
+
+/** 답 단위 재사용 창(설계서 v0.1.29 §6.4 — 게이트웨이 캐시 TTL과 같다). */
+export const REUSE_WINDOW_MS = 24 * 3600 * 1000;
+
+const parseJson = <T>(s: unknown, fallback: T): T => {
+  if (typeof s !== "string") return fallback;
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+/**
+ * 답 단위 재사용(설계서 v0.1.29 §6.4 — "캐시 히트는 예산 미차감"): 24시간 안 같은 키의 원래 답이 있으면 LLM·임베딩·예산 없이 그대로 돌려주고
+ * answer_log에 cache_hit=1 행을 새로 남긴다(거부 포함 전건 — §4.4). 숫자·인용은 원래 행 그대로라 그 행이 통과한 G4~G6 판정을 잇는다(같은 활성 스트림).
+ */
+export async function reuseAnswer(deps: Pick<AnswerDeps, "now" | "newId">, q: ScopedQuery, env: { PROMPT_VERSIONS?: string }, question: string): Promise<AnswerResult | null> {
+  const started = deps.now().getTime();
+  const qText = normalizeText(question).slice(0, QUESTION_MAX);
+  const prompt = activePrompt(env, "answer");
+  const promptVersion = `${prompt.name}/${prompt.version}`;
+  const row = await q.reusableAnswer(normalizeQuestion(qText), promptVersion, new Date(started - REUSE_WINDOW_MS).toISOString());
+  if (!row) return null;
+  const refused = row.refused === 1;
+  const r: AnswerResult = {
+    answerId: deps.newId(),
+    refused,
+    reason: (row.refuse_reason as RefuseReason | null) ?? null,
+    text: String(row.answer ?? ""),
+    numbersUsed: parseJson<string[]>(row.numbers_used, []),
+    citations: parseJson<Citation[]>(row.citations, []),
+    promptVersion,
+    provider: String(row.provider),
+    model: String(row.model),
+    groundingStatus: row.grounding_status as AnswerResult["groundingStatus"],
+    retrievedChunks: parseJson<[string, number][]>(row.retrieved_chunks, []).map(([chunkId, score]) => ({ chunkId, score })),
+    toolCalls: parseJson<AnswerResult["toolCalls"]>(row.tool_calls, []),
+    violations: [],
+    grounding: parseJson<GroundingViolations>(row.violations, NO_VIOLATIONS),
+    latencyMs: 0,
+    rulesUnavailable: false,
+    fallbackDepth: Number(row.fallback_depth),
+  };
+  r.latencyMs = deps.now().getTime() - started;
+  await logAnswer(deps, q, qText, r, true);
+  return r;
+}
+
 /** answer_log 한 행(거부 포함 전건 — §4.4). */
-async function logAnswer(deps: Pick<AnswerDeps, "now">, q: ScopedQuery, question: string, r: AnswerResult): Promise<void> {
+async function logAnswer(deps: Pick<AnswerDeps, "now">, q: ScopedQuery, question: string, r: AnswerResult, cacheHit = false): Promise<void> {
   await q.insertAnswerLog({
     answerId: r.answerId,
     question,
@@ -348,7 +405,7 @@ async function logAnswer(deps: Pick<AnswerDeps, "now">, q: ScopedQuery, question
     refuseReason: r.reason,
     groundingStatus: r.groundingStatus,
     latencyMs: r.latencyMs,
-    cacheHit: false,
+    cacheHit,
     createdAt: deps.now().toISOString(),
     violations: JSON.stringify(r.grounding),
   });
