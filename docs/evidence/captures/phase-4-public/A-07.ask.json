@@ -1,0 +1,53 @@
+{
+ "case": "A-07",
+ "question": "이 계약 해약하면 2월에 얼마 빠져요?",
+ "httpStatus": 200,
+ "secs": 8.0,
+ "response": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "ce33e367-e3f1-481e-8ac7-09696d1b638f",
+  "refused": false,
+  "reason": null,
+  "text": "2027년 2월에 계약을 해약하면 720,000원이 차감됩니다.",
+  "numbersUsed": [
+   "720000"
+  ],
+  "citations": [
+   {
+    "kind": "tool",
+    "tool": "get_policy_event_sim",
+    "field": "simulation.clawbackAmount",
+    "article": "",
+    "chunkId": ""
+   },
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제24조",
+    "chunkId": "rb-0453f7d205db-a24-1"
+   }
+  ],
+  "toolCalls": [
+   {
+    "tool": "get_policy_event_sim",
+    "args": {
+     "policyNo": "0001"
+    },
+    "resultHash": "69a71259b2e280fa"
+   }
+  ],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3",
+  "groundingStatus": "PASS",
+  "cacheHit": false,
+  "latencyMs": 7045,
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

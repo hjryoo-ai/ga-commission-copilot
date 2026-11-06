@@ -1,0 +1,28 @@
+{
+ "case": "A-09",
+ "question": "보험료 50만 원짜리 새로 하면 얼마 받아요?",
+ "httpStatus": 200,
+ "secs": 2.1,
+ "response": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "44e67fc7-f3dd-4261-81b1-041f732ba8f8",
+  "refused": true,
+  "reason": "NEEDS_ENGINE",
+  "text": "이 질문은 정산 엔진의 시뮬레이션이 필요합니다. 데모에서는 준비된 계약만 지원합니다.",
+  "numbersUsed": [],
+  "citations": [],
+  "toolCalls": [],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3",
+  "groundingStatus": "NONE",
+  "cacheHit": false,
+  "latencyMs": 1116,
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

@@ -1,0 +1,46 @@
+{
+ "case": "A-05",
+ "question": "8월 실수령은 얼마예요?",
+ "httpStatus": 200,
+ "secs": 7.7,
+ "response": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "acfd917f-2667-463b-b919-dd07d1bf4d07",
+  "refused": false,
+  "reason": null,
+  "text": "2026년 8월 실수령 금액은 1,740,600원입니다.",
+  "numbersUsed": [
+   "1740600"
+  ],
+  "citations": [
+   {
+    "kind": "tool",
+    "tool": "get_statement",
+    "field": "net",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3"
+   }
+  ],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "promptVersion": "answer/v3",
+  "groundingStatus": "PASS",
+  "cacheHit": false,
+  "latencyMs": 6684,
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}

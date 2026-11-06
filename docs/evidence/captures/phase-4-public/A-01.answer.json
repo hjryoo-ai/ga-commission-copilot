@@ -1,0 +1,165 @@
+{
+ "case": "A-01",
+ "httpStatus": 200,
+ "answer": {
+  "asOf": {
+   "streamHash": "fca1971cdbce563820f4eb0bfeed714e693b7e70728a7cc9784006ce2696e62c",
+   "generatedAt": "2026-10-30T12:19:15.426Z",
+   "demoNo": 1
+  },
+  "dataStatus": "OK",
+  "answerId": "d8fc9e50-c4cc-48f9-86c6-07dc99352ca3",
+  "question": "8월 시책이 100만 원인데 왜 85만 5천 원만 들어왔나요?",
+  "normalizedQuestion": "8월 시책이 100만 원인데 왜 85만 5천 원만 들어왔나요",
+  "answer": "2026년 8월에 지급된 시책(인센티브) 금액은 855,000원이며, 이는 원래 요청하신 1,000,000원에서 한도 초과분 145,000원이 삭감된 결과입니다. 한도 초과분은 제15조에 따라 삭감 처리됩니다. 시책 자체는 제8조에 따라 정액으로 지급될 수 있습니다.",
+  "refused": false,
+  "reason": null,
+  "groundingStatus": "PASS",
+  "numbersUsed": [
+   "855000",
+   "1000000",
+   "145000"
+  ],
+  "violations": {
+   "g4Missing": [],
+   "g5Unknown": [],
+   "g6Words": []
+  },
+  "citations": [
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제8조",
+    "chunkId": "rb-0453f7d205db-a08-1"
+   },
+   {
+    "kind": "rule",
+    "tool": "",
+    "field": "",
+    "article": "제15조",
+    "chunkId": "rb-0453f7d205db-a15-1"
+   },
+   {
+    "kind": "tool",
+    "tool": "get_statement",
+    "field": "lines.1.amount",
+    "article": "",
+    "chunkId": ""
+   },
+   {
+    "kind": "tool",
+    "tool": "get_statement",
+    "field": "lines.1.limitCutAmt",
+    "article": "",
+    "chunkId": ""
+   }
+  ],
+  "retrievedChunks": [
+   {
+    "chunkId": "rb-0453f7d205db-a08-1",
+    "score": 0.4760698,
+    "article": "제8조",
+    "title": "시책",
+    "body": "제8조(시책) — 가상 규정 · 예시값\n1. 회사가 정한 기간에 정한 상품을 체결하면 정액의 시책을 지급할 수 있다.\n2. 시책은 수수료 한도의 적용 대상이며, 한도를 넘는 부분은 제15조에 따라 처리한다.\n3. 시책 기간·대상 상품·금액은 내부 시책표로 관리한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a15-1",
+    "score": 0.42261428,
+    "article": "제15조",
+    "title": "한도 초과분의 처리",
+    "body": "제15조(한도 초과분의 처리) — 가상 규정 · 예시값\n1. 한도를 초과한 수수료는 상품에 정한 방식에 따라 삭감하거나 초년도 종료 후로 이연한다.\n2. 삭감과 이연 중 어느 방식인지는 수수료 명세의 한도 삭감 정책 항목에 표시한다.\n3. 한도를 초과한 부분을 제외한 금액만 해당 달에 지급한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a12-1",
+    "score": 0.42120722,
+    "article": "제12조",
+    "title": "수수료 한도의 산정",
+    "body": "제12조(수수료 한도의 산정) — 가상 규정 · 예시값\n1. 계약별 수수료 한도는 월납 보험료에 12배를 곱한 금액으로 한다.\n2. 배수는 12배(1200%)로 표기한다.\n3. 각 계약의 한도는 한도 원장으로 관리한다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a14-1",
+    "score": 0.41995856,
+    "article": "제14조",
+    "title": "소진율과 경고 단계",
+    "body": "제14조(소진율과 경고 단계) — 가상 규정 · 예시값\n1. 소진율은 한도 대비 누적 지급액의 비율로 산정한다.\n2. 소진율이 80% 미만이면 정상 단계로 간주한다.\n3. 소진율이 80% 이상 95% 미만이면 주의 단계로 구분한다.\n4. 소진율이 95% 이상 100% 미만이면 위험 단계로 구분한다.\n5. 소진율이 100%에 도달하면 소진 단계로 간주한다.\n6. 단계 표시는 안내용이며 지급액을 변경하지 않는다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a25-1",
+    "score": 0.4137538,
+    "article": "제25조",
+    "title": "환수율",
+    "body": "제25조(환수율) — 가상 규정 · 예시값\n1. 1회차부터 6회차까지는 환수율이 70%이다.\n2. 7회차부터 12회차까지는 환수율이 40%이다.\n3. 13회차부터는 환수가 없다.",
+    "version": "0453f7d205db"
+   },
+   {
+    "chunkId": "rb-0453f7d205db-a02-1",
+    "score": 0.4104965,
+    "article": "제2조",
+    "title": "정의",
+    "body": "제2조(정의) — 가상 규정 · 예시값\n1. 초년도 수수료는 설계사가 최초 계약을 체결하고 최초로 발생하는 수수료를 의미한다.\n2. 유지 수수료는 계약 유지 기간 동안 지속적으로 발생하는 수수료를 의미한다.\n3. 시책은 회사가 설계사에게 제공하는 정책적 지원 방안을 의미한다.\n4. 수수료 한도는 설계사가 받을 수 있는 수수료의 최대 금액을 의미한다.\n5. 소진율은 수수료 한도 대비 실제 사용된 비율을 의미한다.\n6. 분급은 수수료를 일정 기간에 걸쳐 나누어 지급하는 방식을 의미한다.\n7. 환수는 이미 지급된 수수료를 회수하는 절차를 의미한다.\n8. 환수 채권은 환수 대상이 되는 채권을 의미한다.\n9. 상계는 환수 채권과 다른 채권을 서로 상쇄하는 절차를 의미한다.\n10. 마감은 수수료 정산을 종료하는 시점을 의미한다.\n11. 지급일은 수수료가 실제로 지급되는 날짜를 의미한다.",
+    "version": "0453f7d205db"
+   }
+  ],
+  "toolCalls": [
+   {
+    "tool": "get_statement",
+    "args": {
+     "ym": "202608"
+    },
+    "resultHash": "aa096ae6a197d2e3",
+    "result": {
+     "found": true,
+     "closeYm": "202608",
+     "status": "PAID",
+     "gross": 1800000,
+     "clawbackOffset": 0,
+     "adjustment": 0,
+     "withholdingTax": 59400,
+     "net": 1740600,
+     "paidAmount": 1740600,
+     "paidAt": "2026-09-10T01:00:00Z",
+     "receivableOffset": 0,
+     "carriedReceivable": 0,
+     "byType": {
+      "FY_COMM": 945000,
+      "INCENTIVE": 855000
+     },
+     "lineCount": 2,
+     "lines": [
+      {
+       "calcId": "1",
+       "commType": "FY_COMM",
+       "amount": 945000,
+       "productKey": "WHOLE-LIFE-20Y",
+       "policyMasked": "*********0001"
+      },
+      {
+       "calcId": "2",
+       "commType": "INCENTIVE",
+       "amount": 855000,
+       "limitCutAmt": 145000,
+       "limitCutPolicy": "DEFER_AFTER_FY",
+       "requested": 1000000,
+       "productKey": "WHOLE-LIFE-20Y",
+       "policyMasked": "*********0001"
+      }
+     ]
+    },
+    "truncated": false,
+    "reproduced": true
+   }
+  ],
+  "promptVersion": "answer/v3",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "fallbackDepth": 0,
+  "latencyMs": 6122,
+  "createdAt": "2026-11-06T11:11:09.363Z",
+  "disclaimer": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+ }
+}
