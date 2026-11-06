@@ -242,7 +242,7 @@ rulebook 0453f7d205db — 청크 40(agent 37 · internal 3), 인덱스 rulebook-
 - 파이프라인: `groundAnswerDetail`(토큰 단위) → `violationLines`(응답·시험의 문장 — 기존 문구 그대로) · `AnswerResult.grounding` → `logAnswer`가 `violations` 열에. BUDGET 거부도 빈 배열.
 - `GET /answers/{id}`에 `violations`(모양이 다르거나 NULL이면 null). 화면 7 "검증 결과"는 G4 근거에 없는 숫자·G5 확인되지 않은 인용·G6 금지 표현·코드를 토큰 칩 하나씩, 위반 없으면 "위반 없음", NULL이면 "0006 이전".
 - **원격 0006 적용**(운영자 승인 2026-11-05): `migrations apply copilot --remote` ✅, `violations` 열 notnull 0 — `logs/phase-4-migration-0006-remote.log`(계정 ID `<account>`). 열 추가뿐이라 지금 배포된 코드(열을 쓰지 않음)와 호환. 로컬도 적용.
-- **`capture-public.yml`**(workflow_dispatch, 시크릿 없음): `gen/scripts/capture-public.py` — 공개 URL 데모 1 세션 → `GET /me`로 활성 answer 버전 확인(입력 `expect_answer`, 다르면 묻기 전에 멈춤 — 로컬에서 v9로 확인: exit 1, 질문 0) → 부록 A 12건 `POST /me/ask`(60초 간격) → `GET /answers/{id}`. `<case>.ask.json`·`<case>.answer.json`·`index.json`·`capture.log`를 `docs/evidence/captures/phase-4-public/`에, `bot/capture-public` 브랜치에 커밋. 12문항 원문은 `gen/scripts/appendix-a.json`(answer-record.py와 공유).
+- **`capture-public.yml`**(workflow_dispatch, 시크릿 없음): `gen/scripts/capture-public.py` — 공개 URL 데모 1 세션 → `GET /me`로 활성 answer 버전 확인(입력 `expect_answer`, 다르면 묻기 전에 멈춤 — 로컬에서 v9로 확인: exit 1, 질문 0) → 부록 A 12건 `POST /me/ask`(60초 간격) → `GET /answers/{id}`. `<case>.ask.json`·`<case>.answer.json`·`index.json`·`capture.txt`를 `docs/evidence/captures/phase-4-public/`에, `bot/capture-public` 브랜치에 커밋. 12문항 원문은 `gen/scripts/appendix-a.json`(answer-record.py와 공유).
 - 원격 상태(11-05 확인): Worker 시크릿에 `GROQ_API_KEY` 있음, 배포된 `/me.promptVersions.answer` = **v3**.
 
 ## 시험

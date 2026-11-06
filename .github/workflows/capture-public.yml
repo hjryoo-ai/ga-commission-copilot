@@ -60,7 +60,7 @@ jobs:
           EXPECT: ${{ inputs.expect_answer }}
         run: |
           mkdir -p "$OUT"
-          python3 -X utf8 -I gen/scripts/capture-public.py "$BASE" "$OUT" "$EXPECT" 2>&1 | tee "$OUT/capture.log"
+          python3 -X utf8 -I gen/scripts/capture-public.py "$BASE" "$OUT" "$EXPECT" 2>&1 | tee "$OUT/capture.txt" # .log는 .gitignore(*.log)에 걸려 커밋되지 않는다(2026-11-06 첫 실행)
 
       - name: 요약
         if: always() && steps.branch.outcome == 'success'
