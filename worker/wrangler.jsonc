@@ -47,6 +47,9 @@
 
   "observability": { "enabled": true },
 
+  // 설계서 v0.1.29 §7: 하루 지난 레이트 리밋 행(budget_counter rl:…) 삭제 — index.ts scheduled(). Cron Triggers 무료 5개/계정(§10.1).
+  "triggers": { "crons": ["17 0 * * *"] },
+
   // 답변 녹화 전용 환경(운영자 2026-11-02 — 부록 A 12건 VCR): `pnpm exec wrangler dev --env record`(--local을 붙이면 원격 바인딩이 모두 꺼진다 — wrangler 4.153 확인).
   // 평소 dev·시험·배포는 이 env를 쓰지 않는다. 다른 점은 Vectorize만 원격 바인딩(Miniflare에 로컬 Vectorize가 없다) — D1은 로컬 그대로, AI는 원래 늘 원격(질문 임베딩 bge-m3)이라 remote를 적어 둘 뿐이다.
   // 나머지는 위와 같게(env는 바인딩·vars를 물려받지 않는다).
@@ -67,11 +70,11 @@
       "ai": { "binding": "AI", "remote": true },
       "vars": {
         "PROMPT_VERSIONS": "explain_line=v6,explain_limit=v6,explain_month=v6,answer=v3",
-    "BUDGET_GLOBAL": "150",
-    "BUDGET_USER": "10",
-    "BUDGET_GROQ": "55",
-    "BUDGET_WORKERS_AI": "0",
-    "BUDGET_OPENROUTER": "15"
+        "BUDGET_GLOBAL": "150",
+        "BUDGET_USER": "10",
+        "BUDGET_GROQ": "55",
+        "BUDGET_WORKERS_AI": "0",
+        "BUDGET_OPENROUTER": "15"
       }
     }
   }

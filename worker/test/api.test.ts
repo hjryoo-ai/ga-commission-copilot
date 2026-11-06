@@ -182,6 +182,23 @@ describe("캐시(설계서 v0.1.12 §7)", () => {
     const me = await get("/api/v1/me", two, { "If-None-Match": etag2! });
     expect([me.status, me.headers.get("ETag"), me.headers.get("Cache-Control")]).toEqual([200, null, "no-store"]);
   });
+
+  // 운영자 2026-11-06: 예산 필드 때문에 no-store가 되는 건 /me 하나뿐 — 명세·한도·차이 응답은 ETag·304 유지
+  it.each(ME_PATHS.filter((p) => p !== "/api/v1/me"))("%s — ETag 유지(private, no-cache), If-None-Match면 304", async (path) => {
+    const res = await get(path, one);
+    expect([res.status, res.headers.get("ETag"), res.headers.get("Cache-Control")]).toEqual([200, `W/"${HASH}.1"`, "private, no-cache"]);
+    const again = await get(path, one, { "If-None-Match": `W/"${HASH}.1"` });
+    expect([again.status, await again.text()]).toEqual([304, ""]);
+  });
+
+  it("/me만 no-store — 예산을 써도(남은 질문이 바뀌어도) 다른 응답의 ETag는 그대로", async () => {
+    const me = await get("/api/v1/me", one);
+    expect([me.status, me.headers.get("ETag"), me.headers.get("Cache-Control")]).toEqual([200, null, "no-store"]);
+    const day = new Date().toISOString().slice(0, 10);
+    await env.DB.prepare("INSERT INTO budget_counter (scope, day, used) VALUES ('global', ?, 5)").bind(day).run();
+    for (const p of ME_PATHS.filter((x) => x !== "/api/v1/me")) expect((await get(p, one, { "If-None-Match": `W/"${HASH}.1"` })).status).toBe(304);
+    expect((await get("/api/v1/me", one, { "If-None-Match": `W/"${HASH}.1"` })).status).toBe(200);
+  });
 });
 
 describe("응답(상위 §7 구조 + 덧씌우기)", () => {

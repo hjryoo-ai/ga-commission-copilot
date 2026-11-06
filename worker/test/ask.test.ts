@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { secondsToUtcMidnight } from "../src/api/ask";
-import { budgetCaps, userScope } from "../src/llm/budget";
+import { budgetCaps, rateScope, userScope } from "../src/llm/budget";
 import { hash16, REFUSAL_TEXT } from "../src/llm/answer";
 import { HASH, login, seed } from "./fixture";
 
@@ -47,6 +47,20 @@ describe("POST /api/v1/me/ask", () => {
     // 상한은 그대로(차감 실패 — UPDATE … WHERE used < ? 영향 행 0), 전역은 건드리지 않는다(사용자 먼저)
     expect(await env.DB.prepare("SELECT used FROM budget_counter WHERE scope = ?").bind(user).first("used")).toBe(caps.user);
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope = 'global' AND used > 0").first("n")).toBe(0);
+  });
+
+  it("레이트 리밋(설계서 v0.1.29 §7): 이 IP의 이번 분이 3이면 429 RATE_LIMITED + Retry-After, answer_log·예산은 그대로", async () => {
+    const user = await userScope(env.SESSION_SECRET, "local", today());
+    const now = Date.now();
+    // 분 경계를 넘어도 같은 판정이 되게 이번 분·다음 분 둘 다 3
+    for (const t of [now, now + 60_000]) await env.DB.prepare("INSERT OR REPLACE INTO budget_counter (scope, day, used) VALUES (?, ?, 3)").bind(rateScope(user, new Date(t)), new Date(t).toISOString().slice(0, 10)).run();
+    const res = await ask(await login(app, 1), { question: "8월 실수령은 얼마예요?" });
+    expect([res.status, res.headers.get("Content-Type"), res.headers.get("Cache-Control")]).toEqual([429, "application/problem+json", "no-store"]);
+    const retry = Number(res.headers.get("Retry-After"));
+    expect(retry >= 1 && retry <= 60).toBe(true);
+    expect(await res.json()).toEqual({ code: "RATE_LIMITED", message: "질문이 잦습니다 — 1분 뒤 다시 시도하세요" });
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM answer_log").first("n")).toBe(0);
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope NOT LIKE 'rl:%'").first("n")).toBe(0);
   });
 
   it("저하 ①: 전역 예산(min(BUDGET_GLOBAL, 공급자 합) — 배치 중 55+0+15 = 70)에 닿아도 429 BUDGET", async () => {

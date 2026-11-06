@@ -9,7 +9,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
 import { type AnswerResult, answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm } from "../llm/answer";
-import { anyProviderLeft, budgetCaps, countStat, reserveProvider, reserveQuestion, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
+import { anyProviderLeft, budgetCaps, countStat, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
 import { fallbackChain, groq, openrouter, ProviderError, ProvidersExhausted, traced, workersAi } from "../llm/providers";
 import { type AppEnv, common, DISCLAIMER, invalidRequest, notFound, problem } from "./http";
 import { InvalidToolCall, parseToolCall, runTool, serialize } from "../tools";
@@ -41,6 +41,10 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
 
   const now = new Date();
   const day = utcDay(now);
+  const user = await userScope(c.env.SESSION_SECRET, clientIp(c), day);
+  // 레이트 리밋(설계서 v0.1.29 §7 — 예산과 별도, 맨 앞): IP당 분당 3회. 넘으면 answer_log 없이 429 RATE_LIMITED + Retry-After(다음 분까지)
+  const rate = await reserveRate(c.env.DB, user, now);
+  if (!rate.ok) return problem(c, 429, "RATE_LIMITED", { "Retry-After": String(rate.retryAfterSeconds) });
   const caps = withKeys(budgetCaps(c.env), c.env);
   const chain = fallbackChain([groq(c.env), workersAi(c.env.AI), openrouter(c.env)], (name) => reserveProvider(c.env.DB, caps, name, day));
   const deps = cloudflareDeps(c.env, traced(chain, c.env, c.env.DB));
@@ -52,7 +56,7 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
   // 저하 ① — 시도할 공급자가 하나도 없으면 임베딩도 부르지 않는다(읽기만, 차감 없음 — 경합으로 그 뒤 소진되면 체인이 ProvidersExhausted)
   if (!anyProviderLeft(await usageOn(c.env.DB, caps, day))) return budgetRefusal();
   // 저하 ① — 사용자·전역(질문 1건에 1)
-  if (!(await reserveQuestion(c.env.DB, caps, await userScope(c.env.SESSION_SECRET, clientIp(c), day), day)).ok) return budgetRefusal();
+  if (!(await reserveQuestion(c.env.DB, caps, user, day)).ok) return budgetRefusal();
   let r: AnswerResult;
   try {
     r = await answerQuestion(deps, q, c.env, question);

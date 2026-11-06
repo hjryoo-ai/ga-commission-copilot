@@ -5,6 +5,8 @@ import { health } from "./api/health";
 import { type AppEnv, notFound, problem } from "./api/http";
 import { me } from "./api/me";
 import { demo } from "./api/session";
+import { purgeRateLimitRows } from "./db/ScopedQuery";
+import { utcDay } from "./llm/budget";
 
 const app = new Hono<AppEnv>();
 
@@ -21,4 +23,13 @@ app.onError((err, c) => {
   return problem(c, 500, "INTERNAL_ERROR");
 });
 
-export default app;
+/**
+ * Cron(설계서 v0.1.29 §7 — wrangler.jsonc triggers "17 0 * * *"): 전날 이전의 분 단위 레이트 리밋 행(`rl:`)을 지운다.
+ * 예산·통계 카운터(global·ip·provider·stat)는 그대로 — /budget 7일 창이 읽는다.
+ */
+export async function scheduled(controller: ScheduledController, env: Env): Promise<void> {
+  const n = await purgeRateLimitRows(env.DB, utcDay(new Date(controller.scheduledTime)));
+  console.log(`[cron] rl rows purged: ${n}`);
+}
+
+export default { fetch: app.fetch, scheduled } satisfies ExportedHandler<Env>;

@@ -1,7 +1,8 @@
 import { env } from "cloudflare:test";
 import { exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { anyProviderLeft, BUDGET_DEFAULTS, budgetCaps, budgetReport, countStat, reserveProvider, reserveQuestion, usageOn, userScope, withKeys } from "../src/llm/budget";
+import { scheduled } from "../src/index";
+import { anyProviderLeft, BUDGET_DEFAULTS, budgetCaps, budgetReport, countStat, rateScope, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, withKeys } from "../src/llm/budget";
 
 // PHASES Phase 5 항목 1·7 — 예산(설계서 v0.1.27 §6.2). 카운터는 D1(규약 5), 갱신은 UPDATE … WHERE used < ? 한 문장.
 const DAY = "2026-11-06";
@@ -78,6 +79,47 @@ describe("차감(D1 단일 UPDATE)", () => {
     expect(results.filter((r) => r.ok)).toHaveLength(30);
     expect(results.filter((r) => !r.ok && r.exhausted === "global")).toHaveLength(20);
     expect(await env.DB.prepare("SELECT used FROM budget_counter WHERE scope = 'global' AND day = ?").bind(DAY).first("used")).toBe(30);
+  });
+});
+
+describe("레이트 리밋(설계서 v0.1.29 §7 — 분당 3회, D1)", () => {
+  const u = "ip:aaaaaaaaaaaaaaaa";
+
+  it("분 키 rl:<사용자 키>:<yyyymmddHHMM>(UTC), 같은 분 3회까지, 4번째는 다음 분까지 초, 다음 분은 새로", async () => {
+    const t = new Date("2026-11-06T13:45:12.345Z");
+    expect(rateScope(u, t)).toBe("rl:ip:aaaaaaaaaaaaaaaa:202611061345");
+    for (let i = 0; i < 3; i++) expect(await reserveRate(env.DB, u, t)).toEqual({ ok: true });
+    expect(await reserveRate(env.DB, u, t)).toEqual({ ok: false, retryAfterSeconds: 48 });
+    expect(await reserveRate(env.DB, u, new Date("2026-11-06T13:46:00Z"))).toEqual({ ok: true });
+    expect(await reserveRate(env.DB, "ip:bbbbbbbbbbbbbbbb", t)).toEqual({ ok: true });
+    // 예산 범위는 건드리지 않는다
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope NOT LIKE 'rl:%'").first("n")).toBe(0);
+  });
+
+  it("동시 10요청이 같은 분이면 정확히 3만 통과(같은 단일 UPDATE)", async () => {
+    const t = new Date("2026-11-06T13:45:00Z");
+    const r = await Promise.all(Array.from({ length: 10 }, () => reserveRate(env.DB, u, t)));
+    expect(r.filter((x) => x.ok)).toHaveLength(3);
+  });
+
+  it("Cron scheduled(): 전날 이전 rl: 행만 지우고 오늘 rl:·예산·통계 카운터는 남긴다", async () => {
+    for (const [scope, day] of [
+      ["rl:ip:aaaaaaaaaaaaaaaa:202611052359", "2026-11-05"],
+      ["rl:ip:aaaaaaaaaaaaaaaa:202611040101", "2026-11-04"],
+      ["rl:ip:aaaaaaaaaaaaaaaa:202611060001", "2026-11-06"],
+      ["global", "2026-11-05"],
+      ["ip:aaaaaaaaaaaaaaaa", "2026-11-05"],
+      ["stat:depth:0", "2026-11-04"],
+    ] as const)
+      await env.DB.prepare("INSERT INTO budget_counter (scope, day, used) VALUES (?, ?, 1)").bind(scope, day).run();
+    await scheduled({ scheduledTime: Date.parse("2026-11-06T00:17:00Z"), cron: "17 0 * * *", noRetry() {} } as ScheduledController, env);
+    const left = (await env.DB.prepare("SELECT scope FROM budget_counter ORDER BY scope").all<{ scope: string }>()).results.map((r) => r.scope);
+    expect(left).toEqual(["global", "ip:aaaaaaaaaaaaaaaa", "rl:ip:aaaaaaaaaaaaaaaa:202611060001", "stat:depth:0"]);
+  });
+
+  it("wrangler.jsonc 최상위에 Cron 하나(무료 5개/계정 — 설계서 §10.1)", async () => {
+    const { default: raw } = await import("../wrangler.jsonc?raw");
+    expect(raw).toMatch(/"triggers": \{ "crons": \["17 0 \* \* \*"\] \}/);
   });
 });
 

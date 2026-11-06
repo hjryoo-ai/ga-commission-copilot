@@ -58,6 +58,22 @@ export async function userScope(secret: string | undefined, ip: string, day: str
   return `ip:${hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${salt}\u001f${ip}`))).slice(0, 16)}`;
 }
 
+/** 설계서 §7·v0.1.29: `/ask`는 IP당 분당 3회(예산과 별도 — WAF 대신 Worker 안에서 센다). */
+export const RATE_PER_MINUTE = 3;
+
+/** 분 키 `rl:<사용자 키>:<yyyymmddHHMM>`(UTC) — 사용자 키는 userScope의 `ip:<16 hex>`(원문 IP 없음). */
+export function rateScope(user: string, now: Date): string {
+  return `rl:${user}:${now.toISOString().slice(0, 16).replace(/[-T:]/g, "")}`;
+}
+
+export type RateReservation = { ok: true } | { ok: false; retryAfterSeconds: number };
+
+/** 분당 1회 차감(같은 단일 UPDATE). 막히면 다음 분 시작까지 초(1~60). 하루 지난 행은 Cron이 지운다(purgeRateLimitRows). */
+export async function reserveRate(db: D1Database, user: string, now: Date, cap = RATE_PER_MINUTE): Promise<RateReservation> {
+  if (await reserveBudget(db, rateScope(user, now), utcDay(now), cap)) return { ok: true };
+  return { ok: false, retryAfterSeconds: 60 - now.getUTCSeconds() };
+}
+
 export type QuestionReservation = { ok: true } | { ok: false; exhausted: "user" | "global" };
 
 /**

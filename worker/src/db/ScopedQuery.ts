@@ -424,6 +424,17 @@ export async function budgetRowsBetween(db: D1Database, from: string, to: string
   ).results;
 }
 
+/**
+ * 지난 날의 분 단위 레이트 리밋 행 삭제(설계서 v0.1.29 §7 — Worker Cron이 매일 부른다). `rl:` 범위만, day < before(UTC 날).
+ * 분 키는 그 분이 지나면 다시 읽히지 않는다 — 전날 이전 행은 지워도 판정이 바뀌지 않는다. 지운 행 수를 돌려준다.
+ */
+export async function purgeRateLimitRows(db: D1Database, before: string): Promise<number> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(before)) throw new Error("invalid budget day");
+  // PK(scope, day) 범위 검색이 되도록 LIKE 대신 접두 구간('rl:' ≤ scope < 'rl;')
+  const r = await db.prepare("DELETE FROM budget_counter WHERE scope >= 'rl:' AND scope < 'rl;' AND day < ?").bind(before).run();
+  return r.meta.changes ?? 0;
+}
+
 /** 한 범위의 하루 사용량(사용자 키 `ip:…`의 남은 횟수). */
 export async function budgetUsed(db: D1Database, scope: string, day: string): Promise<number> {
   return (await db.prepare("SELECT used FROM budget_counter WHERE scope = ? AND day = ?").bind(scope, day).first<number>("used")) ?? 0;
