@@ -50,7 +50,18 @@ export interface Me extends Common {
   orgPath?: string;
   months?: { from: string; to: string };
   promptVersions?: Record<string, string>;
+  /** 설계서 v0.1.27 §7: 오늘 남은 질문(전역·이 사용자). */
+  budget?: MeBudget;
 }
+
+export interface MeBudget {
+  remainingToday: number;
+  userRemaining: number;
+  resetsAt: string;
+}
+
+/** 칩·입력창이 쓰는 남은 질문 = 전역과 이 사용자 중 작은 쪽. */
+export const questionsLeft = (b: MeBudget) => Math.min(b.remainingToday, b.userRemaining);
 
 export interface MonthSummary {
   closeYm: string;

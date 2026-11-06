@@ -2,7 +2,7 @@
 // · 거부 카드(사유별 고정 문구 — 서버 text 그대로 + 대안 동선) · 예산 소진(429 BUDGET)이면 입력창 비활성 + 남은 시간.
 // 화면은 답의 숫자를 계산·대조하지 않는다(검증은 서버 G4~G6). LLM 본문은 큰 숫자 자리에 두지 않는다.
 import { type FormEvent, useState } from "react";
-import { api, type AskResult, Unauthenticated } from "../api";
+import { api, type AskResult, questionsLeft, Unauthenticated } from "../api";
 import { DISCLAIMER } from "../disclaimer";
 import { EXAMPLE_QUESTIONS } from "../examples";
 import { waitText } from "../format";
@@ -115,7 +115,10 @@ export function Ask() {
   const [log, setLog] = useState<Exchange[]>([]);
   const [budgetOut, setBudgetOut] = useState<number | null>(null);
   const pending = log.some((x) => x.state === "pending");
-  const disabled = pending || budgetOut !== null;
+  // 설계서 v0.1.27: 불러올 때 이미 남은 질문이 0이면 처음부터 비활성(다음 00:00 UTC까지)
+  const loadedOut = me.state === "ok" && me.data.budget && questionsLeft(me.data.budget) === 0 ? Math.max(0, (Date.parse(me.data.budget.resetsAt) - Date.now()) / 1000) : null;
+  const out = budgetOut ?? loadedOut;
+  const disabled = pending || out !== null;
 
   async function send(q: string) {
     const text = q.trim();
@@ -150,9 +153,9 @@ export function Ask() {
         <button type="submit" disabled={disabled || question.trim() === ""}>
           {pending ? "답하는 중…" : "질문하기"}
         </button>
-        {budgetOut !== null && (
+        {out !== null && (
           <p className="muted small" data-testid="budget-out">
-            오늘 질문 예산이 소진되었습니다 — {waitText(budgetOut)} 뒤 다시 질문할 수 있습니다.
+            오늘 질문 예산이 소진되었습니다 — {waitText(out)} 뒤 다시 질문할 수 있습니다. 명세의 사전 생성 설명은 계속 볼 수 있습니다.
           </p>
         )}
       </form>

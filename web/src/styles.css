@@ -534,3 +534,9 @@ footer {
   border-color: #c0392b;
   background: #fdecea;
 }
+
+/* 오늘 남은 질문 0(설계서 v0.1.27 저하 ①) */
+.chip.warn {
+  border-color: #e6c200;
+  background: #fff8db;
+}
