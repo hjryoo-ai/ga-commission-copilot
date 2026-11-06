@@ -1,7 +1,7 @@
 // 화면 1 설계사 선택(설계서 §8-1): 데모 설계사 3명 카드 + 한 줄 설명 + "이 데모가 하지 않는 것".
 import { useState } from "react";
 import { api, type DemoAgentCard } from "../api";
-import { navigate, paths } from "../router";
+import { Link, navigate, paths } from "../router";
 import { Chips, Footer, Status, useLoad } from "../ui";
 
 export function SelectAgent() {
@@ -52,6 +52,9 @@ export function SelectAgent() {
             <li>실제 회사 규정을 판정하지 않습니다 — 가상 사규로만 설명합니다.</li>
           </ul>
         </section>
+        <p>
+          <Link to={paths.budget()}>예산·관측 — 오늘 질문 예산과 공급자별 사용</Link>
+        </p>
       </main>
       <Footer />
     </>

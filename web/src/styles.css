@@ -540,3 +540,41 @@ footer {
   border-color: #e6c200;
   background: #fff8db;
 }
+
+/* 화면 6 예산·관측(설계서 §8-6) */
+table.budget {
+  width: 100%;
+  margin: 8px 0;
+}
+
+table.budget.usage-table {
+  table-layout: fixed;
+}
+
+table.budget .usage-cell {
+  width: 40%;
+}
+
+table.budget.usage-table thead th:first-child,
+table.budget.usage-table tbody th {
+  width: 32%;
+}
+
+table.budget thead th {
+  font-size: 0.8rem;
+}
+
+table.budget .note-line {
+  display: block;
+  white-space: normal;
+}
+
+table.budget .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+table.budget:not(.usage-table) thead th + th {
+  text-align: right;
+}

@@ -1,6 +1,7 @@
 import { env } from "cloudflare:test";
+import { exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { anyProviderLeft, BUDGET_DEFAULTS, budgetCaps, reserveProvider, reserveQuestion, usageOn, userScope, withKeys } from "../src/llm/budget";
+import { anyProviderLeft, BUDGET_DEFAULTS, budgetCaps, budgetReport, countStat, reserveProvider, reserveQuestion, usageOn, userScope, withKeys } from "../src/llm/budget";
 
 // PHASES Phase 5 항목 1·7 — 예산(설계서 v0.1.27 §6.2). 카운터는 D1(규약 5), 갱신은 UPDATE … WHERE used < ? 한 문장.
 const DAY = "2026-11-06";
@@ -77,5 +78,30 @@ describe("차감(D1 단일 UPDATE)", () => {
     expect(results.filter((r) => r.ok)).toHaveLength(30);
     expect(results.filter((r) => !r.ok && r.exhausted === "global")).toHaveLength(20);
     expect(await env.DB.prepare("SELECT used FROM budget_counter WHERE scope = 'global' AND day = ?").bind(DAY).first("used")).toBe(30);
+  });
+});
+
+describe("GET /api/v1/budget(PHASES Phase 5 항목 6 — 공개)", () => {
+  it("세션 없이 200·no-store, 오늘·7일·분포, 사용자 키(ip:…)는 내보내지 않는다", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    for (const [scope, used] of [["global", 4], ["provider:groq", 5], ["ip:0123456789abcdef", 3], ["stat:depth:0", 3], ["stat:depth:1", 1], ["stat:refuse:budget", 2], ["stat:cache:miss", 4]] as const)
+      await env.DB.prepare("INSERT INTO budget_counter (scope, day, used) VALUES (?, ?, ?)").bind(scope, today, used).run();
+    const res = await exports.default.fetch(new Request("https://example.com/api/v1/budget"));
+    expect([res.status, res.headers.get("Cache-Control")]).toEqual([200, "no-store"]);
+    const text = await res.text();
+    expect(text).not.toContain("ip:");
+    const b = JSON.parse(text) as Awaited<ReturnType<typeof budgetReport>> & { caps: { global: number } };
+    expect(b.days).toHaveLength(7);
+    expect(b.days.at(-1)).toEqual({ day: today, questions: 4, providers: { groq: 5, "workers-ai": 0, openrouter: 0 } });
+    expect(b.today.providers.groq.used).toBe(5);
+    expect([b.fallbackDepth, b.refusals, b.cache]).toEqual([{ "0": 3, "1": 1, "2": 0 }, { BUDGET: 2 }, { hit: 0, miss: 4 }]);
+  });
+
+  it("7일 창: 오늘 포함 거슬러 7일, 그 밖의 날은 빠진다", async () => {
+    await countStat(env.DB, "depth:2", "2026-10-30"); // 창 밖
+    await countStat(env.DB, "depth:2", "2026-10-31");
+    await countStat(env.DB, "depth:2", "2026-11-06");
+    const r = await budgetReport(env.DB, budgetCaps({}), new Date("2026-11-06T12:00:00Z"));
+    expect([r.days[0]!.day, r.days.at(-1)!.day, r.fallbackDepth["2"]]).toEqual(["2026-10-31", "2026-11-06", 2]);
   });
 });

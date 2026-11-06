@@ -9,7 +9,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
 import { type AnswerResult, answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm } from "../llm/answer";
-import { anyProviderLeft, budgetCaps, reserveProvider, reserveQuestion, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
+import { anyProviderLeft, budgetCaps, countStat, reserveProvider, reserveQuestion, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
 import { fallbackChain, groq, openrouter, ProviderError, ProvidersExhausted, traced, workersAi } from "../llm/providers";
 import { type AppEnv, common, DISCLAIMER, invalidRequest, notFound, problem } from "./http";
 import { InvalidToolCall, parseToolCall, runTool, serialize } from "../tools";
@@ -46,6 +46,7 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
   const deps = cloudflareDeps(c.env, traced(chain, c.env, c.env.DB));
   const budgetRefusal = async () => {
     const b = await refuseWithoutLlm(deps, q, c.env, question, "BUDGET");
+    await countStat(c.env.DB, "refuse:BUDGET", day);
     return answerJson(c, { answerId: b.answerId, refused: true, reason: "BUDGET", text: b.text, retryAfterSeconds: secondsToUtcMidnight(now), promptVersion: b.promptVersion }, 429);
   };
   // 저하 ① — 시도할 공급자가 하나도 없으면 임베딩도 부르지 않는다(읽기만, 차감 없음 — 경합으로 그 뒤 소진되면 체인이 ProvidersExhausted)
@@ -65,6 +66,13 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
     }
     throw e;
   }
+  // 공개 /budget 분포(설계서 v0.1.28): 답한 공급자의 체인 순번·거부 사유·캐시(AI Gateway 전에는 모두 miss)·저하 ③
+  await Promise.all([
+    countStat(c.env.DB, `depth:${Math.min(2, r.fallbackDepth) as 0 | 1 | 2}`, day),
+    countStat(c.env.DB, "cache:miss", day),
+    ...(r.refused && r.reason ? [countStat(c.env.DB, `refuse:${r.reason}`, day)] : []),
+    ...(r.rulesUnavailable ? [countStat(c.env.DB, "degraded:rules", day)] : []),
+  ]);
   return answerJson(c, {
     answerId: r.answerId,
     refused: r.refused,

@@ -2,6 +2,7 @@
 import { match, usePath } from "./router";
 import { AnswerReplayScreen } from "./screens/AnswerReplay";
 import { Ask } from "./screens/Ask";
+import { Budget } from "./screens/Budget";
 import { LimitDetail, Limits } from "./screens/Limits";
 import { LineDetail } from "./screens/LineDetail";
 import { SelectAgent } from "./screens/SelectAgent";
@@ -24,6 +25,8 @@ export function App({ path: initial }: { path?: string } = {}) {
       return <LimitDetail ledgerId={route.ledgerId} />;
     case "ask":
       return <Ask />;
+    case "budget":
+      return <Budget />;
     case "answer":
       return <AnswerReplayScreen answerId={route.answerId} />;
     case "notFound":

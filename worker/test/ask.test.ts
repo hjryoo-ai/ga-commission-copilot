@@ -69,6 +69,8 @@ describe("POST /api/v1/me/ask", () => {
     expect(await env.DB.prepare("SELECT refuse_reason FROM answer_log WHERE answer_id = ?").bind(b.answerId).first("refuse_reason")).toBe("BUDGET");
     expect(await env.DB.prepare("SELECT used FROM budget_counter WHERE scope = 'provider:groq'").first("used")).toBe(caps.providers.groq);
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope = 'provider:workers-ai'").first("n")).toBe(0);
+    // 공개 /budget 분포(설계서 v0.1.28)
+    expect(await env.DB.prepare("SELECT used FROM budget_counter WHERE scope = 'stat:refuse:budget'").first("used")).toBe(1);
   });
 
   it("retryAfterSeconds = 다음 00:00 UTC까지", () => {

@@ -3,7 +3,7 @@
 //   범위: global(질문 1건에 1) · ip:<일일 솔트 해시>(질문 1건에 1) · provider:<이름>(HTTP 호출마다 1).
 //   전역 상한 = min(BUDGET_GLOBAL, 공급자 상한 합) — Workers AI는 설명 배치와 뉴런을 나눠 써 배치 중 0(v0.1.27).
 // 원문 IP는 어디에도 저장하지 않는다 — 날마다 바뀌는 솔트(SESSION_SECRET에서 HMAC으로 유도)로 해시한 앞 16자만 scope에 쓴다.
-import { budgetRows, budgetUsed, reserveBudget } from "../db/ScopedQuery";
+import { budgetRows, budgetRowsBetween, budgetUsed, reserveBudget } from "../db/ScopedQuery";
 
 export const PROVIDER_ORDER = ["groq", "workers-ai", "openrouter"] as const;
 export type BudgetProvider = (typeof PROVIDER_ORDER)[number];
@@ -102,4 +102,47 @@ export function anyProviderLeft(u: BudgetUsage): boolean {
 /** 이 사용자 키의 오늘 사용량. */
 export async function userUsed(db: D1Database, user: string, day: string): Promise<number> {
   return budgetUsed(db, user, day);
+}
+
+/**
+ * 답변 통계 카운터(설계서 v0.1.28 — 공개 /budget의 폴백 깊이·거부 사유·캐시·저하 분포). answer_log를 설계사 경계 없이 모으지 않도록(규약 3)
+ * budget_counter(전역 운영 표)에 `stat:<이름>` 범위로 센다 — 같은 단일 UPDATE, 상한은 사실상 없음.
+ */
+export type StatName = `depth:${0 | 1 | 2}` | `refuse:${string}` | "cache:hit" | "cache:miss" | "degraded:rules";
+const STAT_CAP = 1_000_000_000;
+export async function countStat(db: D1Database, name: StatName, day: string): Promise<void> {
+  // scope 형식은 소문자([a-z0-9:_-]) — 거부 코드(BUDGET 등)는 소문자로 저장하고 보고서에서 되돌린다
+  await reserveBudget(db, `stat:${name.toLowerCase()}`, day, STAT_CAP);
+}
+
+export interface BudgetReport {
+  today: BudgetUsage;
+  days: { day: string; questions: number; providers: Record<BudgetProvider, number> }[];
+  /** 기간 합 — 폴백 깊이(답한 공급자의 체인 순번)·거부 사유·캐시·저하. */
+  fallbackDepth: Record<"0" | "1" | "2", number>;
+  refusals: Record<string, number>;
+  cache: { hit: number; miss: number };
+  degraded: { rules: number };
+}
+
+/** 공개 /budget: 오늘 사용·상한 + 최근 n일(오늘 포함) 일별 공급자 사용·질문 수 + 분포. */
+export async function budgetReport(db: D1Database, caps: BudgetCaps, now: Date, days = 7): Promise<BudgetReport> {
+  const dayList = Array.from({ length: days }, (_, i) => utcDay(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (days - 1 - i)))));
+  const rows = await budgetRowsBetween(db, dayList[0]!, dayList.at(-1)!);
+  const at = (scope: string, day: string) => rows.find((r) => r.scope === scope && r.day === day)?.used ?? 0;
+  const sum = (pred: (scope: string) => boolean) => rows.filter((r) => pred(r.scope)).reduce((n, r) => n + r.used, 0);
+  const refusals: Record<string, number> = {};
+  for (const r of rows) {
+    if (!r.scope.startsWith("stat:refuse:")) continue;
+    const code = r.scope.slice("stat:refuse:".length).toUpperCase();
+    refusals[code] = (refusals[code] ?? 0) + r.used;
+  }
+  return {
+    today: await usageOn(db, caps, dayList.at(-1)!),
+    days: dayList.map((day) => ({ day, questions: at("global", day), providers: Object.fromEntries(PROVIDER_ORDER.map((p) => [p, at(`provider:${p}`, day)])) as Record<BudgetProvider, number> })),
+    fallbackDepth: { "0": sum((s) => s === "stat:depth:0"), "1": sum((s) => s === "stat:depth:1"), "2": sum((s) => s === "stat:depth:2") },
+    refusals,
+    cache: { hit: sum((s) => s === "stat:cache:hit"), miss: sum((s) => s === "stat:cache:miss") },
+    degraded: { rules: sum((s) => s === "stat:degraded:rules") },
+  };
 }

@@ -230,6 +230,19 @@ export interface AnswerReplay extends Common {
   createdAt: string;
 }
 
+export type BudgetProvider = "groq" | "workers-ai" | "openrouter";
+
+/** GET /api/v1/budget(화면 6 — 공개, 설계서 v0.1.28). */
+export interface BudgetReport {
+  today: { day: string; global: { used: number; cap: number }; providers: Record<BudgetProvider, { used: number; cap: number }> };
+  days: { day: string; questions: number; providers: Record<BudgetProvider, number> }[];
+  fallbackDepth: Record<"0" | "1" | "2", number>;
+  refusals: Record<string, number>;
+  cache: { hit: number; miss: number };
+  degraded: { rules: number };
+  disclaimer: string;
+}
+
 /** 공급자 실패(503) — 화면은 "잠시 후 다시". */
 export class Unavailable extends Error {}
 
@@ -256,6 +269,7 @@ export const api = {
   line: (calcId: string) => call<LineDetail>(`/api/v1/me/earnings/lines/${encodeURIComponent(calcId)}`),
   limits: () => call<Limits>("/api/v1/me/limits"),
   limit: (ledgerId: string) => call<LimitDetail>(`/api/v1/me/limits/${encodeURIComponent(ledgerId)}`),
+  budget: () => call<BudgetReport>("/api/v1/budget"),
   answer: (answerId: string) => call<AnswerReplay>(`/api/v1/answers/${encodeURIComponent(answerId)}`),
   /** 429(예산 소진 BUDGET)는 오류가 아니라 거부 답 — 본문을 그대로 돌려준다. */
   async ask(question: string): Promise<AskResult> {

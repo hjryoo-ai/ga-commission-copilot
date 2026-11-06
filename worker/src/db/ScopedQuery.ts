@@ -413,6 +413,17 @@ export async function budgetRows(db: D1Database, day: string): Promise<{ scope: 
   return (await db.prepare("SELECT scope, used FROM budget_counter WHERE day = ? AND (scope = 'global' OR scope LIKE 'provider:%')").bind(day).all<{ scope: string; used: number }>()).results;
 }
 
+/** 기간의 예산·통계 카운터(공개 /budget — 설계서 v0.1.28 §7). 사용자 키(ip:…)는 내보내지 않는다. */
+export async function budgetRowsBetween(db: D1Database, from: string, to: string): Promise<{ scope: string; day: string; used: number }[]> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new Error("invalid budget day");
+  return (
+    await db
+      .prepare("SELECT scope, day, used FROM budget_counter WHERE day BETWEEN ? AND ? AND (scope = 'global' OR scope LIKE 'provider:%' OR scope LIKE 'stat:%') ORDER BY day")
+      .bind(from, to)
+      .all<{ scope: string; day: string; used: number }>()
+  ).results;
+}
+
 /** 한 범위의 하루 사용량(사용자 키 `ip:…`의 남은 횟수). */
 export async function budgetUsed(db: D1Database, scope: string, day: string): Promise<number> {
   return (await db.prepare("SELECT used FROM budget_counter WHERE scope = ? AND day = ?").bind(scope, day).first<number>("used")) ?? 0;
