@@ -1,0 +1,15 @@
+
+> @copilot/gen@ load:d1 /home/runner/work/ga-commission-copilot/ga-commission-copilot/gen
+> node load/d1.ts -- --remote --explain
+
+explanation fca1971cdbce: 레코드 434, 이미 있음 434, 새로 0 → D1 434행
+   실측 rows written(wrangler): 0
+
+> @copilot/gen@ verify:explain /home/runner/work/ga-commission-copilot/ga-commission-copilot/gen
+> node explain/verify-explanations.ts -- --remote
+
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 434 — PASS 434 · FAIL 0, PASS 행 위반 0(활성 버전) · 이력 버전 위반 1
+  LIMIT: PASS 6 · FAIL 0
+  LINE: PASS 422 · FAIL 0
+  MONTH_DIFF: PASS 6 · FAIL 0
+  이력 위반(보고만) LINE A-1001 2 explain_line/v4: G6 PHRASE:회계연도
