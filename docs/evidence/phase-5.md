@@ -98,6 +98,7 @@ deploy 79e0596 success — Uploaded ga-commission-copilot · Deployed ga-commiss
 - 화면 4: 응답의 `budget`을 상단 칩에 덮는다(`withAskBudget` — resetsAt은 `/me` 것, `/me` 다시 부르지 않음). 남은 질문이 0이 되면 그 자리에서 입력창 비활성.
 - `/budget`: `today.calls {used, cap}`·`days[].calls`(공급자 호출 합) 추가. 화면 6 오늘 표 = 범위 | **질문**(답 1건에 1) | **호출**(LLM 1회에 1) — 공급자 행의 질문 칸은 "—", 7일 표 = 날 | 질문 | 호출(합·Groq·Workers AI·OpenRouter). 390px 가로 넘침 없음. `captures/phase-5-screen6-budget-split-local.png`(로컬 — `.dev.vars`에 Groq 키만 있어 질문 상한 floor(55/2) = 27, 호출 55).
 - 배포 확인(운영자 푸시 f69a635 — ci·deploy 성공, LLM 호출 없음): 공개 `/budget` caps.global 35 · today 질문 2/35 · 호출 4/70 · 11-07 행 `{questions 2, calls 4, groq 4}` · `/me` budget `{remainingToday 33, userRemaining 8}`(같은 IP에서 질문 2건) · 쿠키 없는 `/ask` 403 그대로. CI는 dab97b5부터 다시 녹색(afa13fb 수리 확인).
+- 공개 URL 칩 확인(운영자 브라우저 2026-11-07, `captures/phase-5-public-chip-after-answer.png`): "해약 환수율은 어떻게 정해지나요?" → 검증 통과·제25조 인용·groq·3,079ms, 답 뒤 상단 칩 "오늘 남은 질문 7회"(답 전 8 — 다시 읽지 않고 응답 값으로 줄었다). 공개 `/budget` 대조: 질문 2 → 3/35, 호출 4 → 5/70 — 규정만 인용하고 툴이 필요 없는 질문이라 호출 1회(답 1건 = 호출 1~2회의 실례), 깊이 0, 캐시 miss.
 - 시험: worker `budget.test` 상한 공식(75·35·71 → 35·키 없는 공급자 27)·`questionsLeft`(질문 1건 → 1씩 감소, 공급자 호출은 질문 수를 바꾸지 않음)·`/budget` calls, `ask.test` "답 1건 뒤 1 준다"(가짜 Groq·가짜 AI 바인딩 — 외부 호출 없음, 200 budget = 직전 /me − 1 = 그 뒤 /me, 429 BUDGET 뒤 응답 = /me, AskResponse 스키마)·레이트 리밋 problem budget(Problem 스키마)·`cache.test` 재사용 budget 그대로 · web `ask.test` 칩 2(답 뒤 10 → 9회, 429 BUDGET → 0회 경고·RATE_LIMITED → 응답 값)·`budget.test` 질문·호출 열.
 
 ## 시험(LLM 호출 없음)
