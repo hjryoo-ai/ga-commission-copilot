@@ -97,6 +97,7 @@ deploy 79e0596 success — Uploaded ga-commission-copilot · Deployed ga-commiss
 - `/ask` 응답 200·429 `BUDGET`·429 `RATE_LIMITED`(problem+json) 모두 `budget {remainingToday, userRemaining}` — 그 요청을 센 뒤 값(`questionsLeft` — `/me`와 같은 계산). overlay: `AskBudget`·`AskResponse`(200·429 BUDGET 본문, additionalProperties false) 추가, `Problem` 덧씌우기(`TURNSTILE_REQUIRED` 코드·선택 `budget` — 공통 거부 401·404·400은 그대로 code·message뿐).
 - 화면 4: 응답의 `budget`을 상단 칩에 덮는다(`withAskBudget` — resetsAt은 `/me` 것, `/me` 다시 부르지 않음). 남은 질문이 0이 되면 그 자리에서 입력창 비활성.
 - `/budget`: `today.calls {used, cap}`·`days[].calls`(공급자 호출 합) 추가. 화면 6 오늘 표 = 범위 | **질문**(답 1건에 1) | **호출**(LLM 1회에 1) — 공급자 행의 질문 칸은 "—", 7일 표 = 날 | 질문 | 호출(합·Groq·Workers AI·OpenRouter). 390px 가로 넘침 없음. `captures/phase-5-screen6-budget-split-local.png`(로컬 — `.dev.vars`에 Groq 키만 있어 질문 상한 floor(55/2) = 27, 호출 55).
+- 배포 확인(운영자 푸시 f69a635 — ci·deploy 성공, LLM 호출 없음): 공개 `/budget` caps.global 35 · today 질문 2/35 · 호출 4/70 · 11-07 행 `{questions 2, calls 4, groq 4}` · `/me` budget `{remainingToday 33, userRemaining 8}`(같은 IP에서 질문 2건) · 쿠키 없는 `/ask` 403 그대로. CI는 dab97b5부터 다시 녹색(afa13fb 수리 확인).
 - 시험: worker `budget.test` 상한 공식(75·35·71 → 35·키 없는 공급자 27)·`questionsLeft`(질문 1건 → 1씩 감소, 공급자 호출은 질문 수를 바꾸지 않음)·`/budget` calls, `ask.test` "답 1건 뒤 1 준다"(가짜 Groq·가짜 AI 바인딩 — 외부 호출 없음, 200 budget = 직전 /me − 1 = 그 뒤 /me, 429 BUDGET 뒤 응답 = /me, AskResponse 스키마)·레이트 리밋 problem budget(Problem 스키마)·`cache.test` 재사용 budget 그대로 · web `ask.test` 칩 2(답 뒤 10 → 9회, 429 BUDGET → 0회 경고·RATE_LIMITED → 응답 값)·`budget.test` 질문·호출 열.
 
 ## 시험(LLM 호출 없음)
