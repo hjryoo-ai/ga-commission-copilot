@@ -1,5 +1,5 @@
 {
- "_comment": "부록 A 12건 원문(설계서 부록 A) — answer-record.py(로컬 녹화)·capture-public.py(공개 URL 캡처)가 같이 읽는다",
+ "_comment": "부록 A 12건 원문(설계서 부록 A) — answer-record.py(로컬 녹화)·capture-local.py(로컬 서버 캡처 — v0.1.32)가 같이 읽는다",
  "cases": [
   {
    "case": "A-01",
