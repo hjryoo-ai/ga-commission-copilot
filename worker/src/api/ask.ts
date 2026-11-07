@@ -10,7 +10,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
 import { type AnswerResult, answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm, reuseAnswer } from "../llm/answer";
-import { anyProviderLeft, budgetCaps, countStat, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
+import { anyProviderLeft, budgetCaps, countStat, questionsLeft, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
 import { fallbackChain, type GatewayRunner, groq, openrouter, ProviderError, ProvidersExhausted, traced, workersAi } from "../llm/providers";
 import { type AppEnv, common, DISCLAIMER, invalidRequest, notFound, problem } from "./http";
 import { InvalidToolCall, parseToolCall, runTool, serialize } from "../tools";
@@ -46,10 +46,12 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
   const now = new Date();
   const day = utcDay(now);
   const user = await userScope(c.env.SESSION_SECRET, clientIp(c), day);
+  const caps = withKeys(budgetCaps(c.env), c.env);
+  // 응답마다 붙이는 오늘 남은 질문(설계서 v0.1.33 — 그 요청을 센 뒤 값, 화면 4 칩)
+  const left = () => questionsLeft(c.env.DB, caps, user, day);
   // 레이트 리밋(설계서 v0.1.29 §7 — 예산과 별도, 맨 앞): IP당 분당 3회. 넘으면 answer_log 없이 429 RATE_LIMITED + Retry-After(다음 분까지)
   const rate = await reserveRate(c.env.DB, user, now);
-  if (!rate.ok) return problem(c, 429, "RATE_LIMITED", { "Retry-After": String(rate.retryAfterSeconds) });
-  const caps = withKeys(budgetCaps(c.env), c.env);
+  if (!rate.ok) return problem(c, 429, "RATE_LIMITED", { "Retry-After": String(rate.retryAfterSeconds) }, { budget: await left() });
   // AI Gateway(설계서 v0.1.29 §6.4): AI_GATEWAY_ID가 있을 때만 — 바인딩 gateway()는 실제로 부를 때 만든다
   const gwId = c.env.AI_GATEWAY_ID || null;
   const gw: GatewayRunner | null = gwId ? () => c.env.AI.gateway(gwId) : null;
@@ -59,13 +61,13 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
   const budgetRefusal = async () => {
     const b = await refuseWithoutLlm(deps, q, c.env, question, "BUDGET");
     await countStat(c.env.DB, "refuse:BUDGET", day);
-    return answerJson(c, { answerId: b.answerId, refused: true, reason: "BUDGET", text: b.text, retryAfterSeconds: secondsToUtcMidnight(now), promptVersion: b.promptVersion }, 429);
+    return answerJson(c, { answerId: b.answerId, refused: true, reason: "BUDGET", text: b.text, retryAfterSeconds: secondsToUtcMidnight(now), promptVersion: b.promptVersion, budget: await left() }, 429);
   };
   // 답 단위 재사용 — 예산 검사보다 먼저(캐시 히트는 예산 미차감). 소진된 날에도 같은 질문의 원래 답은 돌려준다
   const reused = await reuseAnswer(deps, q, c.env, question);
   if (reused) {
     await countStat(c.env.DB, "cache:hit", day);
-    return answerJson(c, answerBody(reused, true));
+    return answerJson(c, { ...answerBody(reused, true), budget: await left() });
   }
   // 저하 ① — 시도할 공급자가 하나도 없으면 임베딩도 부르지 않는다(읽기만, 차감 없음 — 경합으로 그 뒤 소진되면 체인이 ProvidersExhausted)
   if (!anyProviderLeft(await usageOn(c.env.DB, caps, day))) return budgetRefusal();
@@ -91,7 +93,7 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
     ...(r.refused && r.reason ? [countStat(c.env.DB, `refuse:${r.reason}`, day)] : []),
     ...(r.rulesUnavailable ? [countStat(c.env.DB, "degraded:rules", day)] : []),
   ]);
-  return answerJson(c, answerBody(r, false), 200, r.rulesUnavailable);
+  return answerJson(c, { ...answerBody(r, false), budget: await left() }, 200, r.rulesUnavailable);
 }
 
 function answerBody(r: AnswerResult, cacheHit: boolean) {

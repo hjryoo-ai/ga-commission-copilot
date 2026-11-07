@@ -1,9 +1,11 @@
-import { env } from "cloudflare:test";
+import { createExecutionContext, env } from "cloudflare:test";
 import { exports } from "cloudflare:workers";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { secondsToUtcMidnight } from "../src/api/ask";
+import worker from "../src/index";
 import { budgetCaps, rateScope, userScope } from "../src/llm/budget";
 import { hash16, REFUSAL_TEXT } from "../src/llm/answer";
+import { validate } from "./contract";
 import { HASH, login, seed } from "./fixture";
 
 // PHASES Phase 4 항목 4·Phase 5 항목 1·4 — POST /api/v1/me/ask·GET /api/v1/answers/{id}. LLM을 부르지 않는 경로만(입력 검사·예산 저하 ①·재현 소유 확인).
@@ -23,6 +25,45 @@ beforeEach(async () => {
 });
 
 describe("POST /api/v1/me/ask", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("응답 budget(설계서 v0.1.33): 답 1건 뒤 남은 질문이 1 준다(200 — 가짜 Groq), 429 BUDGET 뒤 값은 응답과 /me가 같다", async () => {
+    const one = await login(app, 1);
+    const me = async () => ((await (await app.fetch(new Request("https://example.com/api/v1/me", { headers: { Cookie: one } }))).json()) as { budget: { remainingToday: number; userRemaining: number } }).budget;
+    const before = await me();
+    expect(before).toMatchObject({ remainingToday: 35, userRemaining: 10 });
+    // 가짜 Groq(외부 호출 없음): 1단계에서 범위 밖 거부 — 답 1건, 호출 1회. 질문 임베딩은 시험 환경에서 원격 바인딩이 없어 실패 → 저하 ③(규정 없이)
+    const groqReply = { model: "openai/gpt-oss-120b", choices: [{ message: { content: JSON.stringify({ refused: true, reason: "OUT_OF_SCOPE", text: "", numbersUsed: [], citations: [], toolCalls: [] }) } }], usage: null };
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (!url.startsWith("https://api.groq.com/")) throw new Error(`예상 밖 외부 호출 ${url}`);
+      return new Response(JSON.stringify(groqReply), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    // AI 바인딩도 가짜(원격 바인딩 없는 시험에서 진짜를 건드리면 miniflare가 uncaught를 찍는다): 임베딩 실패 → 저하 ③, 게이트웨이 실패 → 직접 1회(가짜 fetch)
+    const fakeAi = { run: async () => Promise.reject(new Error("4006: neurons (test)")), gateway: () => ({ run: async () => Promise.reject(new Error("AiGateway (test)")) }) };
+    const res = await worker.fetch(
+      new Request("https://example.com/api/v1/me/ask", { method: "POST", headers: { "Content-Type": "application/json", Cookie: one }, body: JSON.stringify({ question: "오늘 날씨는 어때요?" }) }),
+      { ...env, AI: fakeAi } as unknown as Env,
+      createExecutionContext(),
+    );
+    expect(res.status).toBe(200);
+    const b = (await res.json()) as { budget: unknown; reason: string; cacheHit: boolean };
+    expect([b.reason, b.cacheHit]).toEqual(["OUT_OF_SCOPE", false]);
+    expect(b.budget).toEqual({ remainingToday: before.remainingToday - 1, userRemaining: before.userRemaining - 1 });
+    expect(validate("AskResponse", b)).toEqual([]);
+    expect(spy).toHaveBeenCalled();
+    vi.restoreAllMocks();
+    // 응답 값 = 그 뒤 /me 값(칩이 /me를 다시 부르지 않아도 맞다)
+    expect(await me()).toMatchObject(b.budget as object);
+    // 사용자 예산을 채운 뒤 429 BUDGET — 응답 budget의 userRemaining 0, /me와 같다
+    await env.DB.prepare("UPDATE budget_counter SET used = ? WHERE scope = ?").bind(budgetCaps(env).user, await userScope(env.SESSION_SECRET, "local", today())).run();
+    const r429 = await ask(one, { question: "8월 실수령은 얼마예요?" });
+    const b429 = (await r429.json()) as { budget: { remainingToday: number; userRemaining: number } };
+    expect([r429.status, b429.budget.userRemaining]).toEqual([429, 0]);
+    expect(validate("AskResponse", b429)).toEqual([]);
+    expect(await me()).toMatchObject(b429.budget);
+  });
+
   it("세션 없으면 401, 질문이 비거나 500자 넘거나 다른 키가 있으면 400", async () => {
     expect((await ask(null, { question: "8월 실수령은?" })).status).toBe(401);
     const one = await login(app, 1);
@@ -58,14 +99,17 @@ describe("POST /api/v1/me/ask", () => {
     expect([res.status, res.headers.get("Content-Type"), res.headers.get("Cache-Control")]).toEqual([429, "application/problem+json", "no-store"]);
     const retry = Number(res.headers.get("Retry-After"));
     expect(retry >= 1 && retry <= 60).toBe(true);
-    expect(await res.json()).toEqual({ code: "RATE_LIMITED", message: "질문이 잦습니다 — 1분 뒤 다시 시도하세요" });
+    // 남은 질문(v0.1.33): 레이트 리밋은 예산을 쓰지 않으므로 그대로 — 전역 35(배치 중), 사용자 10
+    const body = await res.json();
+    expect(body).toEqual({ code: "RATE_LIMITED", message: "질문이 잦습니다 — 1분 뒤 다시 시도하세요", budget: { remainingToday: 35, userRemaining: 10 } });
+    expect(validate("Problem", body)).toEqual([]);
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM answer_log").first("n")).toBe(0);
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope NOT LIKE 'rl:%'").first("n")).toBe(0);
   });
 
-  it("저하 ①: 전역 예산(min(BUDGET_GLOBAL, 공급자 합) — 배치 중 55+0+15 = 70)에 닿아도 429 BUDGET", async () => {
+  it("저하 ①: 전역 예산(min(BUDGET_GLOBAL, floor(공급자 호출 합 ÷ 2)) — 배치 중 floor(70/2) = 35)에 닿아도 429 BUDGET", async () => {
     const caps = budgetCaps(env);
-    expect(caps.global).toBe(70);
+    expect(caps.global).toBe(35);
     await env.DB.prepare("INSERT INTO budget_counter (scope, day, used) VALUES ('global', ?, ?)").bind(today(), caps.global).run();
     const res = await ask(await login(app, 1), { question: "8월 실수령은 얼마예요?" });
     expect(res.status).toBe(429);

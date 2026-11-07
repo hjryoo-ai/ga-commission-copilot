@@ -27,8 +27,9 @@ const MESSAGES: Record<ProblemCode, string> = {
   TURNSTILE_REQUIRED: "사람 확인을 먼저 마치세요",
 };
 
-export function problem(c: Context, status: 400 | 401 | 403 | 404 | 429 | 500 | 503, code: ProblemCode, headers: Record<string, string> = {}): Response {
-  return c.body(JSON.stringify({ code, message: MESSAGES[code] }), status, { ...headers, "Content-Type": "application/problem+json", "Cache-Control": "no-store" });
+/** extra: 사유별로 덧붙이는 필드 — RATE_LIMITED의 budget(설계서 v0.1.33)뿐이다. 공통 거부(401·404·400)는 늘 같은 바이트. */
+export function problem(c: Context, status: 400 | 401 | 403 | 404 | 429 | 500 | 503, code: ProblemCode, headers: Record<string, string> = {}, extra: object = {}): Response {
+  return c.body(JSON.stringify({ code, message: MESSAGES[code], ...extra }), status, { ...headers, "Content-Type": "application/problem+json", "Cache-Control": "no-store" });
 }
 
 export const unauthenticated = (c: Context) => problem(c, 401, "UNAUTHENTICATED");

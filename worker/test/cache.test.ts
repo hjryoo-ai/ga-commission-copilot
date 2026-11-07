@@ -199,7 +199,8 @@ describe("답 단위 재사용(설계서 v0.1.29 — 캐시 히트는 예산 미
       new Request("https://example.com/api/v1/me/ask", { method: "POST", headers: { "Content-Type": "application/json", Cookie: await login(app, 1) }, body: JSON.stringify({ question: "8월 명세 설명해 줘?" }) }),
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ cacheHit: true, refused: false, text: "이 달 명세는 기본 수수료만 있습니다.", promptVersion: "answer/v3", groundingStatus: "PASS" });
+    // 재사용은 예산을 쓰지 않으므로 응답 budget은 그대로(사용자 0 — 채워 둔 값, 전역 35 — v0.1.33)
+    expect(await res.json()).toMatchObject({ cacheHit: true, refused: false, text: "이 달 명세는 기본 수수료만 있습니다.", promptVersion: "answer/v3", groundingStatus: "PASS", budget: { remainingToday: 35, userRemaining: 0 } });
     const counters = (await env.DB.prepare("SELECT scope, used FROM budget_counter WHERE scope NOT LIKE 'rl:%' ORDER BY scope").all<{ scope: string; used: number }>()).results;
     expect(counters).toEqual([
       { scope: await userScope(env.SESSION_SECRET, "local", today), used: budgetCaps(env).user },

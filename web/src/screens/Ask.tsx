@@ -3,7 +3,7 @@
 // · 사람 확인(설계서 v0.1.29 — /me turnstile.required이고 아직 아니면 위젯, 끝나기 전 입력창 비활성) · 분당 한도(429 RATE_LIMITED)는 그 질문에 남은 초.
 // 화면은 답의 숫자를 계산·대조하지 않는다(검증은 서버 G4~G6). LLM 본문은 큰 숫자 자리에 두지 않는다.
 import { type FormEvent, useCallback, useState } from "react";
-import { api, type AskResult, HumanCheckRequired, type MeTurnstile, questionsLeft, RateLimited, Unauthenticated } from "../api";
+import { api, type AskBudget, type AskResult, HumanCheckRequired, type MeTurnstile, questionsLeft, RateLimited, Unauthenticated, withAskBudget } from "../api";
 import { DISCLAIMER } from "../disclaimer";
 import { EXAMPLE_QUESTIONS } from "../examples";
 import { waitText } from "../format";
@@ -124,9 +124,12 @@ export function Ask() {
   const [question, setQuestion] = useState("");
   const [log, setLog] = useState<Exchange[]>([]);
   const [budgetOut, setBudgetOut] = useState<number | null>(null);
+  // 최근 /ask 응답의 남은 질문(200·429 BUDGET·RATE_LIMITED — 설계서 v0.1.33): 칩과 입력창 비활성 판정이 이 값을 쓴다
+  const [latest, setLatest] = useState<AskBudget | undefined>(undefined);
   const pending = log.some((x) => x.state === "pending");
   // 설계서 v0.1.27: 불러올 때 이미 남은 질문이 0이면 처음부터 비활성(다음 00:00 UTC까지)
-  const loadedOut = me.state === "ok" && me.data.budget && questionsLeft(me.data.budget) === 0 ? Math.max(0, (Date.parse(me.data.budget.resetsAt) - Date.now()) / 1000) : null;
+  const current = me.state === "ok" ? withAskBudget(me.data.budget, latest) : undefined;
+  const loadedOut = current && questionsLeft(current) === 0 ? Math.max(0, (Date.parse(current.resetsAt) - Date.now()) / 1000) : null;
   const out = budgetOut ?? loadedOut;
   // 사람 확인: 불러온 값(verified) 또는 이 화면에서 마친 뒤(true)·403을 받은 뒤(false)
   const [human, setHuman] = useState<boolean | null>(null);
@@ -143,11 +146,15 @@ export function Ask() {
     const done = (x: Exchange) => setLog((l) => l.map((e, i) => (i === 0 && e.state === "pending" ? x : e)));
     try {
       const r = await api.ask(text);
+      if (r.budget) setLatest(r.budget);
       if (r.reason === "BUDGET") setBudgetOut(r.retryAfterSeconds ?? 0);
       done({ question: text, state: "ok", r });
     } catch (e) {
       if (e instanceof Unauthenticated) return navigate(paths.select(), true);
-      if (e instanceof RateLimited) return done({ question: text, state: "rate", seconds: e.retryAfterSeconds });
+      if (e instanceof RateLimited) {
+        if (e.budget) setLatest(e.budget);
+        return done({ question: text, state: "rate", seconds: e.retryAfterSeconds });
+      }
       if (e instanceof HumanCheckRequired) {
         setHuman(false);
         // 막 쓴 질문을 입력창에 되돌린다 — 다시 확인한 뒤 그대로 보낼 수 있게(모바일 망 전환으로 IP가 바뀐 경우 등)
@@ -165,7 +172,7 @@ export function Ask() {
   };
 
   return (
-    <Shell asOf={me.state === "ok" ? me.data.asOf : undefined} title="자유 질문">
+    <Shell asOf={me.state === "ok" ? me.data.asOf : undefined} title="자유 질문" budget={latest}>
       <Status s={me} />
       {needsHuman && turnstile?.siteKey && <HumanCheck siteKey={turnstile.siteKey} onVerified={onVerified} />}
       <form className="ask" onSubmit={onSubmit} aria-label="질문">

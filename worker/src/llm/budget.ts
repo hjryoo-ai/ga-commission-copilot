@@ -1,7 +1,8 @@
 // 일일 예산(설계서 v0.1.27 §6.2·§10.4, PHASES Phase 5 항목 1). 카운터는 D1 budget_counter(규약 5) — 갱신은 reserveBudget의
 // `UPDATE … SET used = used + 1 WHERE … AND used < ?` 한 문장, 영향 행 0이면 소진.
-//   범위: global(질문 1건에 1) · ip:<일일 솔트 해시>(질문 1건에 1) · provider:<이름>(HTTP 호출마다 1).
-//   전역 상한 = min(BUDGET_GLOBAL, 공급자 상한 합) — Workers AI는 설명 배치와 뉴런을 나눠 써 배치 중 0(v0.1.27).
+//   범위(단위 — 설계서 v0.1.33): global·ip:<일일 솔트 해시>는 **질문** 1건에 1, provider:<이름>은 LLM **호출**(HTTP) 1회에 1.
+//   전역 상한 = min(BUDGET_GLOBAL, floor(공급자 호출 상한 합 ÷ 2)) — 답 1건 = 호출 1~2회. Workers AI는 설명 배치와 뉴런을 나눠 써 배치 중 0(v0.1.27)
+//   → 배치 중 floor((55+0+15)/2) = 35, 11-08 뒤 75.
 // 원문 IP는 어디에도 저장하지 않는다 — 날마다 바뀌는 솔트(SESSION_SECRET에서 HMAC으로 유도)로 해시한 앞 16자만 scope에 쓴다.
 import { budgetRows, budgetRowsBetween, budgetUsed, reserveBudget } from "../db/ScopedQuery";
 
@@ -24,14 +25,18 @@ function capOf(v: string | undefined, fallback: number): number {
   return v !== undefined && /^(0|[1-9][0-9]{0,3})$/.test(v) ? Number(v) : fallback;
 }
 
+/** 질문 상한 = min(BUDGET_GLOBAL, floor(호출 상한 합 ÷ 2)) — 답 1건이 호출을 최대 2회 쓴다(1단계 툴 계획 + 2단계 답, 설계서 v0.1.33). */
+export const CALLS_PER_QUESTION = 2;
+const questionCap = (globalEnv: number, providers: Record<BudgetProvider, number>) =>
+  Math.min(globalEnv, Math.floor((providers.groq + providers["workers-ai"] + providers.openrouter) / CALLS_PER_QUESTION));
+
 export function budgetCaps(env: BudgetEnv): BudgetCaps {
   const providers = {
     groq: capOf(env.BUDGET_GROQ, BUDGET_DEFAULTS.groq),
     "workers-ai": capOf(env.BUDGET_WORKERS_AI, BUDGET_DEFAULTS["workers-ai"]),
     openrouter: capOf(env.BUDGET_OPENROUTER, BUDGET_DEFAULTS.openrouter),
   };
-  const sum = providers.groq + providers["workers-ai"] + providers.openrouter;
-  return { global: Math.min(capOf(env.BUDGET_GLOBAL, BUDGET_DEFAULTS.global), sum), user: capOf(env.BUDGET_USER, BUDGET_DEFAULTS.user), providers };
+  return { global: questionCap(capOf(env.BUDGET_GLOBAL, BUDGET_DEFAULTS.global), providers), user: capOf(env.BUDGET_USER, BUDGET_DEFAULTS.user), providers };
 }
 
 /**
@@ -40,7 +45,7 @@ export function budgetCaps(env: BudgetEnv): BudgetCaps {
  */
 export function withKeys(caps: BudgetCaps, env: { GROQ_API_KEY?: string; OPENROUTER_API_KEY?: string }): BudgetCaps {
   const providers = { ...caps.providers, groq: env.GROQ_API_KEY ? caps.providers.groq : 0, openrouter: env.OPENROUTER_API_KEY ? caps.providers.openrouter : 0 };
-  return { ...caps, providers, global: Math.min(caps.global, providers.groq + providers["workers-ai"] + providers.openrouter) };
+  return { ...caps, providers, global: questionCap(caps.global, providers) };
 }
 
 export const utcDay = (now: Date) => now.toISOString().slice(0, 10);
@@ -115,6 +120,16 @@ export function anyProviderLeft(u: BudgetUsage): boolean {
   return PROVIDER_ORDER.some((p) => u.providers[p].cap > 0 && u.providers[p].used < u.providers[p].cap);
 }
 
+/** 오늘 남은 질문(전역·이 사용자) — /me와 /ask 응답(설계서 v0.1.33 — 화면 4가 응답으로 칩을 고친다). 질문 단위. */
+export interface QuestionsLeft {
+  remainingToday: number;
+  userRemaining: number;
+}
+export async function questionsLeft(db: D1Database, caps: BudgetCaps, user: string, day: string): Promise<QuestionsLeft> {
+  const [usage, mine] = await Promise.all([usageOn(db, caps, day), budgetUsed(db, user, day)]);
+  return { remainingToday: Math.max(0, usage.global.cap - usage.global.used), userRemaining: Math.max(0, caps.user - mine) };
+}
+
 /** 이 사용자 키의 오늘 사용량. */
 export async function userUsed(db: D1Database, user: string, day: string): Promise<number> {
   return budgetUsed(db, user, day);
@@ -132,8 +147,9 @@ export async function countStat(db: D1Database, name: StatName, day: string): Pr
 }
 
 export interface BudgetReport {
-  today: BudgetUsage;
-  days: { day: string; questions: number; providers: Record<BudgetProvider, number> }[];
+  /** calls = 공급자 호출 합(사용·상한) — 질문(global)과 단위가 다르다(설계서 v0.1.33). */
+  today: BudgetUsage & { calls: { used: number; cap: number } };
+  days: { day: string; questions: number; calls: number; providers: Record<BudgetProvider, number> }[];
   /** 기간 합 — 폴백 깊이(답한 공급자의 체인 순번)·거부 사유·캐시·저하. */
   fallbackDepth: Record<"0" | "1" | "2", number>;
   refusals: Record<string, number>;
@@ -153,9 +169,16 @@ export async function budgetReport(db: D1Database, caps: BudgetCaps, now: Date, 
     const code = r.scope.slice("stat:refuse:".length).toUpperCase();
     refusals[code] = (refusals[code] ?? 0) + r.used;
   }
+  const today = await usageOn(db, caps, dayList.at(-1)!);
+  const callSum = (f: (p: BudgetProvider) => number) => PROVIDER_ORDER.reduce((n, p) => n + f(p), 0);
   return {
-    today: await usageOn(db, caps, dayList.at(-1)!),
-    days: dayList.map((day) => ({ day, questions: at("global", day), providers: Object.fromEntries(PROVIDER_ORDER.map((p) => [p, at(`provider:${p}`, day)])) as Record<BudgetProvider, number> })),
+    today: { ...today, calls: { used: callSum((p) => today.providers[p].used), cap: callSum((p) => today.providers[p].cap) } },
+    days: dayList.map((day) => ({
+      day,
+      questions: at("global", day),
+      calls: callSum((p) => at(`provider:${p}`, day)),
+      providers: Object.fromEntries(PROVIDER_ORDER.map((p) => [p, at(`provider:${p}`, day)])) as Record<BudgetProvider, number>,
+    })),
     fallbackDepth: { "0": sum((s) => s === "stat:depth:0"), "1": sum((s) => s === "stat:depth:1"), "2": sum((s) => s === "stat:depth:2") },
     refusals,
     cache: { hit: sum((s) => s === "stat:cache:hit"), miss: sum((s) => s === "stat:cache:miss") },

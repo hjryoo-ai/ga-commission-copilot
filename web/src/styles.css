@@ -585,6 +585,41 @@ table.budget thead th {
   font-size: 0.8rem;
 }
 
+/* 화면 6 오늘 표(설계서 v0.1.33): 질문·호출 두 열 — 칸마다 숫자 위·막대 아래 */
+table.budget.split-table {
+  table-layout: fixed;
+}
+
+table.budget.split-table thead th:first-child,
+table.budget.split-table tbody th {
+  width: 28%;
+}
+
+table.budget.split-table td {
+  vertical-align: top;
+}
+
+.usage-stack {
+  display: grid;
+  gap: 4px;
+}
+
+.usage-stack .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.usage-stack .bar {
+  flex: none;
+  height: 12px;
+}
+
+table.budget:not(.usage-table) thead th.group {
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
 table.budget .note-line {
   display: block;
   white-space: normal;

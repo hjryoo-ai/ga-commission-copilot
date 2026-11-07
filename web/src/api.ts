@@ -69,7 +69,19 @@ export interface MeBudget {
 }
 
 /** 칩·입력창이 쓰는 남은 질문 = 전역과 이 사용자 중 작은 쪽. */
-export const questionsLeft = (b: MeBudget) => Math.min(b.remainingToday, b.userRemaining);
+export const questionsLeft = (b: Pick<MeBudget, "remainingToday" | "userRemaining">) => Math.min(b.remainingToday, b.userRemaining);
+
+/** /ask 응답의 오늘 남은 질문(설계서 v0.1.33 — 그 요청을 센 뒤 값). */
+export interface AskBudget {
+  remainingToday: number;
+  userRemaining: number;
+}
+
+/** 상단 칩 값: /me로 읽은 값에 가장 최근 /ask 응답 값을 덮는다(/me를 다시 부르지 않는다 — 설계서 v0.1.33). resetsAt은 /me 것. */
+export function withAskBudget(me: MeBudget | undefined, latest: AskBudget | undefined): MeBudget | undefined {
+  if (!me) return undefined;
+  return latest ? { ...me, remainingToday: latest.remainingToday, userRemaining: latest.userRemaining } : me;
+}
 
 export interface MonthSummary {
   closeYm: string;
@@ -205,6 +217,8 @@ export interface AskResult extends Common {
   latencyMs?: number;
   retryAfterSeconds?: number;
   rulesUnavailable?: boolean;
+  /** 설계서 v0.1.33: 200·429 BUDGET 모두 — 화면 4가 칩을 고친다. */
+  budget?: AskBudget;
 }
 
 export interface Violations {
@@ -242,8 +256,9 @@ export type BudgetProvider = "groq" | "workers-ai" | "openrouter";
 
 /** GET /api/v1/budget(화면 6 — 공개, 설계서 v0.1.28). */
 export interface BudgetReport {
-  today: { day: string; global: { used: number; cap: number }; providers: Record<BudgetProvider, { used: number; cap: number }> };
-  days: { day: string; questions: number; providers: Record<BudgetProvider, number> }[];
+  /** global = 질문 단위, providers·calls = 호출 단위(설계서 v0.1.33 — 답 1건 = 호출 1~2회). */
+  today: { day: string; global: { used: number; cap: number }; calls: { used: number; cap: number }; providers: Record<BudgetProvider, { used: number; cap: number }> };
+  days: { day: string; questions: number; calls: number; providers: Record<BudgetProvider, number> }[];
   fallbackDepth: Record<"0" | "1" | "2", number>;
   refusals: Record<string, number>;
   cache: { hit: number; miss: number };
@@ -259,7 +274,11 @@ export class HumanCheckRequired extends Error {}
 
 /** 분당 질문 한도(429 RATE_LIMITED — 설계서 v0.1.29 §7). retryAfterSeconds = Retry-After(다음 분까지). */
 export class RateLimited extends Error {
-  constructor(readonly retryAfterSeconds: number) {
+  constructor(
+    readonly retryAfterSeconds: number,
+    /** 설계서 v0.1.33: problem 본문의 budget(레이트 리밋은 예산을 쓰지 않는다 — 그대로인 값). */
+    readonly budget?: AskBudget,
+  ) {
     super("RATE_LIMITED");
   }
 }
@@ -295,7 +314,10 @@ export const api = {
     if (res.status === 401) throw new Unauthenticated();
     if (res.status === 403) throw new HumanCheckRequired();
     if (res.status === 503) throw new Unavailable();
-    if (res.status === 429 && (res.headers.get("Content-Type") ?? "").startsWith("application/problem+json")) throw new RateLimited(Number(res.headers.get("Retry-After")) || 60);
+    if (res.status === 429 && (res.headers.get("Content-Type") ?? "").startsWith("application/problem+json")) {
+      const p = (await res.json().catch(() => ({}))) as { budget?: AskBudget };
+      throw new RateLimited(Number(res.headers.get("Retry-After")) || 60, p.budget);
+    }
     if (!res.ok && res.status !== 429) throw new Error(`${res.status}`);
     return (await res.json()) as AskResult;
   },

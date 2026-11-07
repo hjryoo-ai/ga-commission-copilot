@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { scheduled } from "../src/index";
-import { anyProviderLeft, BUDGET_DEFAULTS, budgetCaps, budgetReport, countStat, rateScope, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, withKeys } from "../src/llm/budget";
+import { anyProviderLeft, BUDGET_DEFAULTS, budgetCaps, budgetReport, countStat, questionsLeft, rateScope, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, withKeys } from "../src/llm/budget";
 
 // PHASES Phase 5 항목 1·7 — 예산(설계서 v0.1.27 §6.2). 카운터는 D1(규약 5), 갱신은 UPDATE … WHERE used < ? 한 문장.
 const DAY = "2026-11-06";
@@ -12,11 +12,13 @@ beforeEach(async () => {
 });
 
 describe("상한(env)", () => {
-  it("기본값 = PHASES 항목 1, 0~9999 정수만, 전역 = min(BUDGET_GLOBAL, 공급자 합)", () => {
-    expect(budgetCaps({})).toEqual({ global: 150, user: 10, providers: { groq: 55, "workers-ai": 80, openrouter: 15 } });
+  it("기본값 = PHASES 항목 1, 0~9999 정수만, 전역(질문) = min(BUDGET_GLOBAL, floor(공급자 호출 합 ÷ 2)) — 설계서 v0.1.33", () => {
+    // 11-08 뒤: 호출 55+80+15 = 150 → 질문 75
+    expect(budgetCaps({})).toEqual({ global: 75, user: 10, providers: { groq: 55, "workers-ai": 80, openrouter: 15 } });
     expect(BUDGET_DEFAULTS.global).toBe(150);
-    // 설명 배치 중(v0.1.27): Workers AI 0 → 전역 55+0+15 = 70
-    expect(budgetCaps({ BUDGET_WORKERS_AI: "0" }).global).toBe(70);
+    // 설명 배치 중(v0.1.27): Workers AI 0 → floor((55+0+15)/2) = 35
+    expect(budgetCaps({ BUDGET_WORKERS_AI: "0" }).global).toBe(35);
+    expect(budgetCaps({ BUDGET_WORKERS_AI: "0", BUDGET_OPENROUTER: "16" }).global).toBe(35); // 71 ÷ 2 내림
     expect(budgetCaps({ BUDGET_GLOBAL: "20" }).global).toBe(20);
     // 형식이 틀리면 기본값(무제한·음수가 되지 않게)
     expect(budgetCaps({ BUDGET_USER: "-1", BUDGET_GROQ: "abc", BUDGET_OPENROUTER: "99999" })).toMatchObject({ user: 10, providers: { groq: 55, openrouter: 15 } });
@@ -24,15 +26,15 @@ describe("상한(env)", () => {
 
   it("키 없는 공급자는 상한 0(시도·카운터를 쓰지 않는다), 전역도 다시 min", () => {
     const caps = budgetCaps({ BUDGET_WORKERS_AI: "0" });
-    expect(withKeys(caps, { GROQ_API_KEY: "k" })).toMatchObject({ global: 55, providers: { groq: 55, "workers-ai": 0, openrouter: 0 } });
-    expect(withKeys(caps, { GROQ_API_KEY: "k", OPENROUTER_API_KEY: "o" }).global).toBe(70);
+    expect(withKeys(caps, { GROQ_API_KEY: "k" })).toMatchObject({ global: 27, providers: { groq: 55, "workers-ai": 0, openrouter: 0 } });
+    expect(withKeys(caps, { GROQ_API_KEY: "k", OPENROUTER_API_KEY: "o" }).global).toBe(35);
     expect(withKeys(caps, {}).global).toBe(0);
   });
 
-  it("배포 설정(wrangler.jsonc vars): 배치 중 Workers AI 0, 전역 70", () => {
+  it("배포 설정(wrangler.jsonc vars): 배치 중 Workers AI 0, 전역 질문 35(호출 70의 절반)", () => {
     const caps = budgetCaps(env);
     expect(caps.providers["workers-ai"]).toBe(0);
-    expect(caps.global).toBe(70);
+    expect(caps.global).toBe(35);
   });
 });
 
@@ -71,6 +73,17 @@ describe("차감(D1 단일 UPDATE)", () => {
     await reserveProvider(env.DB, caps, "groq", DAY);
     await reserveProvider(env.DB, caps, "groq", DAY);
     expect(anyProviderLeft(await usageOn(env.DB, caps, DAY))).toBe(false);
+  });
+
+  it("오늘 남은 질문(/me·/ask 응답 — v0.1.33): 질문 1건을 세면 전역·사용자가 1씩 준다, 공급자 호출은 질문 수를 바꾸지 않는다", async () => {
+    const u = "ip:aaaaaaaaaaaaaaaa";
+    expect(await questionsLeft(env.DB, caps, u, DAY)).toEqual({ remainingToday: 3, userRemaining: 2 });
+    await reserveQuestion(env.DB, caps, u, DAY);
+    expect(await questionsLeft(env.DB, caps, u, DAY)).toEqual({ remainingToday: 2, userRemaining: 1 });
+    await reserveProvider(env.DB, caps, "groq", DAY);
+    await reserveProvider(env.DB, caps, "groq", DAY);
+    expect(await questionsLeft(env.DB, caps, u, DAY)).toEqual({ remainingToday: 2, userRemaining: 1 });
+    expect(await questionsLeft(env.DB, caps, "ip:bbbbbbbbbbbbbbbb", DAY)).toEqual({ remainingToday: 2, userRemaining: 2 });
   });
 
   it("동시 50요청(PHASES 항목 7): 상한 30이면 정확히 30만 통과, 카운터 30", async () => {
@@ -134,8 +147,10 @@ describe("GET /api/v1/budget(PHASES Phase 5 항목 6 — 공개)", () => {
     expect(text).not.toContain("ip:");
     const b = JSON.parse(text) as Awaited<ReturnType<typeof budgetReport>> & { caps: { global: number } };
     expect(b.days).toHaveLength(7);
-    expect(b.days.at(-1)).toEqual({ day: today, questions: 4, providers: { groq: 5, "workers-ai": 0, openrouter: 0 } });
+    // 질문(전역)과 호출(공급자 합)은 단위가 달라 따로(설계서 v0.1.33)
+    expect(b.days.at(-1)).toEqual({ day: today, questions: 4, calls: 5, providers: { groq: 5, "workers-ai": 0, openrouter: 0 } });
     expect(b.today.providers.groq.used).toBe(5);
+    expect([b.today.global, b.today.calls]).toEqual([{ used: 4, cap: 35 }, { used: 5, cap: 70 }]);
     expect([b.fallbackDepth, b.refusals, b.cache]).toEqual([{ "0": 3, "1": 1, "2": 0 }, { BUDGET: 2 }, { hit: 0, miss: 4 }]);
   });
 

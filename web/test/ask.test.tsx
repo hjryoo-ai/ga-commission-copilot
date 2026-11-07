@@ -1,10 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { type AnswerReplay, type AskResult, api, HumanCheckRequired, RateLimited } from "../src/api";
+import { type AnswerReplay, type AskResult, api, HumanCheckRequired, type Me, RateLimited, withAskBudget } from "../src/api";
 import { App } from "../src/App";
 import { EXAMPLE_QUESTIONS } from "../src/examples";
 import { waitText } from "../src/format";
 import { match } from "../src/router";
+import { Chips } from "../src/ui";
 import { AnswerCard, humanCheckNeeded } from "../src/screens/Ask";
 import { HumanCheck, TURNSTILE_SCRIPT } from "../src/screens/HumanCheck";
 import { promptHref, ReplayTimeline } from "../src/screens/AnswerReplay";
@@ -201,5 +202,35 @@ describe("사람 확인 다시 받기(설계서 v0.1.31 — 쿠키가 IP에 묶�
     expect(humanCheckNeeded({ required: false, verified: true }, false)).toBe(false);
     expect(humanCheckNeeded({ required: true, verified: false }, null)).toBe(false);
     expect(humanCheckNeeded(undefined, null)).toBe(false);
+  });
+});
+
+describe("상단 칩 — /ask 응답의 남은 질문으로(설계서 v0.1.33, /me 다시 부르지 않음)", () => {
+  const me: Me = { ...common, agentId: "A-1001", promptVersions: { answer: "v3" }, budget: { remainingToday: 35, userRemaining: 10, resetsAt: "2026-11-08T00:00:00.000Z" } };
+  const chip = (latest?: { remainingToday: number; userRemaining: number }) => {
+    const html = renderToStaticMarkup(<Chips asOf={asOf} me={{ ...me, budget: withAskBudget(me.budget, latest) }} />);
+    return /data-testid="chip-budget">([^<]*)</.exec(html)![1];
+  };
+
+  it("답 1건 뒤 칩이 1 준다(200 응답 budget), 응답이 없으면 /me 값, resetsAt은 /me 것", async () => {
+    expect(chip()).toBe("오늘 남은 질문 10회");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ...pass, budget: { remainingToday: 34, userRemaining: 9 } }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const r = await api.ask("8월 시책은?");
+    expect(chip(r.budget)).toBe("오늘 남은 질문 9회");
+    expect(withAskBudget(me.budget, r.budget)?.resetsAt).toBe("2026-11-08T00:00:00.000Z");
+    vi.unstubAllGlobals();
+  });
+
+  it("429 뒤에도 칩 = 응답 값 — BUDGET(본문 budget)·RATE_LIMITED(problem 본문 budget)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ...pass, refused: true, reason: "BUDGET", retryAfterSeconds: 100, budget: { remainingToday: 30, userRemaining: 0 } }), { status: 429, headers: { "Content-Type": "application/json" } })));
+    const b = await api.ask("q");
+    expect(chip(b.budget)).toBe("오늘 남은 질문 0회");
+    expect(renderToStaticMarkup(<Chips asOf={asOf} me={{ ...me, budget: withAskBudget(me.budget, b.budget) }} />)).toContain('class="chip warn"');
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: "RATE_LIMITED", message: "m", budget: { remainingToday: 31, userRemaining: 7 } }), { status: 429, headers: { "Content-Type": "application/problem+json", "Retry-After": "20" } })));
+    const e = (await api.ask("q").catch((x: unknown) => x)) as RateLimited;
+    expect(e).toBeInstanceOf(RateLimited);
+    expect([e.retryAfterSeconds, e.budget]).toEqual([20, { remainingToday: 31, userRemaining: 7 }]);
+    expect(chip(e.budget)).toBe("오늘 남은 질문 7회");
+    vi.unstubAllGlobals();
   });
 });
