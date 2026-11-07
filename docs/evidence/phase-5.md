@@ -1,7 +1,7 @@
 # Phase 5 — 예산·폴백·캐시·봇 방지 증거(진행 중)
 
 - 수행일: 2026-11-06(UTC) — 시작(운영자 지시: Phase 4 수용 뒤 PHASES Phase 5 항목 1~7, 폴백 체인 Groq → Workers AI gpt-oss-120b → OpenRouter)
-- 기준 문서: 설계서 v0.1.31 §6.2·§6.4·§7 저하 모드·레이트 리밋·§9 남용 방지·§10.1·§10.2·§10.4, PHASES.md Phase 5
+- 기준 문서: 설계서 v0.1.32 §6.2·§6.4·§7 저하 모드·레이트 리밋·§9 남용 방지·§10.1·§10.2·§10.4, PHASES.md Phase 5
 - 도구 버전: node 25.5.0(CI 24), pnpm 10.28.2, wrangler 4.153.0, vitest 4.1.12
 - 상태: **항목 1~6 구현(LLM 호출 없음 — 시험은 가짜 공급자·가짜 게이트웨이·가짜 Siteverify·로컬 D1)** + 레이트 리밋(WAF 대체). 원격 반영(푸시·배포)은 운영자. 완료 기준의 실호출(Groq 429 유도 → Workers AI 폴백 캡처, 구조화 출력 모양 기록)은 폴백 상한이 열리는 11-08 설명 배치 끝 뒤.
 
@@ -12,6 +12,7 @@
 | 1 | 테스트 통과 | 진행 — 항목 1~6·레이트 리밋 시험 통과(아래) | `worker/test/budget.test.ts`·`fallback.test.ts`·`ask.test.ts`·`cache.test.ts`·`turnstile.test.ts`·`api.test.ts`, `web/test/budget.test.tsx`·`ask.test.tsx`·`App.test.tsx` |
 | 2 | /budget에 공급자별 사용·폴백 분포 표시 | 구현(로컬 캡처, 값 0) — 원격은 푸시·배포 뒤 | `captures/phase-5-screen6-budget-local.png` |
 | 3 | 실호출로 Groq 429 1회 유도 후 Workers AI 폴백 기록 캡처 | **대기** — `BUDGET_WORKERS_AI=0`(설명 배치와 뉴런 나눔, 설계서 v0.1.27) → 11-08 배치 591/591 뒤 80으로 바꾸는 커밋 다음 | — |
+| 4 | 공개 URL에서 사람이 브라우저로 Turnstile 통과 → 자유 질문 1건 답까지 1회 캡처(운영자 2026-11-07 추가) | **사람 작업 대기** — 자동 캡처는 `capture-local.yml`(로컬 대상) | — |
 
 ## 운영자 결정(2026-11-06)
 
@@ -61,6 +62,7 @@
 - `POST /api/v1/me/turnstile {token}` → Siteverify(form secret·response·remoteip, 5초) → `success`이고 `hostname`이 요청 호스트와 같으면 24시간 서명 쿠키 `copilot_human`(HttpOnly·Secure·SameSite=Lax). 서명 키 = SESSION_SECRET + 용도 + 요청 IP(커밋 보안 검토 지적 반영 — 다른 IP에서 같은 쿠키 재사용 불가, IP는 쿠키·로그에 없음).
 - `/ask`는 `TURNSTILE_SECRET`이 있는 환경에서 쿠키가 없으면 403 `TURNSTILE_REQUIRED`(answer_log·예산·레이트 리밋 카운터 0 — 시험). 로컬·시험(비밀 없음)은 검사하지 않는다.
 - `/me` `turnstile {required, verified, siteKey?}`(overlay). 화면 4: required이고 아직이면 위젯(명시적 렌더, `challenges.cloudflare.com/turnstile/v0/api.js?render=explicit`), 끝나기 전 입력창 비활성. 403을 받으면 위젯을 다시 그린다.
+- **IP 결합 트레이드오프(운영자 수용 2026-11-07, 설계서 v0.1.32)**: 모바일 데이터망은 IP가 자주 바뀌어 평가자가 24시간 안에 다시 확인할 수 있다. 그 경우를 덮는 동선 — 쿠키가 다른 IP에서 오면 `/me` `verified: false`(시험 "다른 IP 403")라 새로 연 화면은 처음부터 위젯, 이미 연 화면은 `/ask` 403 → 위젯을 다시 그리고 막 쓴 질문을 입력창에 되돌린다(`humanCheckNeeded` 시험 — 쿠키는 있었지만 403이면 다시 그림). "다시 확인" 버튼은 이 경우가 아니라 서버가 토큰을 거부한 경우(Siteverify 실패·hostname)의 재시도다. 남는 비용: 다시 확인 1회(자동 통과 모드면 클릭 없음).
 - 로컬 캡처(Cloudflare 공개 시험 키 — 항상 통과 사이트 키·비밀): 위젯이 390px 화면 안에 그려진다. 시험 비밀의 Siteverify 응답은 `hostname: "example.com"`이라 localhost에서는 hostname 대조로 거부된다(의도된 동작) — 첫 캡처에서 거부 → 위젯 자동 초기화 → 자동 통과 → 거부가 끝없이 돌아(5초에 403 9회) 자동 초기화를 없애고 "다시 확인" 버튼으로 고쳤다(다시 찍은 캡처: 5초에 403 1회). `captures/phase-5-screen4-turnstile-local.png`
 
 ### 레이트 리밋(WAF 대체 — 설계서 v0.1.29 §7)
@@ -73,6 +75,15 @@
 
 - `/me`만 no-store·ETag 없음, 나머지 `/me/*` GET 7개(명세 목록·월·라인·라인 상세·한도·한도 상세·차이)는 `private, no-cache` + `W/"<streamHash>.<demoNo>"` + If-None-Match 304 — `api.test.ts` "ETag 유지" 7건 + "예산을 써도 다른 응답의 ETag는 그대로" 1건.
 
+## 배포(운영자 푸시 2026-11-07 11:46 UTC — deploy.yml)
+
+```
+deploy 79e0596 success — Uploaded ga-commission-copilot · Deployed ga-commission-copilot triggers · schedule: 17 0 * * *
+```
+- Cron 5개 한도(남은 이슈 8): 트리거 등록이 오류 없이 끝났다 — 계정 합계가 무료 5개 안이다(넘으면 배포가 실패한다).
+- 공개 URL 점검(LLM 호출 없음, 2026-11-07): `/me` 200·`Cache-Control: no-store`·ETag 없음, `turnstile {required: true, verified: false, siteKey: 0x4AAAAAAF2LyuLvbqeCCVE5}`, `budget {remainingToday: 70, userRemaining: 10}` · 쿠키 없이 `POST /me/ask` → 403 `TURNSTILE_REQUIRED` · `/budget` caps `{global 70, groq 55, workers-ai 0, openrouter 15}`(OpenRouter 키 반영).
+- **CI 실패 발견·수리**: `ci` 9428f49·79e0596 실패 — `api.test` `/me` dataStatus가 CI에서만 DEGRADED. 원인: CI에는 `.dev.vars`가 없어 공급자 키가 없고 `withKeys` 전역 상한이 0 → 남은 질문 0 → DEGRADED. 로컬은 `.dev.vars`의 진짜 Groq 키로 통과했다. 수리 afa13fb: vitest 설정에 가짜 공급자 키를 고정(로컬·CI 같은 조건, 시험이 진짜 키를 쓸 일도 없앰) — `.dev.vars`를 치운 상태로 426 통과 확인. 그동안 보고한 "CI 녹색"은 9428f49 이전 커밋 기준이었다.
+
 ## 시험(LLM 호출 없음)
 
 ```
@@ -83,8 +94,8 @@ worker vitest → budget.test 10(상한·키 없는 공급자·사용자 키·�
              · api.test ETag 유지 7 + /me만 no-store 1
              · cache.test 13(게이트웨이 유니버설 요청·429 통과·자체 오류 3종 → 직접·게이트웨이 없음·카세트 해시 · Workers AI gateway 옵션 · 캐시 키 · 재사용 PASS·창·설계사·프롬프트 · 거부 재사용·FAIL·저하 ③ 제외 · EXPLAIN · /ask 소진 중 재사용 200 예산 0)
              · turnstile.test 9(Siteverify form · 비밀 없음 · 쿠키 없음 403 · 성공 → 쿠키 → 게이트 통과 · 실패 2 · 오류·형식·세션 · 다른 IP 403 · 위조·만료·세션 값)
-web vitest   → ask.test 사람 확인 2(HumanCheck · api.ask 403·RATE_LIMITED·BUDGET 구분)
-pnpm -r test   → grounding 68 · web 56 · worker 426 · gen 207 통과(2026-11-06)
+web vitest   → ask.test 사람 확인 3(HumanCheck · api.ask 403·RATE_LIMITED·BUDGET 구분 · humanCheckNeeded 다시 받기)
+pnpm -r test   → grounding 68 · web 57 · worker 426 · gen 207 통과(2026-11-07, worker는 .dev.vars 없이도)
 pnpm run lint  → 오류 0
 ```
 
@@ -94,7 +105,9 @@ pnpm run lint  → 오류 0
 - [x] AI Gateway `copilot` 생성(운영자 2026-11-06) → wrangler.jsonc `AI_GATEWAY_ID`.
 - [x] Turnstile 사이트 키·`TURNSTILE_SECRET` 등록(운영자 2026-11-06) → wrangler.jsonc `TURNSTILE_SITE_KEY`.
 - [x] ~~WAF 레이트 리밋 규칙~~ → Worker 안 레이트 리밋으로 대체(운영자 결정 2026-11-06).
-- [ ] 푸시(운영자) → 배포. 배포 뒤 확인: 화면 4 위젯 실제 통과(사이트 키의 호스트 이름 목록에 workers.dev 호스트가 있어야 한다)·Cron 등록(`wrangler deploy` 출력의 schedule)·`/budget` 원격 값.
+- [x] 푸시(운영자 2026-11-07) → deploy 성공·Cron 등록(위 배포 절).
+- [ ] 공개 URL 브라우저 캡처 1회(완료 기준 4 — 운영자): 화면 4에서 Turnstile 통과 → 자유 질문 1건 답.
+- [ ] 배포 뒤 확인(계속): 화면 4 위젯 실제 통과(사이트 키의 호스트 이름 목록에 workers.dev 호스트가 있어야 한다)·Cron 등록(`wrangler deploy` 출력의 schedule)·`/budget` 원격 값.
 - [ ] 11-08 설명 배치 591/591 확인 → `BUDGET_WORKERS_AI` 80 커밋 → 푸시·배포 → 완료 기준 3 실호출 캡처(Workers AI 구조화 출력 모양 `choices`/`response` 기록, 게이트웨이 경유 Groq·OpenRouter 첫 실호출 경로 확인 포함).
 
 ## 남은 이슈
@@ -102,8 +115,8 @@ pnpm run lint  → 오류 0
 1. Workers AI 바인딩 structured output의 응답 모양이 공식 문서에 없다 — 두 모양을 받게 했고, 11-08 뒤 첫 폴백에서 확인한다.
 2. ~~WAF가 `*.workers.dev`에 걸리는가~~ → Worker 안 레이트 리밋으로 닫음(설계서 v0.1.29). Rate Limiting 바인딩은 Free 포함 여부가 문서에 나오면 다시 본다(D1 쓰기 2문장/질문을 아낄 수 있다).
 3. 질문은 사용자 → 전역 순서로 차감해 전역에서 막히면 이미 센 사용자 1은 돌려주지 않는다(규약 5 — 감소 경로 없음).
-4. **배포 뒤 `capture-public.yml`은 `/ask`에서 403이 된다**(Turnstile — 자동 클라이언트는 위젯을 풀 수 없다). Phase 4 증거는 끝났고 Phase 6 평가는 로컬 하네스라 당장 쓰는 곳은 없다. 다시 쓰려면 우회 경로를 만들지 않고 그 워크플로를 로컬 `wrangler dev`(비밀 없음) 대상으로 바꾸는 쪽을 제안한다.
+4. ~~배포 뒤 `capture-public.yml`은 `/ask`에서 403~~ → **닫음(운영자 2026-11-07)**: 우회 경로 없이 `capture-local.yml`로 바꿈(CI 안 `wrangler dev --env record` — D1 로컬·Vectorize·AI 원격, Turnstile 없음 — 이름대로 공개 URL 캡처가 아니다). 사람 확인을 요구하는 서버면 스크립트가 묻지 않고 멈춘다(로컬 시험 키 서버로 확인 — 질문 0건, exit 1). 12건이 한 IP라 그 서버에만 `--var BUDGET_USER:20` — 같은 문제가 `record-answer`에도 있어(Phase 5 사용자 상한 10 → 11·12번 BUDGET) 함께 고쳤다. 공개 URL 동작은 완료 기준 4(사람 브라우저 캡처).
 5. 유니버설 요청의 OpenRouter 경로 표기가 문서마다 다르다(`chat/completions` vs `v1/chat/completions`). `chat/completions`로 두고, 틀려 게이트웨이가 404를 내면 직접 URL로 1회 넘어가게 했다 — 첫 실호출에서 `cf-aig-cache-status` 헤더 유무로 경유 여부를 확인한다.
 6. 게이트웨이 캐시 히트도 공급자 예산은 이미 1 차감된 뒤다(예산을 먼저 잡는 순서). "캐시 히트는 예산 미차감"은 답 단위 재사용이 지킨다. 게이트웨이 히트는 같은 키로 2단계가 이어지는 경우 등 보조.
-7. 같은 질문이 근거 실패(FAIL)였으면 재사용하지 않지만, 게이트웨이 캐시가 같은 LLM 응답을 24시간 돌려줘 다시 물어도 같은 FAIL이 나올 수 있다(temperature 0이라 캐시 없이도 비슷하다). 필요하면 FAIL 뒤 재질문에 `cf-aig-skip-cache`를 붙이는 안을 Phase 6 평가 뒤 검토.
-8. Cron Triggers는 계정당 5개(Free)다. 이 계정에 다른 Worker의 Cron이 있으면 합산 — 배포 출력으로 확인.
+7. 같은 질문이 근거 실패(FAIL)였으면 재사용하지 않지만, 게이트웨이 캐시가 같은 LLM 응답을 24시간 돌려줘 다시 물어도 같은 FAIL이 나올 수 있다(temperature 0이라 캐시 없이도 비슷하다). 운영자 제안(2026-11-07 — "NOT_GROUNDED 거부 응답에 `cf-aig-skip-cache`, 1줄이면 지금")은 **1줄로 되지 않아 하지 않았다**: `cf-aig-skip-cache`는 요청 헤더라 보내기 전에 정해야 하는데, NOT_GROUNDED는 응답이 돌아와 검증기(G1~G6)를 거친 뒤에야 정해진다 — 그때는 게이트웨이가 이미 그 응답을 캐시했다(응답 쪽에서 캐시를 막는 수단은 없다). 가장 작은 올바른 안: 묻기 전에 answer_log에서 같은 키의 24시간 안 FAIL 행이 있으면 그 질문의 두 단계 요청에 `cf-aig-skip-cache`(ScopedQuery 조회 1개 + 요청 플래그 + 두 공급자 헤더 — 약 15줄·시험). Phase 6 평가 뒤 또는 운영자 승인 시.
+8. ~~Cron Triggers 계정당 5개~~ → 배포에서 오류 없이 등록(`schedule: 17 0 * * *`) — 닫음.
