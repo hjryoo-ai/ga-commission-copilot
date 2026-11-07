@@ -1,7 +1,7 @@
 # Phase 5 — 예산·폴백·캐시·봇 방지 증거(진행 중)
 
 - 수행일: 2026-11-06(UTC) — 시작(운영자 지시: Phase 4 수용 뒤 PHASES Phase 5 항목 1~7, 폴백 체인 Groq → Workers AI gpt-oss-120b → OpenRouter)
-- 기준 문서: 설계서 v0.1.32 §6.2·§6.4·§7 저하 모드·레이트 리밋·§9 남용 방지·§10.1·§10.2·§10.4, PHASES.md Phase 5
+- 기준 문서: 설계서 v0.1.33 §6.2·§6.4·§7 저하 모드·레이트 리밋·§9 남용 방지·§10.1·§10.2·§10.4, PHASES.md Phase 5
 - 도구 버전: node 25.5.0(CI 24), pnpm 10.28.2, wrangler 4.153.0, vitest 4.1.12
 - 상태: **항목 1~6 구현(LLM 호출 없음 — 시험은 가짜 공급자·가짜 게이트웨이·가짜 Siteverify·로컬 D1)** + 레이트 리밋(WAF 대체). 원격 반영(푸시·배포)은 운영자. 완료 기준의 실호출(Groq 429 유도 → Workers AI 폴백 캡처, 구조화 출력 모양 기록)은 폴백 상한이 열리는 11-08 설명 배치 끝 뒤.
 
@@ -29,6 +29,7 @@
 
 - 범위: `global`(질문 1건에 1) · `ip:<16 hex>`(질문 1건에 1 — IP + 일일 솔트(HMAC(SESSION_SECRET, "ip-salt:<날>"))의 SHA-256 앞 16자, 원문 IP 저장 없음, 날이 바뀌면 다른 키) · `provider:<이름>`(HTTP 호출마다 1).
 - 상한 env `BUDGET_GLOBAL=150`·`BUDGET_USER=10`·`BUDGET_GROQ=55`·`BUDGET_WORKERS_AI=0`(배치 중)·`BUDGET_OPENROUTER=15`(wrangler.jsonc vars, 0~9999 정수만 — 틀리면 기본값). 전역 = `min(BUDGET_GLOBAL, 공급자 합)` → 배치 중 70. 키가 없는 공급자(OpenRouter 키 등록 전)는 상한 0(`withKeys` — 시도·카운터를 쓰지 않는다).
+- **단위(설계서 v0.1.33, 운영자 2026-11-07)**: 전역·사용자 = **질문**(답 1건에 1), 공급자 = **호출**(LLM HTTP 1회에 1). 답 1건 = 호출 1~2회(툴이 필요하면 2)라 전역 질문 상한 = `min(BUDGET_GLOBAL, floor(공급자 호출 상한 합 ÷ 2))` — 설명 배치 중 floor((55+0+15)/2) = **35**, 11-08 뒤 floor(150/2) = **75**(v0.1.27의 `min(BUDGET_GLOBAL, 공급자 합)` = 70은 질문을 호출 1회로 쳤다). 2단계를 호출 1회로 합치는 것은 answer/v4(DECISIONS 11-07 — Phase 6 첫 프롬프트 PR, 안정 키 인용과 함께).
 - 갱신은 기존 `reserveBudget`(INSERT OR IGNORE + `UPDATE … SET used = used + 1 WHERE … AND used < ?` 한 문장, 규약 5). 질문은 사용자 → 전역 순서(사용자에 막히면 전역 안 씀), 감소 경로 없음.
 - Phase 4 개발 상한 `ASK_DAILY_CAP`(`ask:dev`) 제거.
 
@@ -89,7 +90,14 @@ deploy 79e0596 success — Uploaded ga-commission-copilot · Deployed ga-commiss
 - `phase-5-public-browser-ask.png`(주소창 `…workers.dev/me/ask`): Turnstile 통과 뒤 위젯이 사라진 화면 4, "이 계약 해약하면 2월에 얼마 빠져요?" → 검증 통과·answer/v3·`get_policy_event_sim · simulation.clawbackAmount` 인용·툴 호출 1건·groq·openai/gpt-oss-120b·3,081ms. 같은 날 앞서 "8월 시책이 100만 원인데 왜 85만 5천 원만 들어왔나요?"도 검증 통과(groq·5,059ms — 주소창 없는 캡처라 증거 파일로는 쓰지 않음).
 - `phase-5-public-budget.png`(주소창 `…workers.dev/budget`, 첫 질문 뒤): 전체 질문 1/70 · Groq 2/55(1·2단계) · Workers AI 0/0(배치 중 0 안내) · OpenRouter 0/15 · 폴백 깊이 1순위 1/1 · 캐시 적중 0%(0/1).
 - 대조(공개 `/budget` API, 두 번째 질문 뒤): global 2 · groq 4 · depth `{0: 2}` · cache `{hit 0, miss 2}` · 거부 0 — 두 질문 모두 Groq 1순위, LLM 2회씩, 답 단위 재사용 없음(서로 다른 질문)과 맞다.
-- 관찰(고치지 않음 — 운영자 판단 대기): 상단 칩 "오늘 남은 질문"은 화면을 열 때 읽은 `/me` 값이라 답을 받은 뒤에도 줄지 않는다. 첫 캡처는 답 뒤 10회(실제 9), 두 번째 캡처는 9회(실제 8). 다시 열면 맞는 값이다.
+- 관찰: 상단 칩 "오늘 남은 질문"은 화면을 열 때 읽은 `/me` 값이라 답을 받은 뒤에도 줄지 않았다(첫 캡처 답 뒤 10회 — 실제 9, 두 번째 9회 — 실제 8). → **고침(운영자 결정 2026-11-07, 아래 "칩·예산 단위")**. 캡처 당시 전역 상한 70은 v0.1.33 전 공식이다(지금은 35).
+
+## 칩·예산 단위(운영자 결정 2026-11-07 — 설계서 v0.1.33)
+
+- `/ask` 응답 200·429 `BUDGET`·429 `RATE_LIMITED`(problem+json) 모두 `budget {remainingToday, userRemaining}` — 그 요청을 센 뒤 값(`questionsLeft` — `/me`와 같은 계산). overlay: `AskBudget`·`AskResponse`(200·429 BUDGET 본문, additionalProperties false) 추가, `Problem` 덧씌우기(`TURNSTILE_REQUIRED` 코드·선택 `budget` — 공통 거부 401·404·400은 그대로 code·message뿐).
+- 화면 4: 응답의 `budget`을 상단 칩에 덮는다(`withAskBudget` — resetsAt은 `/me` 것, `/me` 다시 부르지 않음). 남은 질문이 0이 되면 그 자리에서 입력창 비활성.
+- `/budget`: `today.calls {used, cap}`·`days[].calls`(공급자 호출 합) 추가. 화면 6 오늘 표 = 범위 | **질문**(답 1건에 1) | **호출**(LLM 1회에 1) — 공급자 행의 질문 칸은 "—", 7일 표 = 날 | 질문 | 호출(합·Groq·Workers AI·OpenRouter). 390px 가로 넘침 없음. `captures/phase-5-screen6-budget-split-local.png`(로컬 — `.dev.vars`에 Groq 키만 있어 질문 상한 floor(55/2) = 27, 호출 55).
+- 시험: worker `budget.test` 상한 공식(75·35·71 → 35·키 없는 공급자 27)·`questionsLeft`(질문 1건 → 1씩 감소, 공급자 호출은 질문 수를 바꾸지 않음)·`/budget` calls, `ask.test` "답 1건 뒤 1 준다"(가짜 Groq·가짜 AI 바인딩 — 외부 호출 없음, 200 budget = 직전 /me − 1 = 그 뒤 /me, 429 BUDGET 뒤 응답 = /me, AskResponse 스키마)·레이트 리밋 problem budget(Problem 스키마)·`cache.test` 재사용 budget 그대로 · web `ask.test` 칩 2(답 뒤 10 → 9회, 429 BUDGET → 0회 경고·RATE_LIMITED → 응답 값)·`budget.test` 질문·호출 열.
 
 ## 시험(LLM 호출 없음)
 
@@ -102,7 +110,7 @@ worker vitest → budget.test 10(상한·키 없는 공급자·사용자 키·�
              · cache.test 13(게이트웨이 유니버설 요청·429 통과·자체 오류 3종 → 직접·게이트웨이 없음·카세트 해시 · Workers AI gateway 옵션 · 캐시 키 · 재사용 PASS·창·설계사·프롬프트 · 거부 재사용·FAIL·저하 ③ 제외 · EXPLAIN · /ask 소진 중 재사용 200 예산 0)
              · turnstile.test 9(Siteverify form · 비밀 없음 · 쿠키 없음 403 · 성공 → 쿠키 → 게이트 통과 · 실패 2 · 오류·형식·세션 · 다른 IP 403 · 위조·만료·세션 값)
 web vitest   → ask.test 사람 확인 3(HumanCheck · api.ask 403·RATE_LIMITED·BUDGET 구분 · humanCheckNeeded 다시 받기)
-pnpm -r test   → grounding 68 · web 57 · worker 426 · gen 207 통과(2026-11-07, worker는 .dev.vars 없이도)
+pnpm -r test   → grounding 68 · web 59 · worker 428 · gen 207 통과(2026-11-07 v0.1.33 뒤, worker는 .dev.vars 없이도)
 pnpm run lint  → 오류 0
 ```
 
