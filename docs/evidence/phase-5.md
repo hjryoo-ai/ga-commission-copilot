@@ -12,7 +12,7 @@
 | 1 | 테스트 통과 | 진행 — 항목 1~6·레이트 리밋 시험 통과(아래) | `worker/test/budget.test.ts`·`fallback.test.ts`·`ask.test.ts`·`cache.test.ts`·`turnstile.test.ts`·`api.test.ts`, `web/test/budget.test.tsx`·`ask.test.tsx`·`App.test.tsx` |
 | 2 | /budget에 공급자별 사용·폴백 분포 표시 | 구현(로컬 캡처, 값 0) — 원격은 푸시·배포 뒤 | `captures/phase-5-screen6-budget-local.png` |
 | 3 | 실호출로 Groq 429 1회 유도 후 Workers AI 폴백 기록 캡처 | **대기** — `BUDGET_WORKERS_AI=0`(설명 배치와 뉴런 나눔, 설계서 v0.1.27) → 11-08 배치 591/591 뒤 80으로 바꾸는 커밋 다음 | — |
-| 4 | 공개 URL에서 사람이 브라우저로 Turnstile 통과 → 자유 질문 1건 답까지 1회 캡처(운영자 2026-11-07 추가) | **사람 작업 대기** — 자동 캡처는 `capture-local.yml`(로컬 대상) | — |
+| 4 | 공개 URL에서 사람이 브라우저로 Turnstile 통과 → 자유 질문 1건 답까지 1회 캡처(운영자 2026-11-07 추가) | **통과**(운영자 캡처 2026-11-07) — 아래 "공개 URL 브라우저 캡처" | `captures/phase-5-public-browser-ask.png`·`captures/phase-5-public-budget.png` |
 
 ## 운영자 결정(2026-11-06)
 
@@ -84,6 +84,13 @@ deploy 79e0596 success — Uploaded ga-commission-copilot · Deployed ga-commiss
 - 공개 URL 점검(LLM 호출 없음, 2026-11-07): `/me` 200·`Cache-Control: no-store`·ETag 없음, `turnstile {required: true, verified: false, siteKey: 0x4AAAAAAF2LyuLvbqeCCVE5}`, `budget {remainingToday: 70, userRemaining: 10}` · 쿠키 없이 `POST /me/ask` → 403 `TURNSTILE_REQUIRED` · `/budget` caps `{global 70, groq 55, workers-ai 0, openrouter 15}`(OpenRouter 키 반영).
 - **CI 실패 발견·수리**: `ci` 9428f49·79e0596 실패 — `api.test` `/me` dataStatus가 CI에서만 DEGRADED. 원인: CI에는 `.dev.vars`가 없어 공급자 키가 없고 `withKeys` 전역 상한이 0 → 남은 질문 0 → DEGRADED. 로컬은 `.dev.vars`의 진짜 Groq 키로 통과했다. 수리 afa13fb: vitest 설정에 가짜 공급자 키를 고정(로컬·CI 같은 조건, 시험이 진짜 키를 쓸 일도 없앰) — `.dev.vars`를 치운 상태로 426 통과 확인. 그동안 보고한 "CI 녹색"은 9428f49 이전 커밋 기준이었다.
 
+## 공개 URL 브라우저 캡처(완료 기준 4 — 운영자 2026-11-07)
+
+- `phase-5-public-browser-ask.png`(주소창 `…workers.dev/me/ask`): Turnstile 통과 뒤 위젯이 사라진 화면 4, "이 계약 해약하면 2월에 얼마 빠져요?" → 검증 통과·answer/v3·`get_policy_event_sim · simulation.clawbackAmount` 인용·툴 호출 1건·groq·openai/gpt-oss-120b·3,081ms. 같은 날 앞서 "8월 시책이 100만 원인데 왜 85만 5천 원만 들어왔나요?"도 검증 통과(groq·5,059ms — 주소창 없는 캡처라 증거 파일로는 쓰지 않음).
+- `phase-5-public-budget.png`(주소창 `…workers.dev/budget`, 첫 질문 뒤): 전체 질문 1/70 · Groq 2/55(1·2단계) · Workers AI 0/0(배치 중 0 안내) · OpenRouter 0/15 · 폴백 깊이 1순위 1/1 · 캐시 적중 0%(0/1).
+- 대조(공개 `/budget` API, 두 번째 질문 뒤): global 2 · groq 4 · depth `{0: 2}` · cache `{hit 0, miss 2}` · 거부 0 — 두 질문 모두 Groq 1순위, LLM 2회씩, 답 단위 재사용 없음(서로 다른 질문)과 맞다.
+- 관찰(고치지 않음 — 운영자 판단 대기): 상단 칩 "오늘 남은 질문"은 화면을 열 때 읽은 `/me` 값이라 답을 받은 뒤에도 줄지 않는다. 첫 캡처는 답 뒤 10회(실제 9), 두 번째 캡처는 9회(실제 8). 다시 열면 맞는 값이다.
+
 ## 시험(LLM 호출 없음)
 
 ```
@@ -106,7 +113,7 @@ pnpm run lint  → 오류 0
 - [x] Turnstile 사이트 키·`TURNSTILE_SECRET` 등록(운영자 2026-11-06) → wrangler.jsonc `TURNSTILE_SITE_KEY`.
 - [x] ~~WAF 레이트 리밋 규칙~~ → Worker 안 레이트 리밋으로 대체(운영자 결정 2026-11-06).
 - [x] 푸시(운영자 2026-11-07) → deploy 성공·Cron 등록(위 배포 절).
-- [ ] 공개 URL 브라우저 캡처 1회(완료 기준 4 — 운영자): 화면 4에서 Turnstile 통과 → 자유 질문 1건 답.
+- [x] 공개 URL 브라우저 캡처 1회(완료 기준 4 — 운영자 2026-11-07).
 - [ ] 배포 뒤 확인(계속): 화면 4 위젯 실제 통과(사이트 키의 호스트 이름 목록에 workers.dev 호스트가 있어야 한다)·Cron 등록(`wrangler deploy` 출력의 schedule)·`/budget` 원격 값.
 - [ ] 11-08 설명 배치 591/591 확인 → `BUDGET_WORKERS_AI` 80 커밋 → 푸시·배포 → 완료 기준 3 실호출 캡처(Workers AI 구조화 출력 모양 `choices`/`response` 기록, 게이트웨이 경유 Groq·OpenRouter 첫 실호출 경로 확인 포함).
 
