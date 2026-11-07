@@ -3,7 +3,7 @@
 // · 사람 확인(설계서 v0.1.29 — /me turnstile.required이고 아직 아니면 위젯, 끝나기 전 입력창 비활성) · 분당 한도(429 RATE_LIMITED)는 그 질문에 남은 초.
 // 화면은 답의 숫자를 계산·대조하지 않는다(검증은 서버 G4~G6). LLM 본문은 큰 숫자 자리에 두지 않는다.
 import { type FormEvent, useCallback, useState } from "react";
-import { api, type AskResult, HumanCheckRequired, questionsLeft, RateLimited, Unauthenticated } from "../api";
+import { api, type AskResult, HumanCheckRequired, type MeTurnstile, questionsLeft, RateLimited, Unauthenticated } from "../api";
 import { DISCLAIMER } from "../disclaimer";
 import { EXAMPLE_QUESTIONS } from "../examples";
 import { waitText } from "../format";
@@ -109,6 +109,14 @@ export function AnswerCard({ r }: { r: AskResult }) {
   );
 }
 
+/**
+ * 사람 확인 위젯을 그릴지(설계서 v0.1.31). human = 이 화면에서 마쳤으면 true, /ask가 403을 주면 false(쿠키 만료·IP가 바뀜 — 쿠키는 IP에 묶인다),
+ * 아직 모르면 null(불러온 /me의 verified를 따른다). 403 뒤에는 위젯이 새로 그려져 다시 확인할 수 있다.
+ */
+export function humanCheckNeeded(t: MeTurnstile | undefined, human: boolean | null): boolean {
+  return Boolean(t?.required && t.siteKey) && !(human ?? t?.verified);
+}
+
 type Exchange = { question: string } & ({ state: "pending" } | { state: "ok"; r: AskResult } | { state: "error" } | { state: "rate"; seconds: number } | { state: "human" });
 
 export function Ask() {
@@ -123,7 +131,7 @@ export function Ask() {
   // 사람 확인: 불러온 값(verified) 또는 이 화면에서 마친 뒤(true)·403을 받은 뒤(false)
   const [human, setHuman] = useState<boolean | null>(null);
   const turnstile = me.state === "ok" ? me.data.turnstile : undefined;
-  const needsHuman = Boolean(turnstile?.required && turnstile.siteKey) && !(human ?? turnstile?.verified);
+  const needsHuman = humanCheckNeeded(turnstile, human);
   const onVerified = useCallback(() => setHuman(true), []);
   const disabled = pending || out !== null || needsHuman;
 
@@ -142,6 +150,8 @@ export function Ask() {
       if (e instanceof RateLimited) return done({ question: text, state: "rate", seconds: e.retryAfterSeconds });
       if (e instanceof HumanCheckRequired) {
         setHuman(false);
+        // 막 쓴 질문을 입력창에 되돌린다 — 다시 확인한 뒤 그대로 보낼 수 있게(모바일 망 전환으로 IP가 바뀐 경우 등)
+        setQuestion(text);
         return done({ question: text, state: "human" });
       }
       // 공급자 실패(503 Unavailable)·그 밖의 오류 — 둘 다 "잠시 후 다시"
@@ -188,7 +198,7 @@ export function Ask() {
             {x.state === "pending" && <p className="muted">답하는 중…</p>}
             {x.state === "error" && <p className="muted">잠시 후 다시 시도하세요</p>}
             {x.state === "rate" && <p className="muted">질문이 잦습니다 — {x.seconds}초 뒤 다시 질문하세요.</p>}
-            {x.state === "human" && <p className="muted">사람 확인이 만료되었습니다 — 위에서 다시 확인한 뒤 질문하세요.</p>}
+            {x.state === "human" && <p className="muted">사람 확인이 만료되었거나 네트워크가 바뀌었습니다 — 위에서 다시 확인한 뒤 질문하세요(질문은 입력창에 남겨 두었습니다).</p>}
             {x.state === "ok" && <AnswerCard r={x.r} />}
           </div>
         ))}

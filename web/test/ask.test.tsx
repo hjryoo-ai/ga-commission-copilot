@@ -5,7 +5,7 @@ import { App } from "../src/App";
 import { EXAMPLE_QUESTIONS } from "../src/examples";
 import { waitText } from "../src/format";
 import { match } from "../src/router";
-import { AnswerCard } from "../src/screens/Ask";
+import { AnswerCard, humanCheckNeeded } from "../src/screens/Ask";
 import { HumanCheck, TURNSTILE_SCRIPT } from "../src/screens/HumanCheck";
 import { promptHref, ReplayTimeline } from "../src/screens/AnswerReplay";
 
@@ -186,5 +186,20 @@ describe("화면 4 사람 확인·분당 한도(설계서 v0.1.29 — PHASES Pha
     vi.stubGlobal("fetch", reply(403, {}));
     await expect(api.turnstile("tok")).rejects.toBeInstanceOf(HumanCheckRequired);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("사람 확인 다시 받기(설계서 v0.1.31 — 쿠키가 IP에 묶여 망이 바뀌면 다시 확인)", () => {
+  const t = (verified: boolean) => ({ required: true, verified, siteKey: "0x4AAAAAAF2LyuLvbqeCCVE5" });
+  it("불러온 verified를 따르고, 이 화면에서 마치면 숨고, /ask 403(만료·IP 바뀜) 뒤에는 다시 그린다", () => {
+    expect(humanCheckNeeded(t(false), null)).toBe(true); // 첫 방문
+    expect(humanCheckNeeded(t(false), true)).toBe(false); // 이 화면에서 마침
+    expect(humanCheckNeeded(t(true), null)).toBe(false); // 24시간 쿠키가 있다
+    expect(humanCheckNeeded(t(true), false)).toBe(true); // 쿠키는 있었지만 /ask 403(망 전환으로 IP가 바뀜)
+    expect(humanCheckNeeded(t(false), false)).toBe(true);
+    // 검사하지 않는 환경(비밀 없음)·사이트 키 없음은 그리지 않는다
+    expect(humanCheckNeeded({ required: false, verified: true }, false)).toBe(false);
+    expect(humanCheckNeeded({ required: true, verified: false }, null)).toBe(false);
+    expect(humanCheckNeeded(undefined, null)).toBe(false);
   });
 });
