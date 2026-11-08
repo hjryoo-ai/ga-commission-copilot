@@ -1,0 +1,97 @@
+
+> @copilot/gen@ explain /home/runner/work/ga-commission-copilot/ga-commission-copilot/gen
+> node explain/run.ts -- --batch
+
+프롬프트 explain_line/v6·explain_limit/v6·explain_month/v6, 카세트 explain
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+[batch] Workers AI 확인: {"label":"explain:LINE:A-1003:c-A1003-17-8","responseFormat":"json_schema","firstG1":"PASS","status":"PASS(attempts 1)","model":"@cf/openai/gpt-oss-120b"}
+[batch] explain:LINE:A-1003:c-A1003-19-5 PASS workers-ai
+[batch] explain:LIMIT:A-1001:l-A1001-05 PASS workers-ai
+[batch] explain:LIMIT:A-1001:l-A1001-07 PASS workers-ai
+[batch] explain:LIMIT:A-1001:l-A1001-08 PASS workers-ai
+[batch] explain:LIMIT:A-1001:l-A1001-09 PASS workers-ai
+[batch] explain:LIMIT:A-1002:l-A1002-08 PASS workers-ai
+[batch] explain:LIMIT:A-1002:l-A1002-09 PASS workers-ai
+[batch] explain:LIMIT:A-1002:l-A1002-10 PASS workers-ai
+[batch] explain:LIMIT:A-1002:l-A1002-12 PASS workers-ai
+[batch] explain:LIMIT:A-1002:l-A1002-13 PASS workers-ai
+[batch] explain:LIMIT:A-1002:l-A1002-14 PASS workers-ai
+[live] workers-ai bad_content, 5s 뒤 같은 요청
+[batch] explain:LIMIT:A-1002:l-A1002-15 PASS workers-ai
+[batch] explain:LIMIT:A-1003:l-A1003-12 PASS workers-ai
+[batch] explain:LIMIT:A-1003:l-A1003-14 PASS workers-ai
+[batch] explain:LIMIT:A-1003:l-A1003-15 PASS workers-ai
+[batch] explain:LIMIT:A-1003:l-A1003-16 PASS workers-ai
+[batch] explain:LIMIT:A-1003:l-A1003-17 PASS workers-ai
+[batch] explain:LIMIT:A-1003:l-A1003-18 PASS workers-ai
+[batch] explain:LIMIT:A-1003:l-A1003-19 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202604 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202605 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202606 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202607 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202608 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202609 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202612 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202703 PASS workers-ai
+[live] workers-ai bad_content, 5s 뒤 같은 요청
+[batch] explain:MONTH_DIFF:A-1001:202704 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202705 PASS workers-ai (재생성)
+[batch] explain:MONTH_DIFF:A-1001:202706 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202707 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202708 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202709 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202710 PASS workers-ai (재생성)
+[batch] explain:MONTH_DIFF:A-1001:202711 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202712 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202801 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202802 PASS workers-ai (재생성)
+[live] workers-ai bad_content, 5s 뒤 같은 요청
+[batch] explain:MONTH_DIFF:A-1001:202803 PASS workers-ai (재생성)
+[batch] explain:MONTH_DIFF:A-1001:202804 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1001:202805 PASS workers-ai (재생성)
+[batch] explain:MONTH_DIFF:A-1001:202806 PASS workers-ai (재생성)
+[batch] explain:MONTH_DIFF:A-1002:202509 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202511 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202601 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202603 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202605 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202606 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202608 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202609 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202610 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202611 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202612 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202701 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202702 PASS workers-ai
+[live] workers-ai bad_content, 5s 뒤 같은 요청
+[batch] explain:MONTH_DIFF:A-1002:202703 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202704 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202705 PASS workers-ai (재생성)
+[live] workers-ai bad_content, 5s 뒤 같은 요청
+[batch] explain:MONTH_DIFF:A-1002:202706 PASS workers-ai (재생성)
+[batch] explain:MONTH_DIFF:A-1002:202707 PASS workers-ai (재생성)
+[batch] explain:MONTH_DIFF:A-1002:202708 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202709 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202710 PASS workers-ai
+[live] workers-ai bad_content, 5s 뒤 같은 요청
+[batch] explain:MONTH_DIFF:A-1002:202711 PASS workers-ai (재생성)
+[live] workers-ai bad_content, 5s 뒤 같은 요청
+[batch] explain:MONTH_DIFF:A-1002:202712 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202801 PASS workers-ai (재생성)
+[live] workers-ai bad_content, 5s 뒤 같은 요청
+[batch] explain:MONTH_DIFF:A-1002:202802 PASS workers-ai
+[batch] explain:MONTH_DIFF:A-1002:202803 PASS workers-ai (재생성)
+[batch] explain:MONTH_DIFF:A-1002:202804 PASS workers-ai
+[batch] workers-ai 끝(2026-11-08T06:35:28.770Z): 예산 소진(scope=batch:explain:workers-ai, day=2026-11-08, cap=90) — 실호출 중단
+batch: 생성 70(PASS 70 · FAIL 0 — 첫 시도 58/70(82.9%) · 재생성 후 100.0%), 캐시 건너뜀 486, 호출 {"workers-ai":90}, 재시도 {"workers-ai:bad_content":8}, 멈춤: 모든 공급자 예산 소진(오늘)
+  LINE: PASS 2 · FAIL 0 — 첫 시도 2/2(100.0%) · 재생성 후 100.0%
+  LIMIT: PASS 18 · FAIL 0 — 첫 시도 18/18(100.0%) · 재생성 후 100.0%
+  MONTH_DIFF: PASS 50 · FAIL 0 — 첫 시도 38/50(76.0%) · 재생성 후 100.0%
+  workers-ai: PASS 70 · FAIL 0 — 첫 시도 58/70(82.9%) · 재생성 후 100.0%
+  모델 @cf/openai/gpt-oss-120b: 본문 70건 평균 3.0문장 · 성공 호출 82회 평균 출력 464토큰(추론 포함)
+  사용량 workers-ai: 성공 82회 · 입력 215503 · 출력 38069 토큰(회당 3092.3) · 9452.5 뉴런(회당 115.3)
+
+> @copilot/gen@ verify:explain /home/runner/work/ga-commission-copilot/ga-commission-copilot/gen
+> node explain/verify-explanations.ts -- --regrade
+
+regrade fca1971cdbce: FAIL 행 0 → PASS로 0
