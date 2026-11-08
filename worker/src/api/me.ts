@@ -5,8 +5,9 @@ import { Hono } from "hono";
 import { DEMO_TENANT, type ScopedQuery } from "../db/ScopedQuery";
 import { DerivedNumbers, type LimitStage } from "../domain/DerivedNumbers";
 import { activePromptVersion, explanationOf, promptVersions } from "./explain";
-import { budgetCaps, usageOn, userScope, userUsed, utcDay, withKeys } from "../llm/budget";
+import { budgetCaps, questionsLeft, userScope, utcDay, withKeys } from "../llm/budget";
 import { type AppEnv, compact, fresh, invalidRequest, notFound, ok, YM } from "./http";
+import { postTurnstile, turnstileStatus } from "./turnstile";
 import { policyKeys, policyMasked } from "./policy";
 import { clientIp, postAsk } from "./ask";
 import { requireSession } from "./session";
@@ -250,6 +251,9 @@ me.use("*", requireSession);
 /** 자유 질문(설계서 §4.3 — api/ask.ts). */
 me.post("/ask", postAsk);
 
+/** 사람 확인(설계서 v0.1.29 §9 — api/turnstile.ts). */
+me.post("/turnstile", (c) => postTurnstile(c));
+
 me.get("/", async (c) => {
   const { q, agentId } = c.get("scope");
   // 설계서 v0.1.27 §7: 오늘 남은 질문(전역·이 사용자) — 요청마다 바뀌어 ETag 대신 no-store(fresh)
@@ -257,15 +261,14 @@ me.get("/", async (c) => {
   const day = utcDay(now);
   const caps = withKeys(budgetCaps(c.env), c.env);
   const user = await userScope(c.env.SESSION_SECRET, clientIp(c), day);
-  const [p, first, last, usage, mine] = await Promise.all([
+  const [p, first, last, left, turnstile] = await Promise.all([
     q.first<{ name: string; grade: string | null; org_path: string; status: string }>("agent_profile", { columns: ["name", "grade", "org_path", "status"] }),
     q.first<{ close_ym: string }>("earnings_month", { columns: ["close_ym"], orderBy: "close_ym" }),
     q.first<{ close_ym: string }>("earnings_month", { columns: ["close_ym"], orderBy: "close_ym DESC" }),
-    usageOn(c.env.DB, caps, day),
-    userUsed(c.env.DB, user, day),
+    questionsLeft(c.env.DB, caps, user, day),
+    turnstileStatus(c),
   ]);
-  const remainingToday = Math.max(0, usage.global.cap - usage.global.used);
-  const userRemaining = Math.max(0, caps.user - mine);
+  const { remainingToday, userRemaining } = left;
   return fresh(
     c,
     compact({
@@ -279,6 +282,7 @@ me.get("/", async (c) => {
       months: first && last ? { from: first.close_ym, to: last.close_ym } : undefined,
       promptVersions: promptVersions(c.env),
       budget: { remainingToday, userRemaining, resetsAt: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString() },
+      turnstile,
     }),
     remainingToday === 0,
   );

@@ -34,6 +34,40 @@
         "DEGRADED"
       ],
       "description": "저하 모드(예산 소진 — Phase 4). Phase 2는 OK뿐"
+    },
+    "Problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ],
+      "description": "상위 Problem + 덧씌우기(설계서 v0.1.29 TURNSTILE_REQUIRED, v0.1.33 RATE_LIMITED의 budget). 공통 거부(401·404·400)는 여전히 code·message뿐",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "UNAUTHENTICATED",
+            "NOT_FOUND",
+            "INVALID_REQUEST",
+            "INTERNAL_ERROR",
+            "INSURER_AMBIGUOUS",
+            "UNSUPPORTED_EVENT_TYPE",
+            "ENGINE_REJECTED",
+            "RATE_LIMITED",
+            "ENGINE_CONTRACT",
+            "ENGINE_UNAVAILABLE",
+            "TURNSTILE_REQUIRED"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "budget": {
+          "$ref": "#/components/schemas/AskBudget"
+        }
+      }
     }
   },
   "responses": [
@@ -105,6 +139,27 @@
               "type": "string",
               "format": "date-time",
               "description": "다음 00:00 UTC"
+            }
+          }
+        },
+        "turnstile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "required",
+            "verified"
+          ],
+          "description": "사람 확인(설계서 v0.1.29 §9 — Turnstile). required = 이 환경이 /ask에 사람 확인 쿠키를 요구하는가, verified = 이 요청에 유효한 쿠키가 있는가(24시간), siteKey = 위젯 사이트 키(공개 값, required일 때만)",
+          "properties": {
+            "required": {
+              "type": "boolean"
+            },
+            "verified": {
+              "type": "boolean"
+            },
+            "siteKey": {
+              "type": "string",
+              "minLength": 1
             }
           }
         }
@@ -342,6 +397,140 @@
               "$ref": "#/components/schemas/Explanation"
             }
           ]
+        },
+        "disclaimer": {
+          "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
+        }
+      }
+    },
+    "AskBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "remainingToday",
+        "userRemaining"
+      ],
+      "description": "오늘 남은 질문(설계서 v0.1.33 §7 — 그 /ask 요청을 센 뒤 값, 질문 단위). 화면 4가 상단 칩을 이 값으로 고친다(/me 다시 부르지 않음)",
+      "properties": {
+        "remainingToday": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "userRemaining": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "AskResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asOf",
+        "dataStatus",
+        "answerId",
+        "refused",
+        "reason",
+        "text",
+        "promptVersion",
+        "budget",
+        "disclaimer"
+      ],
+      "description": "POST /me/ask 200·429 BUDGET(설계서 §7·v0.1.33). 429 RATE_LIMITED·403·503은 Problem",
+      "properties": {
+        "asOf": {
+          "$ref": "#/components/schemas/AsOf"
+        },
+        "dataStatus": {
+          "$ref": "#/components/schemas/DataStatus"
+        },
+        "answerId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "refused": {
+          "type": "boolean"
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "OUT_OF_SCOPE",
+                "NOT_GROUNDED",
+                "OTHER_AGENT",
+                "NEEDS_ENGINE",
+                "BUDGET"
+              ]
+            }
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "numbersUsed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "toolCalls": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "promptVersion": {
+          "type": "string",
+          "pattern": "^answer/v[1-9][0-9]*$"
+        },
+        "groundingStatus": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NONE"
+          ]
+        },
+        "cacheHit": {
+          "type": "boolean"
+        },
+        "latencyMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fallbackDepth": {
+          "type": "integer",
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "rulesUnavailable": {
+          "const": true
+        },
+        "retryAfterSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "budget": {
+          "$ref": "#/components/schemas/AskBudget"
         },
         "disclaimer": {
           "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"

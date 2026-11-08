@@ -4,16 +4,18 @@
 //   GET  /api/v1/answers/{id}       → 이 설계사의 answer_log 한 행(화면 7 답변 재현). LLM을 부르지 않는다 —
 //                                     툴은 저장된 인자로 다시 실행해(읽기 전용·결정론) 결과와 resultHash 일치 여부를, 검색 청크는 본문을 붙인다.
 // 저하 ①: 예산 소진(사용자·전역·시도할 공급자 전부) → LLM 없이 429 + BUDGET 고정 문구 + retryAfterSeconds(다음 00:00 UTC) — 거부도 answer_log에 남는다(§4.4).
+// 순서(설계서 v0.1.29): 사람 확인(Turnstile 쿠키) → 레이트 리밋(분당 3) → 답 단위 재사용(24시간 같은 키 — LLM·임베딩·예산 0) → 예산 → LLM(AI Gateway 경유).
 // 저하 ②: 시도한 공급자가 모두 429·5xx·타임아웃 → 503. 저하 ③: 규정 검색 불가 → 툴만으로 답하고 rulesUnavailable·dataStatus DEGRADED.
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
-import { type AnswerResult, answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm } from "../llm/answer";
-import { anyProviderLeft, budgetCaps, countStat, reserveProvider, reserveQuestion, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
-import { fallbackChain, groq, openrouter, ProviderError, ProvidersExhausted, traced, workersAi } from "../llm/providers";
+import { type AnswerResult, answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm, reuseAnswer } from "../llm/answer";
+import { anyProviderLeft, budgetCaps, countStat, questionsLeft, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
+import { fallbackChain, type GatewayRunner, groq, openrouter, ProviderError, ProvidersExhausted, traced, workersAi } from "../llm/providers";
 import { type AppEnv, common, DISCLAIMER, invalidRequest, notFound, problem } from "./http";
 import { InvalidToolCall, parseToolCall, runTool, serialize } from "../tools";
 import { requireSession } from "./session";
+import { humanVerified } from "./turnstile";
 
 const QUESTION_MAX = 500;
 const ANSWER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -39,20 +41,38 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
   const question = typeof body?.question === "string" ? body.question.trim() : "";
   if (!question || question.length > QUESTION_MAX || Object.keys(body ?? {}).some((k) => k !== "question")) return invalidRequest(c);
 
+  // Turnstile(설계서 v0.1.29 §9): TURNSTILE_SECRET이 있는 환경이면 24시간 사람 확인 쿠키가 있어야 한다
+  if (!(await humanVerified(c))) return problem(c, 403, "TURNSTILE_REQUIRED");
   const now = new Date();
   const day = utcDay(now);
+  const user = await userScope(c.env.SESSION_SECRET, clientIp(c), day);
   const caps = withKeys(budgetCaps(c.env), c.env);
-  const chain = fallbackChain([groq(c.env), workersAi(c.env.AI), openrouter(c.env)], (name) => reserveProvider(c.env.DB, caps, name, day));
+  // 응답마다 붙이는 오늘 남은 질문(설계서 v0.1.33 — 그 요청을 센 뒤 값, 화면 4 칩)
+  const left = () => questionsLeft(c.env.DB, caps, user, day);
+  // 레이트 리밋(설계서 v0.1.29 §7 — 예산과 별도, 맨 앞): IP당 분당 3회. 넘으면 answer_log 없이 429 RATE_LIMITED + Retry-After(다음 분까지)
+  const rate = await reserveRate(c.env.DB, user, now);
+  if (!rate.ok) return problem(c, 429, "RATE_LIMITED", { "Retry-After": String(rate.retryAfterSeconds) }, { budget: await left() });
+  // AI Gateway(설계서 v0.1.29 §6.4): AI_GATEWAY_ID가 있을 때만 — 바인딩 gateway()는 실제로 부를 때 만든다
+  const gwId = c.env.AI_GATEWAY_ID || null;
+  const gw: GatewayRunner | null = gwId ? () => c.env.AI.gateway(gwId) : null;
+  const providers = [groq(c.env, fetch, undefined, gw), workersAi(c.env.AI, gwId), openrouter(c.env, fetch, undefined, gw)];
+  const chain = fallbackChain(providers, (name) => reserveProvider(c.env.DB, caps, name, day));
   const deps = cloudflareDeps(c.env, traced(chain, c.env, c.env.DB));
   const budgetRefusal = async () => {
     const b = await refuseWithoutLlm(deps, q, c.env, question, "BUDGET");
     await countStat(c.env.DB, "refuse:BUDGET", day);
-    return answerJson(c, { answerId: b.answerId, refused: true, reason: "BUDGET", text: b.text, retryAfterSeconds: secondsToUtcMidnight(now), promptVersion: b.promptVersion }, 429);
+    return answerJson(c, { answerId: b.answerId, refused: true, reason: "BUDGET", text: b.text, retryAfterSeconds: secondsToUtcMidnight(now), promptVersion: b.promptVersion, budget: await left() }, 429);
   };
+  // 답 단위 재사용 — 예산 검사보다 먼저(캐시 히트는 예산 미차감). 소진된 날에도 같은 질문의 원래 답은 돌려준다
+  const reused = await reuseAnswer(deps, q, c.env, question);
+  if (reused) {
+    await countStat(c.env.DB, "cache:hit", day);
+    return answerJson(c, { ...answerBody(reused, true), budget: await left() });
+  }
   // 저하 ① — 시도할 공급자가 하나도 없으면 임베딩도 부르지 않는다(읽기만, 차감 없음 — 경합으로 그 뒤 소진되면 체인이 ProvidersExhausted)
   if (!anyProviderLeft(await usageOn(c.env.DB, caps, day))) return budgetRefusal();
   // 저하 ① — 사용자·전역(질문 1건에 1)
-  if (!(await reserveQuestion(c.env.DB, caps, await userScope(c.env.SESSION_SECRET, clientIp(c), day), day)).ok) return budgetRefusal();
+  if (!(await reserveQuestion(c.env.DB, caps, user, day)).ok) return budgetRefusal();
   let r: AnswerResult;
   try {
     r = await answerQuestion(deps, q, c.env, question);
@@ -66,14 +86,18 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
     }
     throw e;
   }
-  // 공개 /budget 분포(설계서 v0.1.28): 답한 공급자의 체인 순번·거부 사유·캐시(AI Gateway 전에는 모두 miss)·저하 ③
+  // 공개 /budget 분포(설계서 v0.1.28): 답한 공급자의 체인 순번·거부 사유·캐시(답 단위 — LLM을 불렀으면 miss)·저하 ③
   await Promise.all([
     countStat(c.env.DB, `depth:${Math.min(2, r.fallbackDepth) as 0 | 1 | 2}`, day),
     countStat(c.env.DB, "cache:miss", day),
     ...(r.refused && r.reason ? [countStat(c.env.DB, `refuse:${r.reason}`, day)] : []),
     ...(r.rulesUnavailable ? [countStat(c.env.DB, "degraded:rules", day)] : []),
   ]);
-  return answerJson(c, {
+  return answerJson(c, { ...answerBody(r, false), budget: await left() }, 200, r.rulesUnavailable);
+}
+
+function answerBody(r: AnswerResult, cacheHit: boolean) {
+  return {
     answerId: r.answerId,
     refused: r.refused,
     reason: r.reason,
@@ -85,12 +109,12 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
     model: r.model,
     promptVersion: r.promptVersion,
     groundingStatus: r.groundingStatus,
-    cacheHit: false,
+    cacheHit,
     latencyMs: r.latencyMs,
     fallbackDepth: r.fallbackDepth,
     // 저하 ③(설계서 v0.1.27): 규정 없이 툴만으로 답했다
     ...(r.rulesUnavailable ? { rulesUnavailable: true } : {}),
-  }, 200, r.rulesUnavailable);
+  };
 }
 
 const parseList = (s: unknown): unknown[] => {

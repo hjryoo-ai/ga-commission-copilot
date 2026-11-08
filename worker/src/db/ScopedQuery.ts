@@ -297,6 +297,20 @@ export class ScopedQuery {
       .run();
   }
 
+  /**
+   * 답 단위 재사용 후보(설계서 v0.1.29 §6.4): 이 설계사·활성 스트림·같은 프롬프트·같은 정규화 질문의 since 이후 원래 답(cache_hit 0) 중 최신.
+   * PASS, 또는 모델 거부 중 범위 밖·다른 설계사·엔진 필요만 — FAIL·BUDGET은 다시 묻게 둔다. 규정 검색 없이 답한 행(retrieved_chunks '[]' — 저하 ③)도 뺀다.
+   * 조회는 ix_ans_created(created_at 범위 — 하루 질문 수로 묶인다)를 탄다.
+   */
+  async reusableAnswer(normalizedQuestion: string, promptVersion: string, since: string): Promise<Record<string, unknown> | null> {
+    return this.db
+      .prepare(
+        "SELECT * FROM answer_log WHERE created_at >= ? AND tenant_id = ? AND agent_id = ? AND stream_hash = ? AND prompt_version = ? AND normalized_question = ? AND cache_hit = 0 AND retrieved_chunks <> '[]' AND (grounding_status = 'PASS' OR (refused = 1 AND refuse_reason IN ('OUT_OF_SCOPE', 'OTHER_AGENT', 'NEEDS_ENGINE'))) ORDER BY created_at DESC LIMIT 1",
+      )
+      .bind(since, this.tenantId, this.agentId, this.stream.streamHash, promptVersion, normalizedQuestion)
+      .first<Record<string, unknown>>();
+  }
+
   /** 답변 로그 한 행(GET /answers/{id} — 이 설계사 행만). */
   async answerLog(answerId: string): Promise<Record<string, unknown> | null> {
     return this.db.prepare("SELECT * FROM answer_log WHERE tenant_id = ? AND agent_id = ? AND answer_id = ?").bind(this.tenantId, this.agentId, answerId).first<Record<string, unknown>>();
@@ -422,6 +436,17 @@ export async function budgetRowsBetween(db: D1Database, from: string, to: string
       .bind(from, to)
       .all<{ scope: string; day: string; used: number }>()
   ).results;
+}
+
+/**
+ * 지난 날의 분 단위 레이트 리밋 행 삭제(설계서 v0.1.29 §7 — Worker Cron이 매일 부른다). `rl:` 범위만, day < before(UTC 날).
+ * 분 키는 그 분이 지나면 다시 읽히지 않는다 — 전날 이전 행은 지워도 판정이 바뀌지 않는다. 지운 행 수를 돌려준다.
+ */
+export async function purgeRateLimitRows(db: D1Database, before: string): Promise<number> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(before)) throw new Error("invalid budget day");
+  // PK(scope, day) 범위 검색이 되도록 LIKE 대신 접두 구간('rl:' ≤ scope < 'rl;')
+  const r = await db.prepare("DELETE FROM budget_counter WHERE scope >= 'rl:' AND scope < 'rl;' AND day < ?").bind(before).run();
+  return r.meta.changes ?? 0;
 }
 
 /** 한 범위의 하루 사용량(사용자 키 `ip:…`의 남은 횟수). */

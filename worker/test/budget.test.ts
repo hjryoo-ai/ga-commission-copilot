@@ -1,7 +1,8 @@
 import { env } from "cloudflare:test";
 import { exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { anyProviderLeft, BUDGET_DEFAULTS, budgetCaps, budgetReport, countStat, reserveProvider, reserveQuestion, usageOn, userScope, withKeys } from "../src/llm/budget";
+import { scheduled } from "../src/index";
+import { anyProviderLeft, BUDGET_DEFAULTS, budgetCaps, budgetReport, countStat, questionsLeft, rateScope, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, withKeys } from "../src/llm/budget";
 
 // PHASES Phase 5 항목 1·7 — 예산(설계서 v0.1.27 §6.2). 카운터는 D1(규약 5), 갱신은 UPDATE … WHERE used < ? 한 문장.
 const DAY = "2026-11-06";
@@ -11,11 +12,13 @@ beforeEach(async () => {
 });
 
 describe("상한(env)", () => {
-  it("기본값 = PHASES 항목 1, 0~9999 정수만, 전역 = min(BUDGET_GLOBAL, 공급자 합)", () => {
-    expect(budgetCaps({})).toEqual({ global: 150, user: 10, providers: { groq: 55, "workers-ai": 80, openrouter: 15 } });
+  it("기본값 = PHASES 항목 1, 0~9999 정수만, 전역(질문) = min(BUDGET_GLOBAL, floor(공급자 호출 합 ÷ 2)) — 설계서 v0.1.33", () => {
+    // 11-08 뒤: 호출 55+80+15 = 150 → 질문 75
+    expect(budgetCaps({})).toEqual({ global: 75, user: 10, providers: { groq: 55, "workers-ai": 80, openrouter: 15 } });
     expect(BUDGET_DEFAULTS.global).toBe(150);
-    // 설명 배치 중(v0.1.27): Workers AI 0 → 전역 55+0+15 = 70
-    expect(budgetCaps({ BUDGET_WORKERS_AI: "0" }).global).toBe(70);
+    // 설명 배치 중(v0.1.27): Workers AI 0 → floor((55+0+15)/2) = 35
+    expect(budgetCaps({ BUDGET_WORKERS_AI: "0" }).global).toBe(35);
+    expect(budgetCaps({ BUDGET_WORKERS_AI: "0", BUDGET_OPENROUTER: "16" }).global).toBe(35); // 71 ÷ 2 내림
     expect(budgetCaps({ BUDGET_GLOBAL: "20" }).global).toBe(20);
     // 형식이 틀리면 기본값(무제한·음수가 되지 않게)
     expect(budgetCaps({ BUDGET_USER: "-1", BUDGET_GROQ: "abc", BUDGET_OPENROUTER: "99999" })).toMatchObject({ user: 10, providers: { groq: 55, openrouter: 15 } });
@@ -23,15 +26,15 @@ describe("상한(env)", () => {
 
   it("키 없는 공급자는 상한 0(시도·카운터를 쓰지 않는다), 전역도 다시 min", () => {
     const caps = budgetCaps({ BUDGET_WORKERS_AI: "0" });
-    expect(withKeys(caps, { GROQ_API_KEY: "k" })).toMatchObject({ global: 55, providers: { groq: 55, "workers-ai": 0, openrouter: 0 } });
-    expect(withKeys(caps, { GROQ_API_KEY: "k", OPENROUTER_API_KEY: "o" }).global).toBe(70);
+    expect(withKeys(caps, { GROQ_API_KEY: "k" })).toMatchObject({ global: 27, providers: { groq: 55, "workers-ai": 0, openrouter: 0 } });
+    expect(withKeys(caps, { GROQ_API_KEY: "k", OPENROUTER_API_KEY: "o" }).global).toBe(35);
     expect(withKeys(caps, {}).global).toBe(0);
   });
 
-  it("배포 설정(wrangler.jsonc vars): 배치 중 Workers AI 0, 전역 70", () => {
+  it("배포 설정(wrangler.jsonc vars): 배치 중 Workers AI 0, 전역 질문 35(호출 70의 절반)", () => {
     const caps = budgetCaps(env);
     expect(caps.providers["workers-ai"]).toBe(0);
-    expect(caps.global).toBe(70);
+    expect(caps.global).toBe(35);
   });
 });
 
@@ -72,12 +75,64 @@ describe("차감(D1 단일 UPDATE)", () => {
     expect(anyProviderLeft(await usageOn(env.DB, caps, DAY))).toBe(false);
   });
 
+  it("오늘 남은 질문(/me·/ask 응답 — v0.1.33): 질문 1건을 세면 전역·사용자가 1씩 준다, 공급자 호출은 질문 수를 바꾸지 않는다", async () => {
+    const u = "ip:aaaaaaaaaaaaaaaa";
+    expect(await questionsLeft(env.DB, caps, u, DAY)).toEqual({ remainingToday: 3, userRemaining: 2 });
+    await reserveQuestion(env.DB, caps, u, DAY);
+    expect(await questionsLeft(env.DB, caps, u, DAY)).toEqual({ remainingToday: 2, userRemaining: 1 });
+    await reserveProvider(env.DB, caps, "groq", DAY);
+    await reserveProvider(env.DB, caps, "groq", DAY);
+    expect(await questionsLeft(env.DB, caps, u, DAY)).toEqual({ remainingToday: 2, userRemaining: 1 });
+    expect(await questionsLeft(env.DB, caps, "ip:bbbbbbbbbbbbbbbb", DAY)).toEqual({ remainingToday: 2, userRemaining: 2 });
+  });
+
   it("동시 50요청(PHASES 항목 7): 상한 30이면 정확히 30만 통과, 카운터 30", async () => {
     const c = { ...caps, global: 30, user: 100 };
     const results = await Promise.all(Array.from({ length: 50 }, (_, i) => reserveQuestion(env.DB, c, `ip:${String(i).padStart(16, "0")}`, DAY)));
     expect(results.filter((r) => r.ok)).toHaveLength(30);
     expect(results.filter((r) => !r.ok && r.exhausted === "global")).toHaveLength(20);
     expect(await env.DB.prepare("SELECT used FROM budget_counter WHERE scope = 'global' AND day = ?").bind(DAY).first("used")).toBe(30);
+  });
+});
+
+describe("레이트 리밋(설계서 v0.1.29 §7 — 분당 3회, D1)", () => {
+  const u = "ip:aaaaaaaaaaaaaaaa";
+
+  it("분 키 rl:<사용자 키>:<yyyymmddHHMM>(UTC), 같은 분 3회까지, 4번째는 다음 분까지 초, 다음 분은 새로", async () => {
+    const t = new Date("2026-11-06T13:45:12.345Z");
+    expect(rateScope(u, t)).toBe("rl:ip:aaaaaaaaaaaaaaaa:202611061345");
+    for (let i = 0; i < 3; i++) expect(await reserveRate(env.DB, u, t)).toEqual({ ok: true });
+    expect(await reserveRate(env.DB, u, t)).toEqual({ ok: false, retryAfterSeconds: 48 });
+    expect(await reserveRate(env.DB, u, new Date("2026-11-06T13:46:00Z"))).toEqual({ ok: true });
+    expect(await reserveRate(env.DB, "ip:bbbbbbbbbbbbbbbb", t)).toEqual({ ok: true });
+    // 예산 범위는 건드리지 않는다
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope NOT LIKE 'rl:%'").first("n")).toBe(0);
+  });
+
+  it("동시 10요청이 같은 분이면 정확히 3만 통과(같은 단일 UPDATE)", async () => {
+    const t = new Date("2026-11-06T13:45:00Z");
+    const r = await Promise.all(Array.from({ length: 10 }, () => reserveRate(env.DB, u, t)));
+    expect(r.filter((x) => x.ok)).toHaveLength(3);
+  });
+
+  it("Cron scheduled(): 전날 이전 rl: 행만 지우고 오늘 rl:·예산·통계 카운터는 남긴다", async () => {
+    for (const [scope, day] of [
+      ["rl:ip:aaaaaaaaaaaaaaaa:202611052359", "2026-11-05"],
+      ["rl:ip:aaaaaaaaaaaaaaaa:202611040101", "2026-11-04"],
+      ["rl:ip:aaaaaaaaaaaaaaaa:202611060001", "2026-11-06"],
+      ["global", "2026-11-05"],
+      ["ip:aaaaaaaaaaaaaaaa", "2026-11-05"],
+      ["stat:depth:0", "2026-11-04"],
+    ] as const)
+      await env.DB.prepare("INSERT INTO budget_counter (scope, day, used) VALUES (?, ?, 1)").bind(scope, day).run();
+    await scheduled({ scheduledTime: Date.parse("2026-11-06T00:17:00Z"), cron: "17 0 * * *", noRetry() {} } as ScheduledController, env);
+    const left = (await env.DB.prepare("SELECT scope FROM budget_counter ORDER BY scope").all<{ scope: string }>()).results.map((r) => r.scope);
+    expect(left).toEqual(["global", "ip:aaaaaaaaaaaaaaaa", "rl:ip:aaaaaaaaaaaaaaaa:202611060001", "stat:depth:0"]);
+  });
+
+  it("wrangler.jsonc 최상위에 Cron 하나(무료 5개/계정 — 설계서 §10.1)", async () => {
+    const { default: raw } = await import("../wrangler.jsonc?raw");
+    expect(raw).toMatch(/"triggers": \{ "crons": \["17 0 \* \* \*"\] \}/);
   });
 });
 
@@ -92,8 +147,10 @@ describe("GET /api/v1/budget(PHASES Phase 5 항목 6 — 공개)", () => {
     expect(text).not.toContain("ip:");
     const b = JSON.parse(text) as Awaited<ReturnType<typeof budgetReport>> & { caps: { global: number } };
     expect(b.days).toHaveLength(7);
-    expect(b.days.at(-1)).toEqual({ day: today, questions: 4, providers: { groq: 5, "workers-ai": 0, openrouter: 0 } });
+    // 질문(전역)과 호출(공급자 합)은 단위가 달라 따로(설계서 v0.1.33)
+    expect(b.days.at(-1)).toEqual({ day: today, questions: 4, calls: 5, providers: { groq: 5, "workers-ai": 0, openrouter: 0 } });
     expect(b.today.providers.groq.used).toBe(5);
+    expect([b.today.global, b.today.calls]).toEqual([{ used: 4, cap: 35 }, { used: 5, cap: 70 }]);
     expect([b.fallbackDepth, b.refusals, b.cache]).toEqual([{ "0": 3, "1": 1, "2": 0 }, { BUDGET: 2 }, { hit: 0, miss: 4 }]);
   });
 

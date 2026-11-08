@@ -4,7 +4,7 @@
 import json, time, urllib.request, sys
 BASE = "http://localhost:8799/api/v1"
 import os
-# 부록 A 12건 원문 — capture-public.py와 같은 파일
+# 부록 A 12건 원문 — capture-local.py와 같은 파일
 QS = [(c["case"], c["question"]) for c in json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "appendix-a.json"), encoding="utf8"))["cases"]]
 def post(path, body, cookie=None):
     req = urllib.request.Request(BASE + path, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", **({"Cookie": cookie} if cookie else {})}, method="POST")

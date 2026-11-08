@@ -440,6 +440,27 @@ footer {
   margin-top: 8px;
 }
 
+/* 사람 확인(설계서 v0.1.29): Turnstile 위젯(고정 크기 300×65 — 좁은 화면에서 넘치지 않게 가로 스크롤 대신 축소 허용) */
+.human-check {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.linklike {
+  font: inherit;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 44px;
+}
+
 .ask textarea {
   font: inherit;
   padding: 10px;
@@ -562,6 +583,41 @@ table.budget.usage-table tbody th {
 
 table.budget thead th {
   font-size: 0.8rem;
+}
+
+/* 화면 6 오늘 표(설계서 v0.1.33): 질문·호출 두 열 — 칸마다 숫자 위·막대 아래 */
+table.budget.split-table {
+  table-layout: fixed;
+}
+
+table.budget.split-table thead th:first-child,
+table.budget.split-table tbody th {
+  width: 28%;
+}
+
+table.budget.split-table td {
+  vertical-align: top;
+}
+
+.usage-stack {
+  display: grid;
+  gap: 4px;
+}
+
+.usage-stack .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.usage-stack .bar {
+  flex: none;
+  height: 12px;
+}
+
+table.budget:not(.usage-table) thead th.group {
+  text-align: center;
+  border-bottom: 1px solid var(--line);
 }
 
 table.budget .note-line {

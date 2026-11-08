@@ -1,4 +1,4 @@
-// 화면 6 예산·관측(설계서 §8-6·v0.1.28, PHASES Phase 5 항목 6 — 공개, 세션 없음): 오늘 사용/상한(전역·공급자별), 최근 7일 일별 사용,
+// 화면 6 예산·관측(설계서 §8-6·v0.1.28, PHASES Phase 5 항목 6 — 공개, 세션 없음): 오늘 사용/상한(질문·호출 열을 나눠 — v0.1.33), 최근 7일 일별 사용,
 // 폴백 깊이 분포, 캐시 적중, 거부 사유, 규정 검색 저하. 값은 GET /api/v1/budget 그대로 — 화면은 비율(막대 길이)만 계산한다(금액 아님).
 // 막대는 계열 하나씩(사용/상한)이라 범주 색이 없다. 모든 값은 표에도 숫자로 있다(색만으로 읽지 않게).
 import type { CSSProperties } from "react";
@@ -39,6 +39,22 @@ function UsageRow({ label, used, cap, note }: { label: string; used: number; cap
   );
 }
 
+/** 표 칸 안 사용/상한 — 숫자 위, 막대 아래(좁은 화면에서 두 열이 나란히 들어가게). */
+function UsageCell({ label, used, cap, note }: { label: string; used: number; cap: number; note?: string }) {
+  const w = cap > 0 ? `${Math.min(100, (used * 100) / cap)}%` : "0%";
+  return (
+    <div className="usage-stack" role="img" aria-label={`${label} ${used}/${cap}`}>
+      <span className="num">
+        {used} / {cap}
+      </span>
+      <span className="bar">
+        <span className="fill" style={{ "--w": w } as CSSProperties} />
+      </span>
+      {note && <span className="muted small note-line">{note}</span>}
+    </div>
+  );
+}
+
 export function BudgetView({ b }: { b: BudgetReport }) {
   const depthTotal = b.fallbackDepth["0"] + b.fallbackDepth["1"] + b.fallbackDepth["2"];
   const refusals = Object.entries(b.refusals).sort((x, y) => y[1] - x[1]);
@@ -46,28 +62,47 @@ export function BudgetView({ b }: { b: BudgetReport }) {
     <>
       <section>
         <h2>오늘({b.today.day} UTC)</h2>
-        <table className="budget usage-table" data-testid="budget-today">
+        <table className="budget split-table" data-testid="budget-today">
           <thead>
             <tr>
               <th scope="col">범위</th>
-              <th scope="col">사용</th>
-              <th scope="col">사용 / 상한</th>
+              <th scope="col">
+                질문<span className="muted small note-line">답 1건에 1</span>
+              </th>
+              <th scope="col">
+                호출<span className="muted small note-line">LLM 1회에 1</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            <UsageRow label="전체 질문" used={b.today.global.used} cap={b.today.global.cap} />
+            <tr>
+              <th scope="row">전체</th>
+              <td>
+                <UsageCell label="전체 질문" used={b.today.global.used} cap={b.today.global.cap} />
+              </td>
+              <td>
+                <UsageCell label="전체 호출" used={b.today.calls.used} cap={b.today.calls.cap} />
+              </td>
+            </tr>
             {PROVIDERS.map((p) => (
-              <UsageRow
-                key={p}
-                label={PROVIDER_LABEL[p]}
-                used={b.today.providers[p].used}
-                cap={b.today.providers[p].cap}
-                note={p === "workers-ai" && b.today.providers[p].cap === 0 ? "설명 배치와 뉴런을 나눠 써 배치 중 0" : undefined}
-              />
+              <tr key={p}>
+                <th scope="row">{PROVIDER_LABEL[p]}</th>
+                <td className="muted">—</td>
+                <td>
+                  <UsageCell
+                    label={`${PROVIDER_LABEL[p]} 호출`}
+                    used={b.today.providers[p].used}
+                    cap={b.today.providers[p].cap}
+                    note={p === "workers-ai" && b.today.providers[p].cap === 0 ? "설명 배치와 뉴런을 나눠 써 배치 중 0" : undefined}
+                  />
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>
-        <p className="muted small">전체 질문 상한 = min(전역 상한, 공급자 상한 합). 공급자는 LLM 호출마다 1(답 하나에 최대 2), 캐시 히트는 세지 않는다.</p>
+        <p className="muted small">
+          질문 상한 = min(전역 상한, 호출 상한 합 ÷ 2의 내림) — 답 1건에 LLM 호출 1~2회(툴이 필요하면 2). 같은 질문을 다시 쓴 답(캐시 히트)은 질문·호출 모두 세지 않는다.
+        </p>
       </section>
 
       <section>
@@ -75,8 +110,18 @@ export function BudgetView({ b }: { b: BudgetReport }) {
         <table className="budget" data-testid="budget-days">
           <thead>
             <tr>
-              <th scope="col">날(UTC)</th>
-              <th scope="col">질문</th>
+              <th scope="col" rowSpan={2}>
+                날(UTC)
+              </th>
+              <th scope="col" rowSpan={2}>
+                질문
+              </th>
+              <th scope="colgroup" colSpan={4} className="group">
+                호출
+              </th>
+            </tr>
+            <tr>
+              <th scope="col">합</th>
               {PROVIDERS.map((p) => (
                 <th key={p} scope="col">
                   {PROVIDER_LABEL[p]}
@@ -91,6 +136,7 @@ export function BudgetView({ b }: { b: BudgetReport }) {
                   {d.day.slice(5)}
                 </th>
                 <td className="num">{d.questions}</td>
+                <td className="num">{d.calls}</td>
                 {PROVIDERS.map((p) => (
                   <td key={p} className="num">
                     {d.providers[p]}

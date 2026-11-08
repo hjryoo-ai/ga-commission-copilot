@@ -1,8 +1,9 @@
-# 공개 URL 부록 A 12건 캡처(설계서 v0.1.25 §11 capture-public.yml, 운영자 2026-11-05 — Phase 4 완료 기준 "실호출 12건 수동 확인 캡처"·"answer_log 12행").
-#   python3 -X utf8 -I gen/scripts/capture-public.py <base URL> <출력 디렉터리> [기대 answer 버전(v3)]
-# 데모 1(A-1001) 세션 → GET /me로 활성 answer 버전 확인(다르면 묻기 전에 멈춘다) → 12문항 POST /me/ask(60초 간격 — Groq TPM 8K)
-# → 각 답의 GET /answers/{id}(원격 answer_log 행 — violations 열 포함, g1Shape는 설계서 v0.1.26부터)를 <case>.ask.json·<case>.answer.json으로, 요약은 index.json.
-# 시크릿을 쓰지 않는다(공개 데모 세션). 쿠키는 파일에 남기지 않는다.
+# 부록 A 12건 캡처 — 로컬 대상(설계서 v0.1.32 §11 capture-local.yml, 운영자 2026-11-07). 공개 URL 캡처가 아니다:
+# 배포는 Turnstile 뒤라 자동 클라이언트가 /ask를 쓸 수 없다(우회 경로 없음). v0.1.25의 capture-public.py(Phase 4 공개 URL 캡처)를 바꿨다.
+#   python3 -X utf8 -I gen/scripts/capture-local.py <base URL — 보통 http://localhost:8799> <출력 디렉터리> [기대 answer 버전(v3)]
+# 데모 1(A-1001) 세션 → GET /me로 활성 answer 버전 확인(다르면 묻기 전에 멈춘다) → 12문항 POST /me/ask(60초 간격 — Groq TPM 8K, 분당 3회 안)
+# → 각 답의 GET /answers/{id}(answer_log 행 — violations 열 포함)를 <case>.ask.json·<case>.answer.json으로, 요약은 index.json.
+# 시크릿을 쓰지 않는다(데모 세션). 쿠키는 파일에 남기지 않는다. 사람 확인이 켜진 서버면(403 TURNSTILE_REQUIRED) 묻지 않고 멈춘다.
 import json, os, sys, time, urllib.error, urllib.request
 
 BASE = sys.argv[1].rstrip("/") + "/api/v1"
@@ -40,6 +41,8 @@ cookie = h.get("Set-Cookie").split(";")[0]
 st, _, me = call("GET", "/me", cookie=cookie)
 active = (me.get("promptVersions") or {}).get("answer")
 print(json.dumps({"session": st, "agentId": me.get("agentId"), "asOf": me.get("asOf"), "promptVersions": me.get("promptVersions")}, ensure_ascii=False), flush=True)
+if (me.get("turnstile") or {}).get("required"):
+    sys.exit("이 서버는 사람 확인(Turnstile)을 요구한다 — 공개 배포가 아니라 TURNSTILE_SECRET 없는 로컬 서버를 대상으로(질문하지 않았다)")
 if active != EXPECT:
     sys.exit(f"활성 answer 버전 {active} ≠ 기대 {EXPECT} — 배포를 확인하고 다시(질문하지 않았다)")
 
@@ -68,7 +71,7 @@ for i, c in enumerate(CASES):
         bad += 1
     index.append(rec)
     print(json.dumps(rec, ensure_ascii=False), flush=True)
-    save("index.json", {"base": sys.argv[1], "expectAnswer": EXPECT, "capturedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "cases": index})
+    save("index.json", {"base": sys.argv[1], "target": "local wrangler dev --env record(D1 로컬·Vectorize·AI 원격, Turnstile 없음) — 공개 URL 아님", "expectAnswer": EXPECT, "capturedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "cases": index})
 
 print(f"끝: {len(index)}건, 문제 {bad}건(HTTP·answerId 없음·violations 없음)")
 sys.exit(1 if bad else 0)

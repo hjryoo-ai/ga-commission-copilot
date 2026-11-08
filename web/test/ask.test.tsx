@@ -1,11 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import type { AnswerReplay, AskResult } from "../src/api";
+import { describe, expect, it, vi } from "vitest";
+import { type AnswerReplay, type AskResult, api, HumanCheckRequired, type Me, RateLimited, withAskBudget } from "../src/api";
 import { App } from "../src/App";
 import { EXAMPLE_QUESTIONS } from "../src/examples";
 import { waitText } from "../src/format";
 import { match } from "../src/router";
-import { AnswerCard } from "../src/screens/Ask";
+import { Chips } from "../src/ui";
+import { AnswerCard, humanCheckNeeded } from "../src/screens/Ask";
+import { HumanCheck, TURNSTILE_SCRIPT } from "../src/screens/HumanCheck";
 import { promptHref, ReplayTimeline } from "../src/screens/AnswerReplay";
 
 // PHASES Phase 4 항목 5 — 화면 4(자유 질문)·7(답변 재현). LLM을 부르지 않는다: 응답 모양을 손으로 만든 정적 렌더.
@@ -162,5 +164,73 @@ describe("화면 7 답변 재현", () => {
   it("위반 없음·0006 이전 답변(null)", () => {
     expect(renderToStaticMarkup(<ReplayTimeline a={replay} />)).toContain("위반 없음(G1·G4·G5·G6)");
     expect(renderToStaticMarkup(<ReplayTimeline a={{ ...replay, violations: null }} />)).toContain("0006 이전");
+  });
+});
+
+describe("화면 4 사람 확인·분당 한도(설계서 v0.1.29 — PHASES Phase 5 항목 5)", () => {
+  it("HumanCheck: 안내 문구와 위젯 자리, 스크립트는 Turnstile 공식 경로(명시적 렌더)", () => {
+    const html = renderToStaticMarkup(<HumanCheck siteKey="0x4AAAAAAF2LyuLvbqeCCVE5" onVerified={() => {}} />);
+    expect(html).toContain('data-testid="human-check"');
+    expect(html).toContain("사람 확인");
+    expect(TURNSTILE_SCRIPT).toBe("https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit");
+  });
+
+  it("api.ask: 403 → HumanCheckRequired, problem+json 429 → RateLimited(Retry-After), 본문 429(BUDGET)는 거부 답 그대로", async () => {
+    const reply = (status: number, body: object, headers: Record<string, string> = {}) => vi.fn(async () => new Response(JSON.stringify(body), { status, headers }));
+    vi.stubGlobal("fetch", reply(403, { code: "TURNSTILE_REQUIRED", message: "사람 확인을 먼저 마치세요" }, { "Content-Type": "application/problem+json" }));
+    await expect(api.ask("q")).rejects.toBeInstanceOf(HumanCheckRequired);
+    vi.stubGlobal("fetch", reply(429, { code: "RATE_LIMITED", message: "m" }, { "Content-Type": "application/problem+json", "Retry-After": "17" }));
+    await expect(api.ask("q")).rejects.toMatchObject({ retryAfterSeconds: 17 });
+    await expect(api.ask("q")).rejects.toBeInstanceOf(RateLimited);
+    vi.stubGlobal("fetch", reply(429, { ...pass, refused: true, reason: "BUDGET", retryAfterSeconds: 100 }, { "Content-Type": "application/json" }));
+    expect((await api.ask("q")).reason).toBe("BUDGET");
+    vi.stubGlobal("fetch", reply(403, {}));
+    await expect(api.turnstile("tok")).rejects.toBeInstanceOf(HumanCheckRequired);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("사람 확인 다시 받기(설계서 v0.1.31 — 쿠키가 IP에 묶여 망이 바뀌면 다시 확인)", () => {
+  const t = (verified: boolean) => ({ required: true, verified, siteKey: "0x4AAAAAAF2LyuLvbqeCCVE5" });
+  it("불러온 verified를 따르고, 이 화면에서 마치면 숨고, /ask 403(만료·IP 바뀜) 뒤에는 다시 그린다", () => {
+    expect(humanCheckNeeded(t(false), null)).toBe(true); // 첫 방문
+    expect(humanCheckNeeded(t(false), true)).toBe(false); // 이 화면에서 마침
+    expect(humanCheckNeeded(t(true), null)).toBe(false); // 24시간 쿠키가 있다
+    expect(humanCheckNeeded(t(true), false)).toBe(true); // 쿠키는 있었지만 /ask 403(망 전환으로 IP가 바뀜)
+    expect(humanCheckNeeded(t(false), false)).toBe(true);
+    // 검사하지 않는 환경(비밀 없음)·사이트 키 없음은 그리지 않는다
+    expect(humanCheckNeeded({ required: false, verified: true }, false)).toBe(false);
+    expect(humanCheckNeeded({ required: true, verified: false }, null)).toBe(false);
+    expect(humanCheckNeeded(undefined, null)).toBe(false);
+  });
+});
+
+describe("상단 칩 — /ask 응답의 남은 질문으로(설계서 v0.1.33, /me 다시 부르지 않음)", () => {
+  const me: Me = { ...common, agentId: "A-1001", promptVersions: { answer: "v3" }, budget: { remainingToday: 35, userRemaining: 10, resetsAt: "2026-11-08T00:00:00.000Z" } };
+  const chip = (latest?: { remainingToday: number; userRemaining: number }) => {
+    const html = renderToStaticMarkup(<Chips asOf={asOf} me={{ ...me, budget: withAskBudget(me.budget, latest) }} />);
+    return /data-testid="chip-budget">([^<]*)</.exec(html)![1];
+  };
+
+  it("답 1건 뒤 칩이 1 준다(200 응답 budget), 응답이 없으면 /me 값, resetsAt은 /me 것", async () => {
+    expect(chip()).toBe("오늘 남은 질문 10회");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ...pass, budget: { remainingToday: 34, userRemaining: 9 } }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const r = await api.ask("8월 시책은?");
+    expect(chip(r.budget)).toBe("오늘 남은 질문 9회");
+    expect(withAskBudget(me.budget, r.budget)?.resetsAt).toBe("2026-11-08T00:00:00.000Z");
+    vi.unstubAllGlobals();
+  });
+
+  it("429 뒤에도 칩 = 응답 값 — BUDGET(본문 budget)·RATE_LIMITED(problem 본문 budget)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ...pass, refused: true, reason: "BUDGET", retryAfterSeconds: 100, budget: { remainingToday: 30, userRemaining: 0 } }), { status: 429, headers: { "Content-Type": "application/json" } })));
+    const b = await api.ask("q");
+    expect(chip(b.budget)).toBe("오늘 남은 질문 0회");
+    expect(renderToStaticMarkup(<Chips asOf={asOf} me={{ ...me, budget: withAskBudget(me.budget, b.budget) }} />)).toContain('class="chip warn"');
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: "RATE_LIMITED", message: "m", budget: { remainingToday: 31, userRemaining: 7 } }), { status: 429, headers: { "Content-Type": "application/problem+json", "Retry-After": "20" } })));
+    const e = (await api.ask("q").catch((x: unknown) => x)) as RateLimited;
+    expect(e).toBeInstanceOf(RateLimited);
+    expect([e.retryAfterSeconds, e.budget]).toEqual([20, { remainingToday: 31, userRemaining: 7 }]);
+    expect(chip(e.budget)).toBe("오늘 남은 질문 7회");
+    vi.unstubAllGlobals();
   });
 });
