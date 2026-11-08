@@ -101,6 +101,13 @@ deploy 79e0596 success — Uploaded ga-commission-copilot · Deployed ga-commiss
 - 공개 URL 칩 확인(운영자 브라우저 2026-11-07, `captures/phase-5-public-chip-after-answer.png`): "해약 환수율은 어떻게 정해지나요?" → 검증 통과·제25조 인용·groq·3,079ms, 답 뒤 상단 칩 "오늘 남은 질문 7회"(답 전 8 — 다시 읽지 않고 응답 값으로 줄었다). 공개 `/budget` 대조: 질문 2 → 3/35, 호출 4 → 5/70 — 규정만 인용하고 툴이 필요 없는 질문이라 호출 1회(답 1건 = 호출 1~2회의 실례), 깊이 0, 캐시 miss.
 - 시험: worker `budget.test` 상한 공식(75·35·71 → 35·키 없는 공급자 27)·`questionsLeft`(질문 1건 → 1씩 감소, 공급자 호출은 질문 수를 바꾸지 않음)·`/budget` calls, `ask.test` "답 1건 뒤 1 준다"(가짜 Groq·가짜 AI 바인딩 — 외부 호출 없음, 200 budget = 직전 /me − 1 = 그 뒤 /me, 429 BUDGET 뒤 응답 = /me, AskResponse 스키마)·레이트 리밋 problem budget(Problem 스키마)·`cache.test` 재사용 budget 그대로 · web `ask.test` 칩 2(답 뒤 10 → 9회, 429 BUDGET → 0회 경고·RATE_LIMITED → 응답 값)·`budget.test` 질문·호출 열.
 
+## Groq 429 유도 1차(운영자 브라우저 2026-11-08 09:54~10:02Z — Workers AI 상한 0인 채로)
+
+- 운영자가 공개 화면 4에서 질문을 연달아 보내 Groq 429를 유도. 받은 answerId `8093a7e2…`는 **폴백이 아니다** — answer_log: A-1002 "0001 계약 한도는 언제 다 찼나요?" → groq·depth 0·거부 NEEDS_ENGINE(데모 1 세션에서 GET /answers는 404 — 남의 설계사 행, 의도대로).
+- answer_log(원격, tenant T1, 11-08) 8행 전부 groq·`fallback_depth` 0(LLM 6 + 답 단위 재사용 `cache_hit=1` 2), violations 모두 빈 배열.
+- 공개 `/budget` 11-08: 질문 9/35 · 호출 19/70(groq 16 · workers-ai 0 · openrouter **3**) · 깊이 `{0: 9}` · 캐시 hit 2/miss 9. 차감된 질문 = 9, answer_log의 LLM 행 = 6(재사용 2는 차감 없음) → **3건은 행이 없다** = 저하 ②(시도한 공급자 모두 실패 → 503, answer_log에 남기지 않는 경로). OpenRouter 차감 3 = 그 3건에서 Groq 429 뒤 Workers AI(상한 0)를 건너뛰고 OpenRouter를 시도 → **OpenRouter 3/3 실패**.
+- 판정: 완료 기준 3(Workers AI 폴백)은 이 시험으로 닫지 않는다 — Workers AI 상한 80은 11-09 배치 591 확인 뒤 커밋 예정이었다. 대신 드러난 것: ① OpenRouter 폴백이 동작하지 않는다(원인 미확인 — Workers Logs에만 `[fallback]`·`[gateway]`·`[ask] provider error` 줄), ② 503(저하 ②)은 answer_log 행이 없어 실패한 폴백을 answerId로 가리킬 수 없다, ③ 화면 4에서 답변 재현(화면 7)에 갔다 뒤로 오면 질문 목록이 사라진다(상태가 메모리에만 — 운영자 보고).
+
 ## 시험(LLM 호출 없음)
 
 ```
