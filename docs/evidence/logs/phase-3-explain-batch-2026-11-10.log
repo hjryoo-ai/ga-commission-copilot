@@ -1,0 +1,12 @@
+
+> @copilot/gen@ explain /home/runner/work/ga-commission-copilot/ga-commission-copilot/gen
+> node explain/run.ts -- --batch
+
+프롬프트 explain_line/v6·explain_limit/v6·explain_month/v6, 카세트 explain
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+batch: 생성 0(PASS 0 · FAIL 0 — 첫 시도 0/0(-) · 재생성 후 -), 캐시 건너뜀 591, 호출 {}, 재시도 {}
+
+> @copilot/gen@ verify:explain /home/runner/work/ga-commission-copilot/ga-commission-copilot/gen
+> node explain/verify-explanations.ts -- --regrade
+
+regrade fca1971cdbce: FAIL 행 0 → PASS로 0
