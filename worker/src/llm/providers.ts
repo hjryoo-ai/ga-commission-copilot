@@ -23,6 +23,8 @@ export interface StructuredRequest {
   maxCompletionTokens: number;
   /** AI Gateway 캐시 키(설계서 v0.1.29) — requestBody·requestHash에 넣지 않는다. 없으면 게이트웨이 기본 키(요청 본문). */
   cacheKey?: string;
+  /** 게이트웨이 캐시를 읽지도 쓰지도 않는다(설계서 v0.1.38 — 평가 하네스: 반복 실행 분산이 캐시에 가려지지 않게). requestBody 밖. */
+  skipCache?: boolean;
 }
 
 export interface StructuredResponse {
@@ -144,7 +146,7 @@ function openAiCompatible(
       };
       let res: Response | null = null;
       if (gateway) {
-        const cache = req.cacheKey ? { "cf-aig-cache-key": gatewayCacheKey(req.cacheKey, name), "cf-aig-cache-ttl": GATEWAY_CACHE_TTL_S } : {};
+        const cache = req.skipCache ? { "cf-aig-skip-cache": "true" } : req.cacheKey ? { "cf-aig-cache-key": gatewayCacheKey(req.cacheKey, name), "cf-aig-cache-ttl": GATEWAY_CACHE_TTL_S } : {};
         try {
           res = await gateway().run({ provider: name, endpoint: "chat/completions", headers: { ...hdrs, ...cache }, query: body }, { signal: AbortSignal.timeout(timeoutMs) });
         } catch (e) {
@@ -237,7 +239,7 @@ export function workersAi(ai: Pick<Ai, "run">, gatewayId: string | null = null, 
         if (!gatewayId) r = await once();
         else {
           try {
-            r = await once({ gateway: { id: gatewayId, cacheTtl: GATEWAY_CACHE_TTL_S, ...(req.cacheKey ? { cacheKey: `${gatewayCacheKey(req.cacheKey, "workers-ai")}${schemaHint ? `:sh${schemaHint.version}` : ""}` } : {}) } });
+            r = await once({ gateway: req.skipCache ? { id: gatewayId, skipCache: true } : { id: gatewayId, cacheTtl: GATEWAY_CACHE_TTL_S, ...(req.cacheKey ? { cacheKey: `${gatewayCacheKey(req.cacheKey, "workers-ai")}${schemaHint ? `:sh${schemaHint.version}` : ""}` } : {}) } });
           } catch (e) {
             if (!isGatewayError(e)) throw e;
             console.warn(`[gateway] workers-ai 게이트웨이 오류 — 직접 1회: ${String((e as Error).message).slice(0, 120)}`);

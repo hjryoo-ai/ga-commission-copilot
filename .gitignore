@@ -12,3 +12,4 @@ projection-java/.gradle/
 gen/out/
 web/test-results/
 web/playwright-report/
+evals/out/

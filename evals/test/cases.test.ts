@@ -27,6 +27,7 @@ interface Case {
   forbidden: string[];
   tags: string[];
   modes: string[];
+  coreFacts?: number;
 }
 
 const count = (xs: readonly string[]) => xs.reduce<Record<string, number>>((m, x) => ({ ...m, [x]: (m[x] ?? 0) + 1 }), {});
@@ -51,7 +52,8 @@ describe("골든 60문항(evals/cases.jsonl)", () => {
       if (c.expectRefusal) expect(["OUT_OF_SCOPE", "OTHER_AGENT", "NEEDS_ENGINE"], c.id).toContain(c.expectReason);
       else {
         expect(c.expectReason, c.id).toBeNull();
-        expect(c.expectedFacts.length, c.id).toBeGreaterThanOrEqual(3);
+        expect(c.expectedFacts.length, c.id).toBeGreaterThanOrEqual(c.coreFacts ?? 3);
+        if (c.coreFacts !== undefined) expect(c.id, "coreFacts는 부록 A가 적게 정한 케이스만").toBe("A-12");
       }
     }
   });

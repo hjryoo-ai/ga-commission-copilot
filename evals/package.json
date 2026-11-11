@@ -3,12 +3,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "build": "esbuild src/run.ts --bundle --platform=node --format=esm --target=node24 --loader:.md=text --external:wrangler --outfile=out/run.mjs --log-level=warning",
+    "eval": "pnpm run build && node out/run.mjs"
   },
   "devDependencies": {
+    "@copilot/grounding": "workspace:*",
     "@types/node": "24.19.2",
     "ajv": "8.20.0",
+    "esbuild": "0.28.2",
     "typescript": "5.9.3",
-    "vitest": "4.1.12"
+    "vitest": "4.1.12",
+    "wrangler": "4.153.0"
   }
 }

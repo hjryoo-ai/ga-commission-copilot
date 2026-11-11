@@ -2,25 +2,82 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ga.example/copilot/contracts/eval/v1/case.schema.json",
   "title": "골든 평가 케이스 v1(설계서 §13.1·§13.2, PHASES Phase 6 항목 1)",
-  "description": "evals/cases.jsonl 한 줄. expectedFacts의 앞 3개가 핵심 사실(내용 일치 축). match는 정규화 문자열 중 하나라도 있으면 그 사실이 있다. forbidden은 답에 나오면 내용 일치 실패(오답 유도·음수 부호·삭감 등). 툴 축은 expectedTools가 호출 목록에 모두 있으면 통과(추가 호출 허용). modes에 rulesUnavailable이 있으면 하네스가 규정 검색을 끈 채로도 돌린다.",
+  "description": "evals/cases.jsonl 한 줄. expectedFacts의 앞 coreFacts개(기본 3)가 핵심 사실(내용 일치 축). match는 정규화 문자열 중 하나라도 있으면 그 사실이 있다. forbidden은 답에 나오면 내용 일치 실패(오답 유도·음수 부호·삭감 등). 툴 축은 expectedTools가 호출 목록에 모두 있으면 통과(추가 호출 허용). modes에 rulesUnavailable이 있으면 하네스가 규정 검색을 끈 채로도 돌린다.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "demoAgent", "agentId", "bucket", "question", "expectedTools", "expectedFacts", "expectRefusal", "expectReason", "misleading", "forbidden", "tags", "modes", "note"],
+  "required": [
+    "id",
+    "demoAgent",
+    "agentId",
+    "bucket",
+    "question",
+    "expectedTools",
+    "expectedFacts",
+    "expectRefusal",
+    "expectReason",
+    "misleading",
+    "forbidden",
+    "tags",
+    "modes",
+    "note"
+  ],
   "properties": {
-    "id": { "type": "string", "pattern": "^(A-(0[1-9]|1[0-2])|G-(1[3-9]|[2-5][0-9]|60))$" },
-    "demoAgent": { "type": "integer", "enum": [1, 2, 3] },
-    "agentId": { "type": "string", "pattern": "^A-100[1-3]$" },
-    "bucket": { "type": "string", "enum": ["line", "limit", "deferral", "rule", "refusal"] },
-    "question": { "type": "string", "minLength": 2, "maxLength": 500 },
+    "id": {
+      "type": "string",
+      "pattern": "^(A-(0[1-9]|1[0-2])|G-(1[3-9]|[2-5][0-9]|60))$"
+    },
+    "demoAgent": {
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "agentId": {
+      "type": "string",
+      "pattern": "^A-100[1-3]$"
+    },
+    "bucket": {
+      "type": "string",
+      "enum": [
+        "line",
+        "limit",
+        "deferral",
+        "rule",
+        "refusal"
+      ]
+    },
+    "question": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 500
+    },
     "expectedTools": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["tool", "args"],
+        "required": [
+          "tool",
+          "args"
+        ],
         "properties": {
-          "tool": { "type": "string", "enum": ["get_statement", "get_limit", "get_deferrals", "get_policy_event_sim"] },
-          "args": { "type": "object", "additionalProperties": { "type": "string" } }
+          "tool": {
+            "type": "string",
+            "enum": [
+              "get_statement",
+              "get_limit",
+              "get_deferrals",
+              "get_policy_event_sim"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
         }
       }
     },
@@ -29,16 +86,79 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["fact", "match", "source"],
-        "properties": { "fact": { "type": "string" }, "match": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }, "source": { "type": "string" } }
+        "required": [
+          "fact",
+          "match",
+          "source"
+        ],
+        "properties": {
+          "fact": {
+            "type": "string"
+          },
+          "match": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "source": {
+            "type": "string"
+          }
+        }
       }
     },
-    "expectRefusal": { "type": "boolean" },
-    "expectReason": { "type": ["string", "null"], "enum": ["OUT_OF_SCOPE", "OTHER_AGENT", "NEEDS_ENGINE", null] },
-    "misleading": { "type": "boolean" },
-    "forbidden": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "tags": { "type": "array", "items": { "type": "string" } },
-    "modes": { "type": "array", "minItems": 1, "items": { "type": "string", "enum": ["normal", "rulesUnavailable"] } },
-    "note": { "type": "string" }
+    "expectRefusal": {
+      "type": "boolean"
+    },
+    "expectReason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "OUT_OF_SCOPE",
+        "OTHER_AGENT",
+        "NEEDS_ENGINE",
+        null
+      ]
+    },
+    "misleading": {
+      "type": "boolean"
+    },
+    "forbidden": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "normal",
+          "rulesUnavailable"
+        ]
+      }
+    },
+    "note": {
+      "type": "string"
+    },
+    "coreFacts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3,
+      "description": "핵심 사실 수(기본 3 — 부록 A가 그보다 적게 정한 케이스, 예: A-12 정정 1개)"
+    }
   }
 }

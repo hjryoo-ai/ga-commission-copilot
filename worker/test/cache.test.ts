@@ -41,6 +41,17 @@ const directFetch = () => {
 };
 
 describe("AI Gateway 경유(Groq·OpenRouter — 바인딩 gateway().run)", () => {
+  it("skipCache(설계서 v0.1.38 — 평가 하네스): Groq·OpenRouter는 cf-aig-skip-cache 헤더만(캐시 키·TTL 없음), Workers AI는 gateway.skipCache, 카세트 해시는 같다", async () => {
+    const gw = fakeGateway(okBody('{"a":1}'));
+    await groq({ GROQ_API_KEY: "k" }, directFetch().f, undefined, gw.runner).structured({ ...REQ, skipCache: true });
+    const h = gw.seen[0]!.data.headers;
+    expect([h["cf-aig-skip-cache"], h["cf-aig-cache-key"], h["cf-aig-cache-ttl"]]).toEqual(["true", undefined, undefined]);
+    let opts: { gateway?: object } = {};
+    await workersAi({ run: (async (_m: string, _i: object, o: typeof opts) => ((opts = o), { response: { ok: true } })) as never }, "copilot").structured({ ...REQ, skipCache: true });
+    expect(opts.gateway).toEqual({ id: "copilot", skipCache: true });
+    expect(await requestHash({ ...REQ, skipCache: true })).toBe(await requestHash(REQ));
+  });
+
   it("유니버설 요청: provider·endpoint chat/completions·인증 헤더·캐시 키·TTL 24h, 본문은 직접 호출과 같다, 캐시 상태 헤더를 남긴다", async () => {
     const gw = fakeGateway(okBody('{"a":1}', { "cf-aig-cache-status": "HIT" }));
     const { f, calls } = directFetch();

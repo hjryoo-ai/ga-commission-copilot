@@ -1,6 +1,6 @@
 // 답변 카세트 추출(운영자 2026-11-01 — 답변 VCR 방식): 로컬 D1 llm_trace → worker/test/vcr/answer.json.
 //   녹화: worker/.dev.vars에 LLM_TRACE=1(+ GROQ_API_KEY) → `cd worker && pnpm exec wrangler dev --local` → 부록 A 12건을 POST /api/v1/me/ask
-//   추출: `node gen/scripts/answer-cassette.ts [--since <ISO 시각>]` — 같은 요청 해시가 여럿이면 가장 늦은 것.
+//   추출: `node gen/scripts/answer-cassette.ts [--since <ISO 시각>] [--out <저장소 상대 경로>]` — 같은 요청 해시가 여럿이면 가장 늦은 것.
 // 시험(worker/test/vcr.ts)은 이 파일을 묶어 가짜 공급자로 재생한다(요청 해시 = providers.ts requestHash).
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
@@ -39,7 +39,8 @@ function main(): void {
   if (r.status !== 0) throw new Error(`wrangler d1 execute --local 실패: ${(r.stderr || r.stdout).slice(0, 1000)}`);
   const rows = (JSON.parse(r.stdout.slice(r.stdout.search(/^\[/m))) as { results: TraceRow[] }[]).at(-1)!.results;
   const cassette = cassetteOf(rows);
-  const file = join(REPO_ROOT, "worker/test/vcr/answer.json");
+  // --out: 평가 하네스 카세트(evals/vcr/eval.json — PHASES Phase 6 항목 2 --stub)처럼 다른 곳으로
+  const file = args.includes("--out") ? join(REPO_ROOT, args[args.indexOf("--out") + 1]!) : join(REPO_ROOT, "worker/test/vcr/answer.json");
   writeFileSync(file, `${JSON.stringify(cassette, null, 1)}\n`);
   console.log(`llm_trace ${rows.length}행 → 카세트 ${Object.keys(cassette.entries).length}항목 → ${file}`);
 }
