@@ -1,0 +1,87 @@
+# 설계서 v0.1.35 로컬 재현 — wrangler dev --env record --var FAKE_GROQ_429:1 (D1 로컬, AI·Vectorize 원격). 서버 로그에서 [llm]·[fallback]·[ask]·/me/ask 줄만(본문·키 없음)
+
+## dev-record.log
+env.AI_GATEWAY_ID ("copilot")                                            Environment Variable      local
+env.FAKE_GROQ_429 ("(hidden)")                                           Environment Variable      local
+▲ [WARNING] [fallback] groq 429 rate_limit ms=1: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+▲ [WARNING] [fallback] workers-ai 502 upstream ms=1: workers-ai: Cannot set properties of undefined (setting '#options')
+▲ [WARNING] [ask] provider error 502: workers-ai: Cannot set properties of undefined (setting '#options')
+[wrangler:info] POST /api/v1/me/ask 503 Service Unavailable (2725ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+▲ [WARNING] [fallback] workers-ai 502 upstream ms=1: workers-ai: Cannot set properties of undefined (setting '#options')
+▲ [WARNING] [ask] provider error 502: workers-ai: Cannot set properties of undefined (setting '#options')
+[wrangler:info] POST /api/v1/me/ask 503 Service Unavailable (1277ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=1: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=5432 shape=choices gateway=true
+[wrangler:info] POST /api/v1/me/ask 200 OK (6701ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=4664 shape=choices gateway=true
+[wrangler:info] POST /api/v1/me/ask 200 OK (9664ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=1: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=639 shape=choices gateway=true
+[wrangler:info] POST /api/v1/me/ask 200 OK (2877ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=831 shape=choices gateway=true
+[wrangler:info] POST /api/v1/me/ask 200 OK (5720ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=3551 shape=choices gateway=true
+[wrangler:info] POST /api/v1/me/ask 200 OK (4756ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=3165 shape=choices gateway=true
+[wrangler:info] POST /api/v1/me/ask 200 OK (7130ms)
+
+## dev-record-nogw.log
+env.AI_GATEWAY_ID ("(hidden)")                                           Environment Variable      local
+env.FAKE_GROQ_429 ("(hidden)")                                           Environment Variable      local
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=1657 shape=choices gateway=false
+[wrangler:info] POST /api/v1/me/ask 200 OK (3852ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=2744 shape=choices gateway=false
+[wrangler:info] POST /api/v1/me/ask 200 OK (4092ms)
+
+## dev-record-3.log
+env.AI_GATEWAY_ID ("copilot")                                            Environment Variable      local
+env.FAKE_GROQ_429 ("(hidden)")                                           Environment Variable      local
+[wrangler:info] POST /api/v1/me/ask 429 Too Many Requests (9ms)
+[wrangler:info] POST /api/v1/me/ask 429 Too Many Requests (28ms)
+
+## dev-record-4.log
+env.AI_GATEWAY_ID ("copilot")                                            Environment Variable      local
+env.FAKE_GROQ_429 ("(hidden)")                                           Environment Variable      local
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=10627 shape=choices gateway=true
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+▲ [WARNING] [fallback] workers-ai 0 timeout ms=15003: workers-ai: 15000ms 타임아웃
+▲ [WARNING] [ask] provider error 0: workers-ai: 15000ms 타임아웃
+[wrangler:info] POST /api/v1/me/ask 503 Service Unavailable (32158ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=1: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=7172 shape=choices gateway=true
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=3763 shape=choices gateway=true
+[wrangler:info] POST /api/v1/me/ask 200 OK (15131ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=1: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=881 shape=choices gateway=true
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+▲ [WARNING] [fallback] workers-ai 502 not_json ms=487: workers-ai: JSON 아님
+▲ [WARNING] [ask] provider error 502: workers-ai: JSON 아님
+[wrangler:info] POST /api/v1/me/ask 503 Service Unavailable (3718ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=584 shape=choices gateway=true
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+▲ [WARNING] [fallback] workers-ai 502 not_json ms=1736: workers-ai: JSON 아님(finish=length, out=1200)
+▲ [WARNING] [ask] provider error 502: workers-ai: JSON 아님(finish=length, out=1200)
+[wrangler:info] POST /api/v1/me/ask 503 Service Unavailable (8991ms)
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=3384 shape=choices gateway=true
+▲ [WARNING] [fallback] groq 429 rate_limit ms=0: groq 429 (FAKE_GROQ_429 — 로컬 재현)
+[llm] ok workers-ai depth=1 ms=7586 shape=choices gateway=true
+[wrangler:info] POST /api/v1/me/ask 200 OK (12278ms)
+[wrangler:info] POST /api/v1/me/ask 200 OK (5ms)
+
+## answer_log(로컬) 최종 행
+{"answer_id": "82bedf76-3f72-4ffa-abb9-e5eb6f40db49", "created_at": "2026-11-11T11:34:02.338Z", "provider": "workers-ai", "model": "@cf/openai/gpt-oss-120b", "fallback_depth": 1, "latency_ms": 0, "grounding_status": "NONE", "refused": 1, "cache_hit": 0, "tool_calls": "[]", "numbers_used": "[]", "citations": "[]", "violations": "{\"g1Shape\":[],\"g4Missing\":[],\"g5Unknown\":[],\"g6Words\":[]}", "chunks": 0, "answer": "지금은 답변을 만들지 못했습니다. 잠시 후 다시 시도해 주세요. 사전 생성된 설명은 계속 볼 수 있습니다."}
+{"answer_id": "4662d371-867e-4cc6-bb16-1ad64e020155", "created_at": "2026-11-11T11:34:42.504Z", "provider": "workers-ai", "model": "@cf/openai/gpt-oss-120b", "fallback_depth": 1, "latency_ms": 15095, "grounding_status": "PASS", "refused": 0, "cache_hit": 0, "tool_calls": "[{\"tool\":\"get_statement\",\"args\":{\"ym\":\"202608\"},\"resultHash\":\"aa096ae6a197d2e3\"}]", "numbers_used": "[]", "citations": "[{\"kind\":\"tool\",\"tool\":\"get_statement\",\"field\":\"net\",\"article\":\"\",\"chunkId\":\"\"}]", "violations": "{\"g1Shape\":[],\"g4Missing\":[],\"g5Unknown\":[],\"g6Words\":[]}", "chunks": 6, "answer": "2026년 8월에 실지급된 수수료는 1,740,600원입니다. 해당 금액은 원천세 59,400원을 공제한 후의 순수령액이며, 지급일은 2026년 9월 10일이었습니다. 명세에 표시된 대로 지급이 완료된 상태입니다."}
+{"answer_id": "e9eef89f-c78e-487f-9953-9798a3e43877", "created_at": "2026-11-11T11:36:14.358Z", "provider": "workers-ai", "model": "@cf/openai/gpt-oss-120b", "fallback_depth": 1, "latency_ms": 0, "grounding_status": "NONE", "refused": 1, "cache_hit": 0, "tool_calls": "[]", "numbers_used": "[]", "citations": "[]", "violations": "{\"g1Shape\":[],\"g4Missing\":[],\"g5Unknown\":[],\"g6Words\":[]}", "chunks": 0, "answer": "지금은 답변을 만들지 못했습니다. 잠시 후 다시 시도해 주세요. 사전 생성된 설명은 계속 볼 수 있습니다."}
+{"answer_id": "6c5b2926-fbf9-4e8c-b225-e4102d589354", "created_at": "2026-11-11T11:37:12.882Z", "provider": "workers-ai", "model": "@cf/openai/gpt-oss-120b", "fallback_depth": 1, "latency_ms": 12260, "grounding_status": "PASS", "refused": 0, "cache_hit": 0, "tool_calls": "[{\"tool\":\"get_statement\",\"args\":{\"ym\":\"202608\"},\"resultHash\":\"aa096ae6a197d2e3\"}]", "numbers_used": "[\"1000000\",\"145000\",\"855000\"]", "citations": "[{\"kind\":\"rule\",\"tool\":\"\",\"field\":\"\",\"article\":\"제15조\",\"chunkId\":\"rb-0453f7d205db-a15-1\"},{\"kind\":\"rule\",\"tool\":\"\",\"field\":\"\",\"article\":\"제8조\",\"chunkId\":\"rb-0453f7d205db-a08-1\"},{\"kind\":\"tool\",\"tool\":\"get_statement\",\"field\":\"lines.1.amount\",\"article\":\"\",\"chunkId\":\"\"}]", "violations": "{\"g1Shape\":[],\"g4Missing\":[],\"g5Unknown\":[],\"g6Words\":[]}", "chunks": 6, "answer": "2026년 8월에 시책으로 요청된 금액은 1,000,000원이며, 한도 초과분 145,000원이 삭감되어 실제 지급된 금액은 855,000원입니다. 한도 초과분에 대한 처리는 제15조(한도 초과분의 처리)에서 규정하고 있습니다. 시책은 수수료 한도의 적용 대상이며, 한도를 초과한 부분은 삭감하거나 이연한다는 규정도 함께 적용됩니다."}
+{"answer_id": "ad04d63f-3816-419a-8e2e-ecba95e67247", "created_at": "2026-11-11T11:37:45.729Z", "provider": "workers-ai", "model": "@cf/openai/gpt-oss-120b", "fallback_depth": 1, "latency_ms": 1, "grounding_status": "PASS", "refused": 0, "cache_hit": 1, "tool_calls": "[{\"tool\":\"get_statement\",\"args\":{\"ym\":\"202608\"},\"resultHash\":\"aa096ae6a197d2e3\"}]", "numbers_used": "[]", "citations": "[{\"kind\":\"tool\",\"tool\":\"get_statement\",\"field\":\"net\",\"article\":\"\",\"chunkId\":\"\"}]", "violations": "{\"g1Shape\":[],\"g4Missing\":[],\"g5Unknown\":[],\"g6Words\":[]}", "chunks": 6, "answer": "2026년 8월에 실지급된 수수료는 1,740,600원입니다. 해당 금액은 원천세 59,400원을 공제한 후의 순수령액이며, 지급일은 2026년 9월 10일이었습니다. 명세에 표시된 대로 지급이 완료된 상태입니다."}

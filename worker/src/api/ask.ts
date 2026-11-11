@@ -11,7 +11,8 @@ import { Hono } from "hono";
 import { rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
 import { type AnswerResult, answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm, reuseAnswer } from "../llm/answer";
 import { anyProviderLeft, budgetCaps, countStat, questionsLeft, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
-import { fallbackChain, type GatewayRunner, groq, openrouter, ProviderError, ProvidersExhausted, ProvidersFailed, traced, workersAi } from "../llm/providers";
+import { activePrompt } from "../llm/promptRegistry";
+import { fallbackChain, type GatewayRunner, groq, groq429Stub, openrouter, ProviderError, ProvidersExhausted, ProvidersFailed, traced, workersAi } from "../llm/providers";
 import { type AppEnv, common, DISCLAIMER, invalidRequest, notFound, problem } from "./http";
 import { InvalidToolCall, parseToolCall, runTool, serialize } from "../tools";
 import { requireSession } from "./session";
@@ -55,7 +56,9 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
   // AI Gateway(설계서 v0.1.29 §6.4): AI_GATEWAY_ID가 있을 때만 — 바인딩 gateway()는 실제로 부를 때 만든다
   const gwId = c.env.AI_GATEWAY_ID || null;
   const gw: GatewayRunner | null = gwId ? () => c.env.AI.gateway(gwId) : null;
-  const providers = [groq(c.env, fetch, undefined, gw), workersAi(c.env.AI, gwId), openrouter(c.env, fetch, undefined, gw)];
+  // 설계서 v0.1.35 로컬 재현: env.record의 FAKE_GROQ_429=1이면 Groq 자리에 429 스텁 — 배포(TURNSTILE_SECRET 있음)에서는 무시
+  const fakeGroq429 = c.env.FAKE_GROQ_429 === "1" && !c.env.TURNSTILE_SECRET;
+  const providers = [fakeGroq429 ? groq429Stub() : groq(c.env, fetch, undefined, gw), workersAi(c.env.AI, gwId, activePrompt(c.env, "schema_hint").body), openrouter(c.env, fetch, undefined, gw)];
   const chain = fallbackChain(providers, (name) => reserveProvider(c.env.DB, caps, name, day));
   const deps = cloudflareDeps(c.env, traced(chain, c.env, c.env.DB));
   const budgetRefusal = async () => {

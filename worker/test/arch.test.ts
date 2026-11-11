@@ -250,11 +250,29 @@ describe("아키텍처: wrangler.jsonc env.record(답변 녹화 전용)", () => 
     expect(JSON.stringify([cfg.d1_databases, cfg.vectorize, cfg.ai])).not.toMatch(/"remote"/);
   });
 
-  it("record는 D1·vars가 최상위와 같고, Vectorize·AI만 remote: true", () => {
+  it("record는 D1·vars가 최상위와 같고(로컬 재현 스위치 FAKE_GROQ_429 \"0\"만 더 — 설계서 v0.1.35), Vectorize·AI만 remote: true", () => {
     expect(rec.d1_databases).toEqual(cfg.d1_databases);
-    expect(rec.vars).toEqual(cfg.vars);
+    const { FAKE_GROQ_429, ...recVars } = rec.vars as Record<string, string>;
+    expect(FAKE_GROQ_429).toBe("0");
+    expect(recVars).toEqual(cfg.vars);
     expect(rec.vectorize).toEqual(cfg.vectorize.map((v: object) => ({ ...v, remote: true })));
     expect(rec.ai).toEqual({ ...cfg.ai, remote: true });
     expect(Object.keys(rec).sort()).toEqual(["ai", "d1_databases", "vars", "vectorize"]);
+  });
+});
+
+// 설계서 v0.1.35: Groq 429 스텁은 로컬 재현 전용 — 최상위(배포·dev·시험) 설정에는 없고, 코드는 TURNSTILE_SECRET이 있는 환경에서 무시한다
+describe("아키텍처: FAKE_GROQ_429는 env.record 전용", () => {
+  const cfg = JSON.parse(
+    wranglerConfig
+      .split("\n")
+      .filter((l) => !l.trim().startsWith("//"))
+      .join("\n"),
+  ) as Record<string, any>;
+  it("최상위 vars에 없다, 값을 읽는 코드는 api/ask.ts 하나이고 TURNSTILE_SECRET 검사와 같은 줄", () => {
+    expect(Object.keys(cfg.vars)).not.toContain("FAKE_GROQ_429");
+    const readers = Object.entries(sources).filter(([, src]) => /env\.FAKE_GROQ_429/.test(src));
+    expect(readers.map(([f]) => f)).toEqual(["../src/api/ask.ts"]);
+    expect(readers[0]![1]).toMatch(/env\.FAKE_GROQ_429 === "1" && !c\.env\.TURNSTILE_SECRET/);
   });
 });

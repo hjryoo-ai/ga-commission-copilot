@@ -13,6 +13,8 @@ declare namespace Cloudflare {
     OPENROUTER_API_KEY?: string;
     /** 설계서 v0.1.29 §9 — Turnstile Siteverify 비밀(없으면 사람 확인을 검사하지 않는다) */
     TURNSTILE_SECRET?: string;
+    /** 설계서 v0.1.35 — 로컬 재현 전용(wrangler.jsonc env.record, 기본 "0"): "1"이면 Groq를 부르지 않고 429. TURNSTILE_SECRET이 있으면 무시 */
+    FAKE_GROQ_429?: string;
   }
 }
 
@@ -28,4 +30,5 @@ interface Env {
   LLM_TRACE?: string;
   OPENROUTER_API_KEY?: string;
   TURNSTILE_SECRET?: string;
+  FAKE_GROQ_429?: string;
 }

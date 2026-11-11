@@ -3,7 +3,7 @@
 - 수행일: 2026-11-06(UTC) — 시작(운영자 지시: Phase 4 수용 뒤 PHASES Phase 5 항목 1~7, 폴백 체인 Groq → Workers AI gpt-oss-120b → OpenRouter)
 - 기준 문서: 설계서 v0.1.33 §6.2·§6.4·§7 저하 모드·레이트 리밋·§9 남용 방지·§10.1·§10.2·§10.4, PHASES.md Phase 5
 - 도구 버전: node 25.5.0(CI 24), pnpm 10.28.2, wrangler 4.153.0, vitest 4.1.12
-- 상태(2026-11-11): 완료 기준 1·2·4 끝, 3은 Workers AI 폴백 운영 3/3 실패로 진단 중(설계서 v0.1.34 PROVIDER_ERROR 행·stat:err). 이전 상태: **항목 1~6 구현(LLM 호출 없음 — 시험은 가짜 공급자·가짜 게이트웨이·가짜 Siteverify·로컬 D1)** + 레이트 리밋(WAF 대체). 원격 반영(푸시·배포)은 운영자. 완료 기준의 실호출(Groq 429 유도 → Workers AI 폴백 캡처, 구조화 출력 모양 기록)은 폴백 상한을 여는 배포 뒤 — 설명 배치가 2026-11-09에 591/591로 끝나 `BUDGET_WORKERS_AI` 80 커밋(푸시·배포는 운영자).
+- 상태(2026-11-11): 완료 기준 1·2·4 끝. 3은 운영 Workers AI 폴백 3/3 실패 → 로컬 재현으로 원인 4개를 고쳐(설계서 v0.1.35) 로컬 통과, 공개 1회 대기. 이전 상태: **항목 1~6 구현(LLM 호출 없음 — 시험은 가짜 공급자·가짜 게이트웨이·가짜 Siteverify·로컬 D1)** + 레이트 리밋(WAF 대체). 원격 반영(푸시·배포)은 운영자. 완료 기준의 실호출(Groq 429 유도 → Workers AI 폴백 캡처, 구조화 출력 모양 기록)은 폴백 상한을 여는 배포 뒤 — 설명 배치가 2026-11-09에 591/591로 끝나 `BUDGET_WORKERS_AI` 80 커밋(푸시·배포는 운영자).
 
 ## 완료 기준 대조
 
@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 1 | 테스트 통과 | 진행 — 항목 1~6·레이트 리밋 시험 통과(아래) | `worker/test/budget.test.ts`·`fallback.test.ts`·`ask.test.ts`·`cache.test.ts`·`turnstile.test.ts`·`api.test.ts`, `web/test/budget.test.tsx`·`ask.test.tsx`·`App.test.tsx` |
 | 2 | /budget에 공급자별 사용·폴백 분포 표시 | 구현(로컬 캡처, 값 0) — 원격은 푸시·배포 뒤 | `captures/phase-5-screen6-budget-local.png` |
-| 3 | 실호출로 Groq 429 1회 유도 후 Workers AI 폴백 기록 캡처 | **대기** — 1차(11-08, Workers AI 0): 폴백 OpenRouter 3/3 실패 → 503. 2차(11-11, Workers AI 80 배포 뒤): Workers AI **3/3 실패** → 503, 받은 id 2개는 groq depth 0(아래 "2차"). 진단용 PROVIDER_ERROR 행·`stat:err`(설계서 v0.1.34) 배포 뒤 3차 | `phase-3.md` 「설명 배치 최종」, `logs/phase-3-explain-batch-2026-11-09.log`(bot/daily-explain) |
+| 3 | 실호출로 Groq 429 1회 유도 후 Workers AI 폴백 기록 캡처 | **대기(공개 1회)** — 1차(11-08): OpenRouter 3/3 실패. 2차(11-11): Workers AI 3/3 실패(원인 = `this` 없는 바인딩 호출). **로컬 재현 통과**(v0.1.35 — A-01·A-05 depth 1·PASS·`choices`·게이트웨이 경유, 아래). 푸시·배포 뒤 공개 화면 1회 → answerId로 닫는다 | `phase-3.md` 「설명 배치 최종」, `logs/phase-3-explain-batch-2026-11-09.log`(bot/daily-explain) |
 | 4 | 공개 URL에서 사람이 브라우저로 Turnstile 통과 → 자유 질문 1건 답까지 1회 캡처(운영자 2026-11-07 추가) | **통과**(운영자 캡처 2026-11-07) — 아래 "공개 URL 브라우저 캡처" | `captures/phase-5-public-browser-ask.png`·`captures/phase-5-public-budget.png` |
 
 ## 운영자 결정(2026-11-06)
@@ -120,6 +120,37 @@ deploy 79e0596 success — Uploaded ga-commission-copilot · Deployed ga-commiss
   - 진단(운영자 결정 2026-11-11 "진단 진행" → 설계서 v0.1.34): 503도 answer_log 거부 행 `PROVIDER_ERROR`(마지막 시도 공급자·모델·순번)와 시도마다 `stat:err:<공급자>:<종류>`(`timeout`·`rate_limit`·`upstream`·`empty`·`not_json`·`shape`·`gateway`·`ai_<코드>`·`other`)를 남긴다 → 배포 뒤 다음 유도에서 503의 answerId와 원격 D1 한 줄로 (a)~(d)를 가른다. 그 뒤 고칠 것을 정한다(추론 강도·타임아웃·입력 모양 — 고치는 커밋은 원인 확인 뒤).
   - OpenRouter(1차 11-08 3/3 실패)도 같은 `stat:err:openrouter:*`로 본다 — 시도에 들어가려면 Groq·Workers AI 중 하나가 그날 상한이어야 한다(질문당 시도 2개).
 
+## Workers AI 폴백 로컬 재현(설계서 v0.1.35 — 2026-11-11 11:2x~11:38Z)
+
+`wrangler dev --env record --port 8799 --var FAKE_GROQ_429:1`(D1 로컬, AI·Vectorize 원격, 게이트웨이 `copilot` 경유 — 운영과 같은 경로, `TURNSTILE_SECRET` 없음) + 데모 1 세션 → 부록 A-01·A-05. Groq 자리는 429 스텁(부르지 않음). 서버 로그(`[llm]`·`[fallback]` 줄 — 본문·키 없음)·로컬 answer_log: `logs/phase-5-fallback-local-2026-11-11.log`.
+
+| 차례 | 바꾼 것 | 결과 | 원인(로그·`stat:err`) |
+|---|---|---|---|
+| 1 | v0.1.35 파라미터(reasoning_effort low·폴백 15초)만 | A-01·A-05 **503** PROVIDER_ERROR, Workers AI 1ms 실패 | `workers-ai:upstream` — "Cannot set properties of undefined (setting '#options')": `const run = ai.run`으로 메서드를 떼어 불러 `this`가 없다. **운영 11-11 3/3 실패와 같은 원인**(즉시 실패 — 타임아웃이 아니었다). 시험의 가짜 바인딩은 화살표 함수라 못 잡았다 → `bind(ai)` + private 필드를 쓰는 가짜로 회귀 시험 |
+| 2 | bind | 200·**depth 1**·`shape=choices`·`gateway=true`, 그러나 둘 다 NOT_GROUNDED | violations `g1Shape: SHAPE:reason·numbersUsed·toolCalls` — 출력에 `reason`·`numbersUsed` 없음, 툴 인자 `arguments`(스키마는 `args`) |
+| 3 | 바인딩 `json_schema`를 스키마 자체로(공식 JSON Mode 문서) | 같은 출력·같은 usage(639·831ms) | 게이트웨이 캐시 — 키가 공급자·요청 형식을 가르지 않아 옛 응답 → 키에 `:<공급자>:<판>` |
+| 4 | 캐시 키 판 | 실제 호출(3.5초)인데 같은 출력 | Workers AI는 `response_format`을 **강제하지 않는다** — REST 대조(배치 토큰, 같은 날): 작은 스키마는 네이티브·OpenAI 호환 모두 따르고, answer/v3 실제 요청은 네이티브·OpenAI 호환 모두 6키 중 4키·`arguments`, **같은 요청 + 스키마를 system 메시지로** 주면 6키·`args` 그대로 |
+| 5 | `prompts/schema_hint/v1`(Workers AI만 system 메시지 — 스키마 JSON) + 판 r3 | A-05 **200 PASS**(depth 1, 15.1초 = 1단계 7.2 + 2단계 3.8 + 임베딩·검색) / A-01 2단계 15초 **타임아웃** → 503 | `workers-ai:timeout` 1, 다시 보내면 `not_json`(finish=length, out=1200 — 실패 메시지에 끝난 이유를 붙여 확인): 답변 출력 상한 1,200이 추론 포함 2단계에 모자람 |
+| 6 | Workers AI `max_tokens` 1,500(= 배치) + 판 r4 | A-01 **200 PASS**(depth 1, 12.3초 = 1단계 3.4 + 2단계 7.6) | — |
+
+기록(완료 기준 3 요구 항목 — 로컬):
+
+| 항목 | A-01 `6c5b2926…` | A-05 `4662d371…` |
+|---|---|---|
+| provider·model·`fallback_depth` | workers-ai · `@cf/openai/gpt-oss-120b` · **1** | workers-ai · `@cf/openai/gpt-oss-120b` · **1** |
+| 구조화 출력 모양 | **`choices`**(`choices[0].message.content` 문자열 — `response` 아님) | `choices` |
+| 응답 시간(answer_log latency_ms / 호출별) | 12,260ms(3,384 + 7,586) | 15,095ms(7,172 + 3,763) |
+| 게이트웨이 경유 | **경유**(`AI.aiGatewayLogId` 있음). `cf-aig-cache-status`는 바인딩 결과에 헤더가 없어 볼 수 없다 — 캐시 동작은 차례 3(같은 키 → 같은 응답·같은 usage, 1초 미만)으로 확인 | 경유 |
+| grounding·violations | PASS · g1·g4·g5·g6 모두 빈 배열 | PASS · 모두 빈 배열 |
+| 툴·인용 | `get_statement(202608)` · 제15조·제8조·`lines.1.amount` | `get_statement(202608)` · `net` |
+| 본문(앞) | "2026년 8월에 시책으로 요청된 금액은 1,000,000원이며, 한도 초과분 145,000원이 삭감되어 실제 지급된 금액은 855,000원입니다…" — 숫자는 부록 A-01과 같지만 **"삭감"은 틀린 말**(데이터는 한도 초과분 이연) → Phase 6 관계·용어 오류 케이스 | "2026년 8월에 실지급된 수수료는 1,740,600원입니다. 해당 금액은 원천세 59,400원을 공제한 후의 순수령액이며…" |
+
+- A-05는 차례 5(판 r3·상한 1,200)의 행이다. 최종 코드(r4·1,500)로 다시 보낸 A-05는 답 단위 재사용(`ad04d63f…` cache_hit 1, 1ms — LLM 0)이라 새 호출이 없었다.
+- 실패 행 `82bedf76…`(차례 5 A-01 타임아웃)·`e9eef89f…`(not_json)는 PROVIDER_ERROR 행(provider workers-ai·depth 1·NONE)으로 남았다 — v0.1.34 진단 경로가 의도대로 동작.
+- 로컬 `stat:err`(오늘 누계): `groq:rate_limit` 4(스텁) · `workers-ai:upstream` 2(차례 1) · `workers-ai:timeout` 1 · `workers-ai:not_json` 1, `refuse:provider_error` 4.
+- 쓴 Workers AI: 런타임 바인딩 호출 약 25회(게이트웨이 캐시 히트 포함) + REST 대조 12회(작은 스키마 4·답변 스키마 3+2·실제 요청 3 — 각 100뉴런 안팎) + 질문 임베딩 — 약 3,500뉴런 이하(운영자 지시로 부름).
+- 게이트웨이 캐시가 **타임아웃·잘린 응답도 저장**한다(차례 5 → 다시 보내면 487ms에 같은 잘린 본문). 남은 이슈 7(FAIL 응답의 캐시)과 같은 종류 — 판을 올리면 비켜 가지만, 실패 응답을 캐시에서 지우는 수단은 없다.
+
 ## 시험(LLM 호출 없음)
 
 ```
@@ -146,11 +177,12 @@ pnpm run lint  → 오류 0
 - [ ] 배포 뒤 확인(계속): 화면 4 위젯 실제 통과(사이트 키의 호스트 이름 목록에 workers.dev 호스트가 있어야 한다)·Cron 등록(`wrangler deploy` 출력의 schedule)·`/budget` 원격 값.
 - [x] 설명 배치 591/591 확인(2026-11-09, run 42575953348 — 생성 35 + 캐시 건너뜀 556, FAIL 0) → `BUDGET_WORKERS_AI` 80 커밋(2026-11-11).
 - [x] 푸시·배포(운영자 2026-11-11, d99b94e) → 2차 유도(위 "2차" — Workers AI 3/3 실패).
-- [ ] v0.1.34 푸시·배포(운영자) → 3차 유도: 503이면 화면 4의 "기록 보기" answerId(PROVIDER_ERROR 행)를, 답이면 그 answerId를 받아 `stat:err`로 원인 확인 → 수정 → 완료 기준 3 실호출 캡처(Workers AI 구조화 출력 모양 `choices`/`response` 기록, 게이트웨이 경유 Groq·OpenRouter 첫 실호출 경로 확인 포함).
+- [x] 로컬 재현(v0.1.35, 2026-11-11) — Workers AI 폴백 A-01·A-05 PASS(위 "로컬 재현").
+- [ ] v0.1.34·v0.1.35 푸시·배포(운영자) → 3차 유도(공개): 503이면 화면 4의 "기록 보기" answerId(PROVIDER_ERROR 행)를, 답이면 그 answerId를 받아 `stat:err`로 원인 확인 → 수정 → 완료 기준 3 실호출 캡처(Workers AI 구조화 출력 모양 `choices`/`response` 기록, 게이트웨이 경유 Groq·OpenRouter 첫 실호출 경로 확인 포함).
 
 ## 남은 이슈
 
-1. Workers AI 바인딩 structured output의 응답 모양이 공식 문서에 없다 — 두 모양을 받게 했고, 첫 성공 폴백에서 확인한다(2차 11-11은 3/3 실패라 아직 — 실패 종류가 `shape`이면 이 항목이 원인).
+1. ~~Workers AI 바인딩 structured output의 응답 모양~~ → **`choices`**(로컬 재현 2026-11-11 — `choices[0].message.content` 문자열). `response` 분기는 남겨 둔다(문서에 없음). 바인딩은 json_schema를 강제하지 않아 `prompts/schema_hint/v1`(system)로 보강 — 그래도 모양 오류는 G1이 거부로 바꾼다(검증기 우회 없음).
 2. ~~WAF가 `*.workers.dev`에 걸리는가~~ → Worker 안 레이트 리밋으로 닫음(설계서 v0.1.29). Rate Limiting 바인딩은 Free 포함 여부가 문서에 나오면 다시 본다(D1 쓰기 2문장/질문을 아낄 수 있다).
 3. 질문은 사용자 → 전역 순서로 차감해 전역에서 막히면 이미 센 사용자 1은 돌려주지 않는다(규약 5 — 감소 경로 없음).
 4. ~~배포 뒤 `capture-public.yml`은 `/ask`에서 403~~ → **닫음(운영자 2026-11-07)**: 우회 경로 없이 `capture-local.yml`로 바꿈(CI 안 `wrangler dev --env record` — D1 로컬·Vectorize·AI 원격, Turnstile 없음 — 이름대로 공개 URL 캡처가 아니다). 사람 확인을 요구하는 서버면 스크립트가 묻지 않고 멈춘다(로컬 시험 키 서버로 확인 — 질문 0건, exit 1). 12건이 한 IP라 그 서버에만 `--var BUDGET_USER:20` — 같은 문제가 `record-answer`에도 있어(Phase 5 사용자 상한 10 → 11·12번 BUDGET) 함께 고쳤다. 공개 URL 동작은 완료 기준 4(사람 브라우저 캡처).

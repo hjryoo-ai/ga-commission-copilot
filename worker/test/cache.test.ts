@@ -48,7 +48,7 @@ describe("AI Gateway 경유(Groq·OpenRouter — 바인딩 gateway().run)", () =
     expect([r.json, r.provider, r.gatewayCache, calls]).toEqual([{ a: 1 }, "groq", "HIT", []]);
     const { data } = gw.seen[0]!;
     expect([data.provider, data.endpoint]).toEqual(["groq", "chat/completions"]);
-    expect(data.headers).toMatchObject({ authorization: "Bearer k", "content-type": "application/json", "cf-aig-cache-key": REQ.cacheKey, "cf-aig-cache-ttl": GATEWAY_CACHE_TTL_S });
+    expect(data.headers).toMatchObject({ authorization: "Bearer k", "content-type": "application/json", "cf-aig-cache-key": `${REQ.cacheKey}:groq:r1`, "cf-aig-cache-ttl": GATEWAY_CACHE_TTL_S });
     expect(data.query).toMatchObject({ model: REQ.model, temperature: 0, response_format: { type: "json_schema" } });
     expect(data.query).not.toHaveProperty("cacheKey");
     const o = fakeGateway(okBody('{"b":2}'));
@@ -97,7 +97,7 @@ describe("AI Gateway 경유(Workers AI — run(…, {gateway}))", () => {
       }) as never,
     });
     expect((await workersAi(ai(null), "copilot").structured(REQ)).json).toEqual({ ok: true });
-    expect(opts[0]).toEqual({ gateway: { id: "copilot", cacheTtl: GATEWAY_CACHE_TTL_S, cacheKey: REQ.cacheKey } });
+    expect(opts[0]).toEqual({ gateway: { id: "copilot", cacheTtl: GATEWAY_CACHE_TTL_S, cacheKey: `${REQ.cacheKey}:workers-ai:r4` } });
     opts.length = 0;
     expect((await workersAi(ai(new Error("AiGateway: gateway not found")), "copilot").structured(REQ)).json).toEqual({ ok: true });
     expect(opts).toEqual([{ gateway: expect.objectContaining({ id: "copilot" }) }, undefined]);

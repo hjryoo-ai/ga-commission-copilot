@@ -79,7 +79,9 @@
         "BUDGET_WORKERS_AI": "80",
         "BUDGET_OPENROUTER": "15",
         "AI_GATEWAY_ID": "copilot",
-        "TURNSTILE_SITE_KEY": "0x4AAAAAAF2LyuLvbqeCCVE5"
+        "TURNSTILE_SITE_KEY": "0x4AAAAAAF2LyuLvbqeCCVE5",
+        // 설계서 v0.1.35: 로컬 재현 스위치 — `--var FAKE_GROQ_429:1`이면 Groq가 부르지 않고 429(폴백 재현). 최상위에는 두지 않는다(arch.test)
+        "FAKE_GROQ_429": "0"
       }
     }
   }

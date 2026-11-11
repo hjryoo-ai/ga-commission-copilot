@@ -6,6 +6,7 @@
 // 게이트웨이 자체 오류(던짐·게이트웨이 형식 오류 본문·404 경로)면 그 공급자를 직접 한 번 더 — 게이트웨이 설정 때문에 /ask가 멈추지 않게.
 // LLM_TRACE=1(로컬 .dev.vars 전용)이면 traced()가 원문 요청·응답을 D1 llm_trace에 쓴다 — 답변 VCR 녹화(운영자 2026-11-01). 원격에는 그 env가 없다.
 import { insertLlmTrace } from "../db/ScopedQuery";
+import { render } from "./promptRegistry";
 
 export type ProviderName = "groq" | "workers-ai" | "openrouter";
 
@@ -33,6 +34,10 @@ export interface StructuredResponse {
   fallbackDepth?: number;
   /** 게이트웨이 응답 헤더 cf-aig-cache-status(HIT·MISS) — 게이트웨이를 거치지 않았으면 없음. */
   gatewayCache?: string;
+  /** Workers AI 바인딩 결과의 모양(choices·response:string·response:object — 문서에 없어 로그로 확인, v0.1.35). */
+  shape?: string;
+  /** Workers AI 바인딩이 게이트웨이를 거쳤는가(AI.aiGatewayLogId가 있으면 true — 바인딩 결과에는 cf-aig-cache-status 헤더가 없다). */
+  viaGateway?: boolean;
 }
 
 /** 공급자 오류. status 429·5xx·0(타임아웃·네트워크)은 Phase 5 폴백 대상, 그 밖은 요청 문제. */
@@ -51,14 +56,26 @@ export interface Provider {
   structured(req: StructuredRequest): Promise<StructuredResponse>;
 }
 
+/** 설계서 v0.1.35 §6.2: 1순위 Groq 8초, 폴백 공급자(Workers AI·OpenRouter) 15초. */
 export const TIMEOUT_MS = 8_000;
+export const FALLBACK_TIMEOUT_MS = 15_000;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 /** 설계서 §6.2·D-7: 폴백 모델. Groq 모델 이름(프롬프트 model_hint)을 공급자별 이름으로 바꾼다. */
 export const WORKERS_AI_MODEL = "@cf/openai/gpt-oss-120b";
+/** 설계서 v0.1.35: 배치(gen/explain/generate.ts MAX_COMPLETION_TOKENS)와 같은 출력 상한 — 추론 토큰 포함. 2026-11-11 로컬 재현 A-01 2단계가 1,200에서 잘렸다(finish=length). */
+export const WORKERS_AI_MAX_TOKENS = 1500;
 export const OPENROUTER_MODEL = "openrouter/free";
 /** 설계서 §6.4: 게이트웨이 캐시 24시간. */
 export const GATEWAY_CACHE_TTL_S = 86_400;
+
+/**
+ * 게이트웨이 캐시 키 = 요청 키 + 공급자 + 그 공급자 요청 형식의 판(설계서 v0.1.35). 같은 키를 공급자끼리 나눠 쓰면 다른 공급자 응답이 돌아오고,
+ * 요청 형식을 바꿔도 키가 같으면 옛 응답이 24시간 돌아온다(2026-11-11 로컬 재현: 바인딩 스키마 형식을 고친 뒤에도 같은 잘못된 출력·같은 usage).
+ * 형식을 바꾸면 그 공급자의 판을 올린다.
+ */
+export const CACHE_KEY_REV: Readonly<Record<ProviderName, string>> = { groq: "r1", "workers-ai": "r4", openrouter: "r1" };
+export const gatewayCacheKey = (key: string, name: ProviderName) => `${key}:${name}:${CACHE_KEY_REV[name]}`;
 
 /** gateway(id).run만 쓴다(시험은 가짜). 부를 때 만든다 — 게이트웨이를 안 쓰는 경로(시험·로컬)는 바인딩을 건드리지 않는다. */
 export type GatewayRunner = () => Pick<AiGateway, "run">;
@@ -109,6 +126,7 @@ function openAiCompatible(
   fetcher: typeof fetch,
   headers: Record<string, string> = {},
   gateway: GatewayRunner | null = null,
+  timeoutMs = TIMEOUT_MS,
 ): Provider {
   return {
     name,
@@ -116,19 +134,19 @@ function openAiCompatible(
       if (!key) throw new ProviderError(`${name}: 키 없음`, 0);
       const body = model ? { ...requestBody(req), model } : requestBody(req);
       const hdrs = { authorization: `Bearer ${key}`, "content-type": "application/json", ...headers };
-      const failed = (e: unknown) => new ProviderError(`${name}: ${(e as Error).name === "TimeoutError" ? `${TIMEOUT_MS}ms 타임아웃` : "네트워크 오류"}`, 0);
+      const failed = (e: unknown) => new ProviderError(`${name}: ${(e as Error).name === "TimeoutError" ? `${timeoutMs}ms 타임아웃` : "네트워크 오류"}`, 0);
       const direct = async () => {
         try {
-          return await fetcher(url, { method: "POST", headers: hdrs, body: JSON.stringify(body), signal: AbortSignal.timeout(TIMEOUT_MS) });
+          return await fetcher(url, { method: "POST", headers: hdrs, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) });
         } catch (e) {
           throw failed(e);
         }
       };
       let res: Response | null = null;
       if (gateway) {
-        const cache = req.cacheKey ? { "cf-aig-cache-key": req.cacheKey, "cf-aig-cache-ttl": GATEWAY_CACHE_TTL_S } : {};
+        const cache = req.cacheKey ? { "cf-aig-cache-key": gatewayCacheKey(req.cacheKey, name), "cf-aig-cache-ttl": GATEWAY_CACHE_TTL_S } : {};
         try {
-          res = await gateway().run({ provider: name, endpoint: "chat/completions", headers: { ...hdrs, ...cache }, query: body }, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+          res = await gateway().run({ provider: name, endpoint: "chat/completions", headers: { ...hdrs, ...cache }, query: body }, { signal: AbortSignal.timeout(timeoutMs) });
         } catch (e) {
           if ((e as Error).name === "TimeoutError") throw failed(e);
           console.warn(`[gateway] ${name} 게이트웨이 오류 — 직접 1회: ${String((e as Error).message).slice(0, 120)}`);
@@ -150,21 +168,39 @@ function openAiCompatible(
   };
 }
 
+/** 설계서 v0.1.35 로컬 재현: Groq를 부르지 않고 429(FAKE_GROQ_429=1, env.record 전용 — ask.ts가 TURNSTILE_SECRET 없는 환경에서만 쓴다). */
+export function groq429Stub(): Provider {
+  return {
+    name: "groq",
+    async structured() {
+      throw new ProviderError("groq 429 (FAKE_GROQ_429 — 로컬 재현)", 429);
+    },
+  };
+}
+
 export function groq(env: Pick<Env, "GROQ_API_KEY">, fetcher: typeof fetch = fetch, url = GROQ_URL, gateway: GatewayRunner | null = null): Provider {
   return openAiCompatible("groq", url, env.GROQ_API_KEY, null, fetcher, {}, gateway);
 }
 
 /** 설계서 §6.2 3순위 — OpenRouter 무료 라우터. 키는 wrangler secret OPENROUTER_API_KEY(규약 10). */
 export function openrouter(env: Pick<Env, "OPENROUTER_API_KEY">, fetcher: typeof fetch = fetch, url = OPENROUTER_URL, gateway: GatewayRunner | null = null): Provider {
-  return openAiCompatible("openrouter", url, env.OPENROUTER_API_KEY, OPENROUTER_MODEL, fetcher, { "x-title": "ga-commission-copilot" }, gateway);
+  return openAiCompatible("openrouter", url, env.OPENROUTER_API_KEY, OPENROUTER_MODEL, fetcher, { "x-title": "ga-commission-copilot" }, gateway, FALLBACK_TIMEOUT_MS);
 }
 
 /** Workers AI 결과의 본문 — 문서가 응답 모양을 밝히지 않아(2026-11-06 확인) OpenAI 모양(choices)과 네이티브 모양(response) 둘 다 받는다. 실호출 확인은 폴백 상한이 열리는 11-08 뒤. */
-export function workersAiContent(r: unknown): { json: unknown; usage: StructuredResponse["usage"] } {
-  const o = (r ?? {}) as { choices?: { message?: { content?: string | null } }[]; response?: unknown; usage?: StructuredResponse["usage"] };
-  if (Array.isArray(o.choices)) return { json: jsonOf("workers-ai", o.choices[0]?.message?.content), usage: o.usage ?? null };
-  if (typeof o.response === "string") return { json: jsonOf("workers-ai", o.response), usage: o.usage ?? null };
-  if (o.response && typeof o.response === "object") return { json: o.response, usage: o.usage ?? null };
+export function workersAiContent(r: unknown): { json: unknown; usage: StructuredResponse["usage"]; shape: string } {
+  const o = (r ?? {}) as { choices?: { message?: { content?: string | null }; finish_reason?: string }[]; response?: unknown; usage?: StructuredResponse["usage"] };
+  if (Array.isArray(o.choices)) {
+    try {
+      return { json: jsonOf("workers-ai", o.choices[0]?.message?.content), usage: o.usage ?? null, shape: "choices" };
+    } catch (e) {
+      // 본문 없이 끝난 이유만 덧붙인다(finish_reason length = 출력 상한에 잘림) — 종류(empty·not_json)는 그대로
+      if (e instanceof ProviderError) throw new ProviderError(`${e.message}(finish=${o.choices[0]?.finish_reason ?? "?"}, out=${o.usage?.completion_tokens ?? "?"})`, e.status);
+      throw e;
+    }
+  }
+  if (typeof o.response === "string") return { json: jsonOf("workers-ai", o.response), usage: o.usage ?? null, shape: "response:string" };
+  if (o.response && typeof o.response === "object") return { json: o.response, usage: o.usage ?? null, shape: "response:object" };
   throw new ProviderError("workers-ai: 알 수 없는 응답 모양", 502);
 }
 
@@ -172,25 +208,36 @@ export function workersAiContent(r: unknown): { json: unknown; usage: Structured
 /** AI 바인딩이 던진 게이트웨이 자체 오류(이름·메시지에 gateway) — 모델 오류(3036·4006 등)와 가른다. */
 const isGatewayError = (e: unknown) => /gateway/i.test(`${(e as Error)?.name ?? ""} ${(e as Error)?.message ?? ""}`) && !/\b(3036|4006)\b|neurons/i.test((e as Error)?.message ?? "");
 
-export function workersAi(ai: Pick<Ai, "run">, gatewayId: string | null = null): Provider {
+/**
+ * schemaHint: prompts/schema_hint 본문(설계서 v0.1.35) — Workers AI는 response_format을 강제하지 않아(2026-11-11 실측) 같은 스키마를
+ * system 메시지로도 준다. {{schema}} = 요청의 출력 스키마. 없으면(시험) 붙이지 않는다.
+ */
+export function workersAi(ai: Pick<Ai, "run">, gatewayId: string | null = null, schemaHint: string | null = null): Provider {
   return {
     name: "workers-ai",
     async structured(req) {
       let r: unknown;
-      const run = ai.run as unknown as (model: string, input: object, opts?: object) => Promise<unknown>;
+      // 메서드를 떼어 부르면 this가 없어 바인딩 안에서 "Cannot set properties of undefined (setting '#options')"로 즉시 실패한다
+      // (2026-11-11 운영 폴백 3/3 실패의 원인 — FAKE_GROQ_429 로컬 재현으로 확인). bind로 바인딩 객체를 붙인다
+      const run = (ai.run as unknown as (model: string, input: object, opts?: object) => Promise<unknown>).bind(ai);
+      const hint = schemaHint ? [{ role: "system" as const, content: render(schemaHint, { schema: JSON.stringify(req.schema) }) }] : [];
       const input = {
-        messages: req.messages,
+        messages: [...hint, ...req.messages],
         temperature: 0,
-        max_tokens: req.maxCompletionTokens,
-        response_format: { type: "json_schema", json_schema: { name: req.schemaName, schema: req.schema, strict: true } },
+        // 설계서 v0.1.35: 배치(REST /ai/v1/chat/completions)와 같은 추론 강도 — 모델 기본 medium은 8초 안에 끝나지 않거나 출력 상한을 추론에 다 쓴다
+        reasoning_effort: "low",
+        max_tokens: Math.max(req.maxCompletionTokens, WORKERS_AI_MAX_TOKENS),
+        // 바인딩 JSON 모드는 json_schema에 스키마 자체를 받는다(공식 JSON Mode 문서 — OpenAI의 {name, schema, strict} 감싸기는
+        // 스키마로 읽혀 강제가 걸리지 않았다: 2026-11-11 로컬 재현에서 reason·numbersUsed 없음·args 대신 arguments → G1 SHAPE)
+        response_format: { type: "json_schema", json_schema: req.schema },
       };
       const once = (opts?: object) =>
-        Promise.race([run(WORKERS_AI_MODEL, input, opts), new Promise((_, reject) => setTimeout(() => reject(new ProviderError(`workers-ai: ${TIMEOUT_MS}ms 타임아웃`, 0)), TIMEOUT_MS))]);
+        Promise.race([run(WORKERS_AI_MODEL, input, opts), new Promise((_, reject) => setTimeout(() => reject(new ProviderError(`workers-ai: ${FALLBACK_TIMEOUT_MS}ms 타임아웃`, 0)), FALLBACK_TIMEOUT_MS))]);
       try {
         if (!gatewayId) r = await once();
         else {
           try {
-            r = await once({ gateway: { id: gatewayId, cacheTtl: GATEWAY_CACHE_TTL_S, ...(req.cacheKey ? { cacheKey: req.cacheKey } : {}) } });
+            r = await once({ gateway: { id: gatewayId, cacheTtl: GATEWAY_CACHE_TTL_S, ...(req.cacheKey ? { cacheKey: gatewayCacheKey(req.cacheKey, "workers-ai") } : {}) } });
           } catch (e) {
             if (!isGatewayError(e)) throw e;
             console.warn(`[gateway] workers-ai 게이트웨이 오류 — 직접 1회: ${String((e as Error).message).slice(0, 120)}`);
@@ -202,8 +249,9 @@ export function workersAi(ai: Pick<Ai, "run">, gatewayId: string | null = null):
         const m = (e as Error).message ?? "";
         throw new ProviderError(`workers-ai: ${m.slice(0, 200)}`, /\b(3036|4006)\b|neurons|rate limit/i.test(m) ? 429 : 502);
       }
-      const { json, usage } = workersAiContent(r);
-      return { json, provider: "workers-ai", model: WORKERS_AI_MODEL, usage };
+      const { json, usage, shape } = workersAiContent(r);
+      const viaGateway = Boolean(gatewayId && (ai as { aiGatewayLogId?: string | null }).aiGatewayLogId);
+      return { json, provider: "workers-ai", model: WORKERS_AI_MODEL, usage, shape, viaGateway };
     },
   };
 }
@@ -265,12 +313,16 @@ export function fallbackChain(providers: readonly Provider[], reserve: (name: Pr
       for (const [i, p] of providers.entries()) {
         if (failed.length >= maxAttempts) break;
         if (!(await reserve(p.name))) continue;
+        const t0 = Date.now();
         try {
-          return { ...(await p.structured(req)), fallbackDepth: i };
+          const r = await p.structured(req);
+          // 성공 호출 한 줄(본문·키 없이) — 응답 시간·게이트웨이 캐시·Workers AI 모양(설계서 v0.1.35 완료 기준 3 기록용)
+          console.info(`[llm] ok ${p.name} depth=${i} ms=${Date.now() - t0}${r.gatewayCache ? ` cf-aig-cache-status=${r.gatewayCache}` : ""}${r.shape ? ` shape=${r.shape}` : ""}${r.viaGateway !== undefined ? ` gateway=${r.viaGateway}` : ""}`);
+          return { ...r, fallbackDepth: i };
         } catch (e) {
           if (!(e instanceof ProviderError)) throw e;
           failed.push({ provider: p.name, depth: i, model: modelOf(p.name, req.model), kind: failureKind(e) });
-          console.warn(`[fallback] ${p.name} ${e.status} ${failureKind(e)}: ${e.message}`);
+          console.warn(`[fallback] ${p.name} ${e.status} ${failureKind(e)} ms=${Date.now() - t0}: ${e.message}`);
           // 4xx(요청 문제)는 다음 공급자로 넘기지 않는다 — 그래도 행은 남기게 시도 목록과 함께
           if (!isFallbackable(e)) throw new ProvidersFailed(e, failed);
           last = e;

@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { loadPrompt } from "../src/llm/promptRegistry";
 import {
+  FALLBACK_TIMEOUT_MS,
   failureKind,
   fallbackChain,
   groq,
+  groq429Stub,
   openrouter,
   type Provider,
   ProviderError,
@@ -10,6 +13,8 @@ import {
   ProvidersExhausted,
   ProvidersFailed,
   type StructuredRequest,
+  TIMEOUT_MS,
+  WORKERS_AI_MAX_TOKENS,
   WORKERS_AI_MODEL,
   workersAi,
   workersAiContent,
@@ -129,10 +134,10 @@ describe("공급자", () => {
     expect([sent.model, r.provider, r.json]).toEqual(["openrouter/free", "openrouter", { x: 1 }]);
   });
 
-  it("Workers AI: 응답 모양 둘 다(choices·response), 뉴런 소진(4006)은 429로, 바인딩 입력은 messages + json_schema", async () => {
-    expect(workersAiContent({ choices: [{ message: { content: '{"a":1}' } }] }).json).toEqual({ a: 1 });
-    expect(workersAiContent({ response: '{"a":2}' }).json).toEqual({ a: 2 });
-    expect(workersAiContent({ response: { a: 3 } }).json).toEqual({ a: 3 });
+  it("Workers AI: 응답 모양 둘 다(choices·response), 뉴런 소진(4006)은 429로, 바인딩 입력은 messages + json_schema + reasoning_effort low(설계서 v0.1.35 — 배치와 같게), 모양은 shape로", async () => {
+    expect(workersAiContent({ choices: [{ message: { content: '{"a":1}' } }] })).toMatchObject({ json: { a: 1 }, shape: "choices" });
+    expect(workersAiContent({ response: '{"a":2}' })).toMatchObject({ json: { a: 2 }, shape: "response:string" });
+    expect(workersAiContent({ response: { a: 3 } })).toMatchObject({ json: { a: 3 }, shape: "response:object" });
     expect(() => workersAiContent({ foo: 1 })).toThrow(ProviderError);
     let input: Record<string, unknown> = {};
     const r = await workersAi({
@@ -142,9 +147,54 @@ describe("공급자", () => {
         return { response: { ok: true } };
       }) as never,
     }).structured(REQ);
-    expect([r.provider, r.model, r.json]).toEqual(["workers-ai", WORKERS_AI_MODEL, { ok: true }]);
-    expect(Object.keys(input).sort()).toEqual(["max_tokens", "messages", "response_format", "temperature"]);
+    expect([r.provider, r.model, r.json, r.shape, r.viaGateway]).toEqual(["workers-ai", WORKERS_AI_MODEL, { ok: true }, "response:object", false]);
+    expect(Object.keys(input).sort()).toEqual(["max_tokens", "messages", "reasoning_effort", "response_format", "temperature"]);
+    expect([input.reasoning_effort, input.max_tokens, input.response_format]).toEqual(["low", WORKERS_AI_MAX_TOKENS, { type: "json_schema", json_schema: REQ.schema }]);
     const out = workersAi({ run: (async () => { throw new Error("4006: you have used up your daily free allocation of 10,000 neurons"); }) as never });
     await expect(out.structured(REQ)).rejects.toMatchObject({ status: 429 });
+  });
+
+  it("타임아웃(설계서 v0.1.35): Groq 8초, 폴백 OpenRouter 15초 — fetch에 넘기는 신호로 본다, FAKE_GROQ_429 스텁은 부르지 않고 429", async () => {
+    expect([TIMEOUT_MS, FALLBACK_TIMEOUT_MS]).toEqual([8_000, 15_000]);
+    const seen: string[] = [];
+    const orig = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
+      seen.push(String(ms));
+      return orig(ms);
+    });
+    const ok = (async () => new Response(JSON.stringify({ model: "m", choices: [{ message: { content: "{}" } }] }), { status: 200 })) as unknown as typeof fetch;
+    await groq({ GROQ_API_KEY: "k" }, ok).structured(REQ);
+    await openrouter({ OPENROUTER_API_KEY: "o" }, ok).structured(REQ);
+    spy.mockRestore();
+    expect(seen).toEqual(["8000", "15000"]);
+    await expect(groq429Stub().structured(REQ)).rejects.toMatchObject({ status: 429 });
+  });
+
+  it("Workers AI 바인딩은 this가 붙은 채로 부른다(운영 11-11 '#options' 실패 회귀 시험 — 실제 바인딩처럼 private 필드를 쓰는 가짜)", async () => {
+    class FakeAi {
+      #options: object | undefined;
+      aiGatewayLogId: string | null = null;
+      async run(_model: string, _input: object, opts?: { gateway?: object }) {
+        this.#options = opts ?? {};
+        if (opts?.gateway) this.aiGatewayLogId = "log-1";
+        return { choices: [{ message: { content: JSON.stringify({ seen: Object.keys(this.#options) }) } }] };
+      }
+    }
+    const direct = await workersAi(new FakeAi() as never).structured(REQ);
+    expect([direct.json, direct.shape, direct.viaGateway]).toEqual([{ seen: [] }, "choices", false]);
+    const viaGw = await workersAi(new FakeAi() as never, "copilot").structured(REQ);
+    expect([viaGw.json, viaGw.viaGateway]).toEqual([{ seen: ["gateway"] }, true]);
+  });
+
+  it("schema_hint(설계서 v0.1.35): Workers AI만 system 메시지로 출력 스키마를 앞에 붙인다 — 요청 messages는 그대로 뒤에", async () => {
+    let input: { messages?: { role: string; content: string }[] } = {};
+    const ai = { run: (async (_m: string, i: typeof input) => ((input = i), { response: { ok: true } })) as never };
+    await workersAi(ai, null, loadPrompt("schema_hint", "v1").body).structured(REQ);
+    expect(input.messages!.map((m) => m.role)).toEqual(["system", "user"]);
+    expect(input.messages![0]!.content).toContain(JSON.stringify(REQ.schema));
+    expect(input.messages![0]!.content).not.toContain("{{schema}}");
+    expect(input.messages![1]).toEqual(REQ.messages[0]);
+    await workersAi(ai).structured(REQ);
+    expect(input.messages).toEqual(REQ.messages);
   });
 });
