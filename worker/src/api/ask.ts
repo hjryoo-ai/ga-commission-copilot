@@ -11,7 +11,7 @@ import { Hono } from "hono";
 import { rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
 import { type AnswerResult, answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm, reuseAnswer } from "../llm/answer";
 import { anyProviderLeft, budgetCaps, countStat, questionsLeft, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
-import { fallbackChain, type GatewayRunner, groq, openrouter, ProviderError, ProvidersExhausted, traced, workersAi } from "../llm/providers";
+import { fallbackChain, type GatewayRunner, groq, openrouter, ProviderError, ProvidersExhausted, ProvidersFailed, traced, workersAi } from "../llm/providers";
 import { type AppEnv, common, DISCLAIMER, invalidRequest, notFound, problem } from "./http";
 import { InvalidToolCall, parseToolCall, runTool, serialize } from "../tools";
 import { requireSession } from "./session";
@@ -80,9 +80,14 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
     // 저하 ① — 시도할 공급자가 모두 오늘 상한(Workers AI는 설명 배치 중 0)
     if (e instanceof ProvidersExhausted) return budgetRefusal();
     if (e instanceof ProviderError) {
-      // 저하 ② — 시도한 공급자가 모두 실패(상태·메시지만 남긴다, 키·본문 없음)
+      // 저하 ② — 시도한 공급자가 모두 실패(상태·메시지만 로그, 키·본문 없음). v0.1.34: answer_log 거부 행 PROVIDER_ERROR(마지막 시도) +
+      // 공개 분포 stat:refuse:provider_error + 시도마다 stat:err:<공급자>:<종류>(D1로 진단). 질문 예산은 이미 1 차감(되돌리지 않는다)
       console.warn(`[ask] provider error ${e.status}: ${e.message}`);
-      return problem(c, 503, "INTERNAL_ERROR");
+      const attempts = e instanceof ProvidersFailed ? e.attempts : [];
+      const last = attempts.at(-1);
+      const b = await refuseWithoutLlm(deps, q, c.env, question, "PROVIDER_ERROR", last && { provider: last.provider, model: last.model, fallbackDepth: last.depth });
+      await Promise.all([countStat(c.env.DB, "refuse:PROVIDER_ERROR", day), ...attempts.map((a) => countStat(c.env.DB, `err:${a.provider}:${a.kind}`, day))]);
+      return problem(c, 503, "PROVIDER_ERROR", {}, { answerId: b.answerId, budget: await left() });
     }
     throw e;
   }

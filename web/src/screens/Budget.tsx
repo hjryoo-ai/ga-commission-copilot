@@ -15,6 +15,7 @@ const REFUSE_LABEL: Record<string, string> = {
   OTHER_AGENT: "다른 설계사",
   NEEDS_ENGINE: "엔진 계산 필요",
   BUDGET: "예산 소진",
+  PROVIDER_ERROR: "공급자 실패(503)",
 };
 
 const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n * 1000) / d) / 10}%` : "—");

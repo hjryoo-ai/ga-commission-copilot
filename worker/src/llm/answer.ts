@@ -9,7 +9,9 @@ import { InvalidToolCall, parseToolCall, runTool, serialize, type ToolResult } f
 import { activePrompt, render } from "./promptRegistry";
 import type { Provider } from "./providers";
 
-export const REFUSE_REASONS = ["OUT_OF_SCOPE", "NOT_GROUNDED", "OTHER_AGENT", "NEEDS_ENGINE", "BUDGET"] as const;
+/** 설계서 §4.4. BUDGET·PROVIDER_ERROR(v0.1.34)는 서버만 쓴다 — 모델 출력에서는 받지 않는다. */
+export const REFUSE_REASONS = ["OUT_OF_SCOPE", "NOT_GROUNDED", "OTHER_AGENT", "NEEDS_ENGINE", "BUDGET", "PROVIDER_ERROR"] as const;
+const SERVER_ONLY_REASONS: readonly string[] = ["BUDGET", "PROVIDER_ERROR"];
 export type RefuseReason = (typeof REFUSE_REASONS)[number];
 
 /** 거부 사유별 사용자 문구(설계서 §4.4 — 고정). */
@@ -19,6 +21,7 @@ export const REFUSAL_TEXT: Readonly<Record<RefuseReason, string>> = {
   OTHER_AGENT: "본인 데이터만 조회할 수 있습니다.",
   NEEDS_ENGINE: "이 질문은 정산 엔진의 시뮬레이션이 필요합니다. 데모에서는 준비된 계약만 지원합니다.",
   BUDGET: "오늘의 질문 예산이 소진되었습니다. 사전 생성된 설명은 계속 볼 수 있습니다.",
+  PROVIDER_ERROR: "지금은 답변을 만들지 못했습니다. 잠시 후 다시 시도해 주세요. 사전 생성된 설명은 계속 볼 수 있습니다.",
 };
 
 export const EMBED_MODEL = "@cf/baai/bge-m3";
@@ -38,7 +41,7 @@ export interface Citation {
 /** LLM 출력(contracts/answer/v1/answer.schema.json). */
 export interface AnswerOutput {
   refused: boolean;
-  reason: Exclude<RefuseReason, "BUDGET"> | null;
+  reason: Exclude<RefuseReason, "BUDGET" | "PROVIDER_ERROR"> | null;
   text: string;
   numbersUsed: string[];
   citations: Citation[];
@@ -119,7 +122,7 @@ export function shapeProblems(o: unknown): string[] {
   const v = o as Record<string, unknown>;
   const out: string[] = [];
   if (typeof v.refused !== "boolean") out.push("refused");
-  if (!(v.reason === null || (isStr(v.reason) && (REFUSE_REASONS as readonly string[]).includes(v.reason) && v.reason !== "BUDGET"))) out.push("reason");
+  if (!(v.reason === null || (isStr(v.reason) && (REFUSE_REASONS as readonly string[]).includes(v.reason) && !SERVER_ONLY_REASONS.includes(v.reason)))) out.push("reason");
   if (!isStr(v.text) || v.text.length > 800) out.push("text");
   if (!Array.isArray(v.numbersUsed) || !v.numbersUsed.every(isStr)) out.push("numbersUsed");
   const cites = v.citations;
@@ -411,8 +414,18 @@ async function logAnswer(deps: Pick<AnswerDeps, "now">, q: ScopedQuery, question
   });
 }
 
-/** LLM을 부르지 않는 거부(예산 소진 BUDGET — §4.4·§6.2). 고정 문구, provider·model "none", answer_log에 남긴다. */
-export async function refuseWithoutLlm(deps: Pick<AnswerDeps, "now" | "newId">, q: ScopedQuery, env: { PROMPT_VERSIONS?: string }, question: string, reason: RefuseReason): Promise<AnswerResult> {
+/**
+ * 모델 답 없이 끝난 거부(§4.4·§6.2) — 고정 문구로 answer_log에 남긴다. 예산 소진 BUDGET은 provider·model "none",
+ * 공급자 실패 PROVIDER_ERROR(v0.1.34)는 마지막으로 시도한 공급자·모델·체인 순번(from).
+ */
+export async function refuseWithoutLlm(
+  deps: Pick<AnswerDeps, "now" | "newId">,
+  q: ScopedQuery,
+  env: { PROMPT_VERSIONS?: string },
+  question: string,
+  reason: "BUDGET" | "PROVIDER_ERROR",
+  from?: { provider: string; model: string; fallbackDepth: number },
+): Promise<AnswerResult> {
   const qText = normalizeText(question).slice(0, QUESTION_MAX);
   const prompt = activePrompt(env, "answer");
   const r: AnswerResult = {
@@ -423,8 +436,8 @@ export async function refuseWithoutLlm(deps: Pick<AnswerDeps, "now" | "newId">, 
     numbersUsed: [],
     citations: [],
     promptVersion: `${prompt.name}/${prompt.version}`,
-    provider: "none",
-    model: "none",
+    provider: from?.provider ?? "none",
+    model: from?.model ?? "none",
     groundingStatus: "NONE",
     retrievedChunks: [],
     toolCalls: [],
@@ -432,7 +445,7 @@ export async function refuseWithoutLlm(deps: Pick<AnswerDeps, "now" | "newId">, 
     grounding: NO_VIOLATIONS,
     latencyMs: 0,
     rulesUnavailable: false,
-    fallbackDepth: 0,
+    fallbackDepth: from?.fallbackDepth ?? 0,
   };
   await logAnswer(deps, q, qText, r);
   return r;

@@ -462,7 +462,7 @@ async function main(): Promise<void> {
   const arg = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
   const mode = args.includes("--stub") ? "stub" : args.includes("--record") ? "record" : args.includes("--batch") ? "batch" : args.includes("--regenerate") ? "regenerate" : null;
   if (!mode) {
-    console.error("usage: explain -- --stub|--record|--batch|--regenerate <label,…> [--stream <sha256>] [--limit N] [--prompt-version vN] [--provider groq|workers-ai] [--model <id>]");
+    console.error("usage: explain -- --stub|--record|--batch|--regenerate <label,…> [--tries 1~3] [--stream <sha256>] [--limit N] [--prompt-version vN] [--provider groq|workers-ai] [--model <id>]");
     process.exit(2);
   }
   const pv = arg("--prompt-version");
@@ -484,7 +484,9 @@ async function main(): Promise<void> {
   else if (mode === "regenerate") {
     const labels = (arg("--regenerate") ?? "").split(",").filter(Boolean);
     if (!labels.length) throw new Error("--regenerate <explain:KIND:agent:subject>[,…]");
-    report = await runRegenerate(hash, byAgent, all, new ExplanationStore(DATA_EXPLAIN, hash), labels, eventCodes(promptVersionOf("LINE").split("/")[1]!));
+    const tries = Number(arg("--tries") ?? 3);
+    if (!Number.isSafeInteger(tries) || tries < 1 || tries > 3) throw new Error(`--tries ${arg("--tries")}: 1~3`);
+    report = await runRegenerate(hash, byAgent, all, new ExplanationStore(DATA_EXPLAIN, hash), labels, eventCodes(promptVersionOf("LINE").split("/")[1]!), tries);
   } else report = await runBatch(hash, byAgent, all, new ExplanationStore(DATA_EXPLAIN, hash), limit);
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, `explain.${mode}${canonical ? "" : `.${cassette.name}`}.report.json`), `${JSON.stringify(report, null, 2)}\n`);

@@ -74,6 +74,7 @@ export const REFUSE_LABEL: Record<RefuseReason, string> = {
   OTHER_AGENT: "다른 설계사 정보",
   NEEDS_ENGINE: "엔진 계산이 필요한 질문",
   BUDGET: "오늘 질문 예산 소진",
+  PROVIDER_ERROR: "공급자 일시 장애",
 };
 
 /** 검증 상태(답변·재현) — PASS만 "검증 통과". NONE은 거부라 검증 대상 본문이 없다. */

@@ -5,6 +5,7 @@ import { secondsToUtcMidnight } from "../src/api/ask";
 import worker from "../src/index";
 import { budgetCaps, rateScope, userScope } from "../src/llm/budget";
 import { hash16, REFUSAL_TEXT } from "../src/llm/answer";
+import { WORKERS_AI_MODEL } from "../src/llm/providers";
 import { validate } from "./contract";
 import { HASH, login, seed } from "./fixture";
 
@@ -105,6 +106,45 @@ describe("POST /api/v1/me/ask", () => {
     expect(validate("Problem", body)).toEqual([]);
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM answer_log").first("n")).toBe(0);
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope NOT LIKE 'rl:%'").first("n")).toBe(0);
+  });
+
+  it("저하 ②(설계서 v0.1.34): Groq 429 → Workers AI 실패면 503 PROVIDER_ERROR + answerId·budget, answer_log 거부 행(마지막 시도), stat:refuse·stat:err", async () => {
+    const one = await login(app, 1);
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (!url.startsWith("https://api.groq.com/")) throw new Error(`예상 밖 외부 호출 ${url}`);
+      return new Response(JSON.stringify({ error: { message: "rate limit" } }), { status: 429, headers: { "content-type": "application/json", "retry-after": "7" } });
+    });
+    // 임베딩은 4006(저하 ③ — 규정 없이 계속), Workers AI 답은 입력 검증 오류(5006) — 게이트웨이 경유 실패도 같은 오류
+    const fakeAi = {
+      run: async (model: string) => Promise.reject(new Error(model === WORKERS_AI_MODEL ? "5006: Error: oneOf at '/' not met (test)" : "4006: neurons (test)")),
+      gateway: () => ({ run: async () => Promise.reject(new Error("AiGateway (test)")) }),
+    };
+    const res = await worker.fetch(
+      new Request("https://example.com/api/v1/me/ask", { method: "POST", headers: { "Content-Type": "application/json", Cookie: one }, body: JSON.stringify({ question: "8월 실수령은 얼마예요?" }) }),
+      { ...env, AI: fakeAi } as unknown as Env,
+      createExecutionContext(),
+    );
+    vi.restoreAllMocks();
+    expect([res.status, res.headers.get("Content-Type")]).toEqual([503, "application/problem+json"]);
+    const b = (await res.json()) as { code: string; answerId: string; budget: { remainingToday: number; userRemaining: number } };
+    expect(validate("Problem", b)).toEqual([]);
+    expect([b.code, b.budget]).toEqual(["PROVIDER_ERROR", { remainingToday: budgetCaps(env).global - 1, userRemaining: budgetCaps(env).user - 1 }]);
+    const row = await env.DB.prepare("SELECT provider, model, fallback_depth, refused, refuse_reason, grounding_status, answer FROM answer_log WHERE answer_id = ?").bind(b.answerId).first();
+    expect(row).toEqual({ provider: "workers-ai", model: WORKERS_AI_MODEL, fallback_depth: 1, refused: 1, refuse_reason: "PROVIDER_ERROR", grounding_status: "NONE", answer: REFUSAL_TEXT.PROVIDER_ERROR });
+    const stats = await env.DB.prepare("SELECT scope, used FROM budget_counter WHERE scope LIKE 'stat:%' ORDER BY scope").all();
+    expect(stats.results).toEqual([
+      { scope: "stat:err:groq:rate_limit", used: 1 },
+      { scope: "stat:err:workers-ai:ai_5006", used: 1 },
+      { scope: "stat:refuse:provider_error", used: 1 },
+    ]);
+    // 재현(/answers/{id})으로 거부 행을 본다 — 같은 세션만
+    const d = await app.fetch(new Request(`https://example.com/api/v1/answers/${b.answerId}`, { headers: { Cookie: one } }));
+    expect(d.status).toBe(200);
+    expect(((await d.json()) as { reason: string; fallbackDepth: number })).toMatchObject({ reason: "PROVIDER_ERROR", fallbackDepth: 1 });
+    // 같은 질문을 다시 물어도 재사용하지 않는다(PROVIDER_ERROR는 재사용 대상 밖)
+    const { results } = await env.DB.prepare("SELECT cache_hit FROM answer_log").all();
+    expect(results).toEqual([{ cache_hit: 0 }]);
   });
 
   it("저하 ①: 전역 예산(min(BUDGET_GLOBAL, floor(공급자 호출 합 ÷ 2)) — floor(150/2) = 75)에 닿아도 429 BUDGET", async () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  failureKind,
   fallbackChain,
   groq,
   openrouter,
@@ -7,6 +8,7 @@ import {
   ProviderError,
   type ProviderName,
   ProvidersExhausted,
+  ProvidersFailed,
   type StructuredRequest,
   WORKERS_AI_MODEL,
   workersAi,
@@ -68,6 +70,39 @@ describe("폴백 체인", () => {
     const { reserve, seen } = allow();
     await expect(fallbackChain([g, w, o], reserve).structured(REQ)).rejects.toMatchObject({ status: 502 });
     expect([o.calls, seen]).toEqual([0, ["groq", "workers-ai"]]);
+  });
+
+  it("v0.1.34: 모두 실패하면 ProvidersFailed — 시도마다 공급자·순번·모델·종류(키·본문 없이), 400도 시도 목록과 함께", async () => {
+    const [g, w, o] = [stub("groq", new ProviderError("groq 429", 429, 30)), stub("workers-ai", new ProviderError("workers-ai: 8000ms 타임아웃", 0)), stub("openrouter", { a: 3 })];
+    const e = (await fallbackChain([g, w, o], allow().reserve).structured(REQ).catch((x: unknown) => x)) as ProvidersFailed;
+    expect(e).toBeInstanceOf(ProvidersFailed);
+    expect([e.status, e.attempts]).toEqual([
+      0,
+      [
+        { provider: "groq", depth: 0, model: "openai/gpt-oss-120b", kind: "rate_limit" },
+        { provider: "workers-ai", depth: 1, model: WORKERS_AI_MODEL, kind: "timeout" },
+      ],
+    ]);
+    const bad = (await fallbackChain([stub("openrouter", new ProviderError("openrouter 400", 400))], allow().reserve).structured(REQ).catch((x: unknown) => x)) as ProvidersFailed;
+    expect([bad.status, bad.attempts]).toEqual([400, [{ provider: "openrouter", depth: 0, model: "openrouter/free", kind: "other" }]]);
+  });
+
+  it("failureKind: 상태·메시지 → 종류(Workers AI 4자리 코드는 ai_<코드>)", () => {
+    const kinds = (
+      [
+        ["groq 429", 429],
+        ["groq: 8000ms 타임아웃", 0],
+        ["groq: 네트워크 오류", 0],
+        ["workers-ai: 빈 응답", 502],
+        ["openrouter: JSON 아님", 502],
+        ["workers-ai: 알 수 없는 응답 모양", 502],
+        ["workers-ai: AiGatewayError: bad", 502],
+        ["workers-ai: 5006: Error: oneOf at '/' not met", 502],
+        ["openrouter 503", 503],
+        ["groq 400", 400],
+      ] as const
+    ).map(([m, s]) => failureKind(new ProviderError(m, s)));
+    expect(kinds).toEqual(["rate_limit", "timeout", "other", "empty", "not_json", "shape", "gateway", "ai_5006", "upstream", "other"]);
   });
 
   it("시도할 공급자가 없으면 ProvidersExhausted(저하 ①), 400 같은 요청 오류는 폴백하지 않고 그대로", async () => {

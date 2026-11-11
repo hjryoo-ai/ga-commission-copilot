@@ -139,7 +139,7 @@ export async function userUsed(db: D1Database, user: string, day: string): Promi
  * 답변 통계 카운터(설계서 v0.1.28 — 공개 /budget의 폴백 깊이·거부 사유·캐시·저하 분포). answer_log를 설계사 경계 없이 모으지 않도록(규약 3)
  * budget_counter(전역 운영 표)에 `stat:<이름>` 범위로 센다 — 같은 단일 UPDATE, 상한은 사실상 없음.
  */
-export type StatName = `depth:${0 | 1 | 2}` | `refuse:${string}` | "cache:hit" | "cache:miss" | "degraded:rules";
+export type StatName = `depth:${0 | 1 | 2}` | `refuse:${string}` | `err:${string}:${string}` | "cache:hit" | "cache:miss" | "degraded:rules";
 const STAT_CAP = 1_000_000_000;
 export async function countStat(db: D1Database, name: StatName, day: string): Promise<void> {
   // scope 형식은 소문자([a-z0-9:_-]) — 거부 코드(BUDGET 등)는 소문자로 저장하고 보고서에서 되돌린다

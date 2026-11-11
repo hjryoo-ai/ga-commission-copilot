@@ -1,9 +1,10 @@
 // 화면 4 자유 질문(설계서 §8-4, PHASES Phase 4 항목 5): 입력창 + 예시 질문 칩 6개 · 답변 카드(본문·인용·툴 호출 펼침·공급자·모델·지연·재현 링크)
 // · 거부 카드(사유별 고정 문구 — 서버 text 그대로 + 대안 동선) · 예산 소진(429 BUDGET)이면 입력창 비활성 + 남은 시간.
 // · 사람 확인(설계서 v0.1.29 — /me turnstile.required이고 아직 아니면 위젯, 끝나기 전 입력창 비활성) · 분당 한도(429 RATE_LIMITED)는 그 질문에 남은 초.
+// · 질문 기록(설계서 v0.1.34): 이 탭의 sessionStorage에 최근 20건 — 재현 화면에 갔다 돌아와도 남는다. 다른 설계사면 비운다. 저장소가 막히면 메모리에만.
 // 화면은 답의 숫자를 계산·대조하지 않는다(검증은 서버 G4~G6). LLM 본문은 큰 숫자 자리에 두지 않는다.
-import { type FormEvent, useCallback, useState } from "react";
-import { api, type AskBudget, type AskResult, HumanCheckRequired, type MeTurnstile, questionsLeft, RateLimited, Unauthenticated, withAskBudget } from "../api";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { api, type AskBudget, type AskResult, HumanCheckRequired, type MeTurnstile, questionsLeft, RateLimited, Unauthenticated, Unavailable, withAskBudget } from "../api";
 import { DISCLAIMER } from "../disclaimer";
 import { EXAMPLE_QUESTIONS } from "../examples";
 import { waitText } from "../format";
@@ -117,12 +118,47 @@ export function humanCheckNeeded(t: MeTurnstile | undefined, human: boolean | nu
   return Boolean(t?.required && t.siteKey) && !(human ?? t?.verified);
 }
 
-type Exchange = { question: string } & ({ state: "pending" } | { state: "ok"; r: AskResult } | { state: "error" } | { state: "rate"; seconds: number } | { state: "human" });
+export type Exchange = { question: string } & ({ state: "pending" } | { state: "ok"; r: AskResult } | { state: "error"; answerId?: string } | { state: "rate"; seconds: number } | { state: "human" });
+
+export const LOG_KEY = "copilot.askLog";
+export const LOG_MAX = 20;
+
+/** 이 탭에 남긴 질문 기록 — 같은 설계사의 것만. 답하는 중이던 항목은 남기지 않는다. 저장소 접근·형식 오류는 빈 기록. */
+export function loadLog(agentId: string, store: Pick<Storage, "getItem"> | undefined = globalThis.sessionStorage): Exchange[] {
+  try {
+    const raw = store?.getItem(LOG_KEY);
+    if (!raw) return [];
+    const s = JSON.parse(raw) as { agentId?: unknown; items?: unknown };
+    if (s.agentId !== agentId || !Array.isArray(s.items)) return [];
+    return (s.items as Exchange[]).filter((x) => x && typeof x.question === "string" && x.state !== "pending").slice(0, LOG_MAX);
+  } catch {
+    return [];
+  }
+}
+
+export function saveLog(agentId: string, items: readonly Exchange[], store: Pick<Storage, "setItem"> | undefined = globalThis.sessionStorage): void {
+  try {
+    store?.setItem(LOG_KEY, JSON.stringify({ agentId, items: items.filter((x) => x.state !== "pending").slice(0, LOG_MAX) }));
+  } catch {
+    // 사생활 보호 모드·용량 초과 — 메모리 기록만 쓴다
+  }
+}
 
 export function Ask() {
   const me = useLoad(() => api.me(), []);
   const [question, setQuestion] = useState("");
   const [log, setLog] = useState<Exchange[]>([]);
+  const agentId = me.state === "ok" ? me.data.agentId : null;
+  // 설계사를 알게 되면 이 탭의 기록을 되살린다(이미 새로 물은 게 있으면 그대로), 그 뒤로는 바뀔 때마다 남긴다
+  const [restored, setRestored] = useState<string | null>(null);
+  useEffect(() => {
+    if (!agentId || restored === agentId) return;
+    setLog((l) => (l.length ? l : loadLog(agentId)));
+    setRestored(agentId);
+  }, [agentId, restored]);
+  useEffect(() => {
+    if (agentId && restored === agentId) saveLog(agentId, log);
+  }, [agentId, restored, log]);
   const [budgetOut, setBudgetOut] = useState<number | null>(null);
   // 최근 /ask 응답의 남은 질문(200·429 BUDGET·RATE_LIMITED — 설계서 v0.1.33): 칩과 입력창 비활성 판정이 이 값을 쓴다
   const [latest, setLatest] = useState<AskBudget | undefined>(undefined);
@@ -161,7 +197,11 @@ export function Ask() {
         setQuestion(text);
         return done({ question: text, state: "human" });
       }
-      // 공급자 실패(503 Unavailable)·그 밖의 오류 — 둘 다 "잠시 후 다시"
+      // 공급자 실패(503 PROVIDER_ERROR — answerId·budget, 설계서 v0.1.34)·그 밖의 오류 — 둘 다 "잠시 후 다시"
+      if (e instanceof Unavailable) {
+        if (e.budget) setLatest(e.budget);
+        return done({ question: text, state: "error", ...(e.answerId ? { answerId: e.answerId } : {}) });
+      }
       done({ question: text, state: "error" });
     }
   }
@@ -203,7 +243,17 @@ export function Ask() {
           <div key={log.length - i} className="exchange">
             <p className="question">Q. {x.question}</p>
             {x.state === "pending" && <p className="muted">답하는 중…</p>}
-            {x.state === "error" && <p className="muted">잠시 후 다시 시도하세요</p>}
+            {x.state === "error" && (
+              <p className="muted" data-testid="ask-error">
+                지금은 답변을 만들지 못했습니다 — 잠시 후 다시 시도하세요
+                {x.answerId && (
+                  <>
+                    {" · "}
+                    <Link to={paths.answer(x.answerId)}>기록 보기</Link>
+                  </>
+                )}
+              </p>
+            )}
             {x.state === "rate" && <p className="muted">질문이 잦습니다 — {x.seconds}초 뒤 다시 질문하세요.</p>}
             {x.state === "human" && <p className="muted">사람 확인이 만료되었거나 네트워크가 바뀌었습니다 — 위에서 다시 확인한 뒤 질문하세요(질문은 입력창에 남겨 두었습니다).</p>}
             {x.state === "ok" && <AnswerCard r={x.r} />}

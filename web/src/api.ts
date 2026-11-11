@@ -182,8 +182,8 @@ export interface LimitDetail extends Common {
   explanation: Explanation | null;
 }
 
-/** 거부 사유 5종(설계서 §4.4) — 화면은 사유별 고정 문구(서버 text)와 대안 동선만. */
-export type RefuseReason = "OUT_OF_SCOPE" | "NOT_GROUNDED" | "OTHER_AGENT" | "NEEDS_ENGINE" | "BUDGET";
+/** 거부 사유(설계서 §4.4 — v0.1.34 PROVIDER_ERROR 추가: 503 공급자 실패의 answer_log 행, 화면 7에서 본다) — 화면은 사유별 고정 문구(서버 text)와 대안 동선만. */
+export type RefuseReason = "OUT_OF_SCOPE" | "NOT_GROUNDED" | "OTHER_AGENT" | "NEEDS_ENGINE" | "BUDGET" | "PROVIDER_ERROR";
 
 /** 답변 인용: 툴 필드(tool·field) 또는 사규 조항(article·chunkId). 다른 쪽 칸은 빈 문자열. */
 export interface Citation {
@@ -267,7 +267,15 @@ export interface BudgetReport {
 }
 
 /** 공급자 실패(503) — 화면은 "잠시 후 다시". */
-export class Unavailable extends Error {}
+/** 503 — 공급자 실패(PROVIDER_ERROR, 설계서 v0.1.34: answerId로 거부 행을 재현 화면에서 본다, budget은 이미 1 줄어든 값) 또는 그 밖의 일시 장애. */
+export class Unavailable extends Error {
+  constructor(
+    readonly answerId?: string,
+    readonly budget?: AskBudget,
+  ) {
+    super("UNAVAILABLE");
+  }
+}
 
 /** 사람 확인 쿠키가 없거나 만료(403 TURNSTILE_REQUIRED) — 화면은 위젯을 다시 그린다. */
 export class HumanCheckRequired extends Error {}
@@ -313,7 +321,10 @@ export const api = {
     const res = await fetch("/api/v1/me/ask", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
     if (res.status === 401) throw new Unauthenticated();
     if (res.status === 403) throw new HumanCheckRequired();
-    if (res.status === 503) throw new Unavailable();
+    if (res.status === 503) {
+      const p = (await res.json().catch(() => ({}))) as { answerId?: unknown; budget?: AskBudget };
+      throw new Unavailable(typeof p.answerId === "string" ? p.answerId : undefined, p.budget);
+    }
     if (res.status === 429 && (res.headers.get("Content-Type") ?? "").startsWith("application/problem+json")) {
       const p = (await res.json().catch(() => ({}))) as { budget?: AskBudget };
       throw new RateLimited(Number(res.headers.get("Retry-After")) || 60, p.budget);

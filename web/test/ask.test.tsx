@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { type AnswerReplay, type AskResult, api, HumanCheckRequired, type Me, RateLimited, withAskBudget } from "../src/api";
+import { type AnswerReplay, type AskResult, api, HumanCheckRequired, type Me, RateLimited, Unavailable, withAskBudget } from "../src/api";
 import { App } from "../src/App";
 import { EXAMPLE_QUESTIONS } from "../src/examples";
 import { waitText } from "../src/format";
 import { match } from "../src/router";
 import { Chips } from "../src/ui";
-import { AnswerCard, humanCheckNeeded } from "../src/screens/Ask";
+import { AnswerCard, type Exchange, humanCheckNeeded, LOG_KEY, LOG_MAX, loadLog, saveLog } from "../src/screens/Ask";
 import { HumanCheck, TURNSTILE_SCRIPT } from "../src/screens/HumanCheck";
 import { promptHref, ReplayTimeline } from "../src/screens/AnswerReplay";
 
@@ -232,5 +232,51 @@ describe("상단 칩 — /ask 응답의 남은 질문으로(설계서 v0.1.33, /
     expect([e.retryAfterSeconds, e.budget]).toEqual([20, { remainingToday: 31, userRemaining: 7 }]);
     expect(chip(e.budget)).toBe("오늘 남은 질문 7회");
     vi.unstubAllGlobals();
+  });
+
+  it("api.ask 503 PROVIDER_ERROR(설계서 v0.1.34) → Unavailable(answerId·budget), 본문 없는 503도 Unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: "PROVIDER_ERROR", message: "m", answerId: ID, budget: { remainingToday: 70, userRemaining: 8 } }), { status: 503, headers: { "Content-Type": "application/problem+json" } })));
+    const e = (await api.ask("q").catch((x: unknown) => x)) as Unavailable;
+    expect(e).toBeInstanceOf(Unavailable);
+    expect([e.answerId, e.budget]).toEqual([ID, { remainingToday: 70, userRemaining: 8 }]);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
+    const bare = (await api.ask("q").catch((x: unknown) => x)) as Unavailable;
+    expect([bare instanceof Unavailable, bare.answerId]).toEqual([true, undefined]);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("질문 기록 sessionStorage(설계서 v0.1.34)", () => {
+  const mem = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), m };
+  };
+  const ok = (question: string): Exchange => ({ question, state: "ok", r: pass });
+
+  it("같은 설계사면 되살리고(답하는 중 항목 빼고, 최근 20건), 다른 설계사·깨진 값은 빈 기록", () => {
+    const st = mem();
+    const items: Exchange[] = [{ question: "대기", state: "pending" }, { question: "실패", state: "error", answerId: ID }, ...Array.from({ length: 25 }, (_, i) => ok(`q${i}`))];
+    saveLog("A-1001", items, st);
+    const back = loadLog("A-1001", st);
+    expect(back).toHaveLength(LOG_MAX);
+    expect(back[0]).toEqual({ question: "실패", state: "error", answerId: ID });
+    expect(back.some((x) => x.state === "pending")).toBe(false);
+    expect(loadLog("A-1002", st)).toEqual([]);
+    st.m.set(LOG_KEY, "{not json");
+    expect(loadLog("A-1001", st)).toEqual([]);
+  });
+
+  it("저장소가 막히면(사생활 보호 모드 등 — 접근이 던진다) 조용히 빈 기록·저장 생략", () => {
+    const blocked = {
+      getItem: () => {
+        throw new DOMException("denied", "SecurityError");
+      },
+      setItem: () => {
+        throw new DOMException("quota", "QuotaExceededError");
+      },
+    };
+    expect(loadLog("A-1001", blocked)).toEqual([]);
+    expect(() => saveLog("A-1001", [ok("q")], blocked)).not.toThrow();
+    expect(loadLog("A-1001", undefined)).toEqual([]);
   });
 });

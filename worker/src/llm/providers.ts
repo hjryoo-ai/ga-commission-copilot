@@ -215,6 +215,44 @@ export class ProvidersExhausted extends Error {}
 export const isFallbackable = (e: ProviderError) => e.status === 0 || e.status === 429 || e.status >= 500;
 
 /**
+ * 실패 종류(설계서 v0.1.34 §6.2 저하 ② — stat:err:<공급자>:<종류>). 키·본문·메시지는 남기지 않고 종류만.
+ * Workers AI 바인딩 오류에 4자리 코드(5006 입력 검증 등)가 있으면 ai_<코드> — Workers Logs 없이 D1로 원인을 가른다.
+ */
+export function failureKind(e: ProviderError): string {
+  const m = e.message;
+  if (e.status === 429) return "rate_limit";
+  if (/타임아웃/.test(m)) return "timeout";
+  if (/빈 응답/.test(m)) return "empty";
+  if (/JSON 아님/.test(m)) return "not_json";
+  if (/응답 모양/.test(m)) return "shape";
+  if (/gateway/i.test(m)) return "gateway";
+  const code = m.match(/^workers-ai: .*?\b([0-9]{4})\b/)?.[1];
+  if (code) return `ai_${code}`;
+  if (e.status >= 500) return "upstream";
+  return "other";
+}
+
+/** 체인 안 한 번의 시도(실패) — 공급자·체인 순번·모델·종류. */
+export interface FailedAttempt {
+  provider: ProviderName;
+  depth: number;
+  model: string;
+  kind: string;
+}
+
+/** 시도한 공급자가 모두 실패(저하 ②) — 마지막 오류의 status·message에 시도 목록을 붙인다. ask.ts가 PROVIDER_ERROR 행을 남긴다. */
+export class ProvidersFailed extends ProviderError {
+  constructor(
+    last: ProviderError,
+    readonly attempts: readonly FailedAttempt[],
+  ) {
+    super(last.message, last.status, last.retryAfterS);
+  }
+}
+
+const modelOf = (name: ProviderName, reqModel: string) => (name === "workers-ai" ? WORKERS_AI_MODEL : name === "openrouter" ? OPENROUTER_MODEL : reqModel);
+
+/**
  * 설계서 v0.1.27 §6.2 폴백 체인: 순서대로, reserve(공급자 예산 1 차감)가 거절하면 시도에 넣지 않고 건너뛴다.
  * 실제 시도는 최대 maxAttempts(2)개 — 실패 요청도 공급자 RPD를 쓰므로. 답한 공급자의 체인 순번을 fallbackDepth로.
  */
@@ -222,22 +260,24 @@ export function fallbackChain(providers: readonly Provider[], reserve: (name: Pr
   return {
     name: providers[0]!.name,
     async structured(req) {
-      let attempts = 0;
+      const failed: FailedAttempt[] = [];
       let last: ProviderError | null = null;
       for (const [i, p] of providers.entries()) {
-        if (attempts >= maxAttempts) break;
+        if (failed.length >= maxAttempts) break;
         if (!(await reserve(p.name))) continue;
-        attempts++;
         try {
           return { ...(await p.structured(req)), fallbackDepth: i };
         } catch (e) {
-          if (!(e instanceof ProviderError) || !isFallbackable(e)) throw e;
-          console.warn(`[fallback] ${p.name} ${e.status}: ${e.message}`);
+          if (!(e instanceof ProviderError)) throw e;
+          failed.push({ provider: p.name, depth: i, model: modelOf(p.name, req.model), kind: failureKind(e) });
+          console.warn(`[fallback] ${p.name} ${e.status} ${failureKind(e)}: ${e.message}`);
+          // 4xx(요청 문제)는 다음 공급자로 넘기지 않는다 — 그래도 행은 남기게 시도 목록과 함께
+          if (!isFallbackable(e)) throw new ProvidersFailed(e, failed);
           last = e;
         }
       }
-      if (attempts === 0) throw new ProvidersExhausted("시도할 공급자 없음 — 모두 오늘 상한");
-      throw last!;
+      if (failed.length === 0) throw new ProvidersExhausted("시도할 공급자 없음 — 모두 오늘 상한");
+      throw new ProvidersFailed(last!, failed);
     },
   };
 }

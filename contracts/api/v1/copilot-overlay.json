@@ -42,7 +42,7 @@
         "code",
         "message"
       ],
-      "description": "상위 Problem + 덧씌우기(설계서 v0.1.29 TURNSTILE_REQUIRED, v0.1.33 RATE_LIMITED의 budget). 공통 거부(401·404·400)는 여전히 code·message뿐",
+      "description": "상위 Problem + 덧씌우기(설계서 v0.1.29 TURNSTILE_REQUIRED, v0.1.33 RATE_LIMITED의 budget, v0.1.34 PROVIDER_ERROR(503)의 answerId·budget). 공통 거부(401·404·400)는 여전히 code·message뿐",
       "properties": {
         "code": {
           "type": "string",
@@ -57,7 +57,8 @@
             "RATE_LIMITED",
             "ENGINE_CONTRACT",
             "ENGINE_UNAVAILABLE",
-            "TURNSTILE_REQUIRED"
+            "TURNSTILE_REQUIRED",
+            "PROVIDER_ERROR"
           ]
         },
         "message": {
@@ -66,6 +67,10 @@
         },
         "budget": {
           "$ref": "#/components/schemas/AskBudget"
+        },
+        "answerId": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }

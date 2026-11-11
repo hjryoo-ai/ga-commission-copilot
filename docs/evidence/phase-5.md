@@ -3,7 +3,7 @@
 - 수행일: 2026-11-06(UTC) — 시작(운영자 지시: Phase 4 수용 뒤 PHASES Phase 5 항목 1~7, 폴백 체인 Groq → Workers AI gpt-oss-120b → OpenRouter)
 - 기준 문서: 설계서 v0.1.33 §6.2·§6.4·§7 저하 모드·레이트 리밋·§9 남용 방지·§10.1·§10.2·§10.4, PHASES.md Phase 5
 - 도구 버전: node 25.5.0(CI 24), pnpm 10.28.2, wrangler 4.153.0, vitest 4.1.12
-- 상태: **항목 1~6 구현(LLM 호출 없음 — 시험은 가짜 공급자·가짜 게이트웨이·가짜 Siteverify·로컬 D1)** + 레이트 리밋(WAF 대체). 원격 반영(푸시·배포)은 운영자. 완료 기준의 실호출(Groq 429 유도 → Workers AI 폴백 캡처, 구조화 출력 모양 기록)은 폴백 상한을 여는 배포 뒤 — 설명 배치가 2026-11-09에 591/591로 끝나 `BUDGET_WORKERS_AI` 80 커밋(푸시·배포는 운영자).
+- 상태(2026-11-11): 완료 기준 1·2·4 끝, 3은 Workers AI 폴백 운영 3/3 실패로 진단 중(설계서 v0.1.34 PROVIDER_ERROR 행·stat:err). 이전 상태: **항목 1~6 구현(LLM 호출 없음 — 시험은 가짜 공급자·가짜 게이트웨이·가짜 Siteverify·로컬 D1)** + 레이트 리밋(WAF 대체). 원격 반영(푸시·배포)은 운영자. 완료 기준의 실호출(Groq 429 유도 → Workers AI 폴백 캡처, 구조화 출력 모양 기록)은 폴백 상한을 여는 배포 뒤 — 설명 배치가 2026-11-09에 591/591로 끝나 `BUDGET_WORKERS_AI` 80 커밋(푸시·배포는 운영자).
 
 ## 완료 기준 대조
 
@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 1 | 테스트 통과 | 진행 — 항목 1~6·레이트 리밋 시험 통과(아래) | `worker/test/budget.test.ts`·`fallback.test.ts`·`ask.test.ts`·`cache.test.ts`·`turnstile.test.ts`·`api.test.ts`, `web/test/budget.test.tsx`·`ask.test.tsx`·`App.test.tsx` |
 | 2 | /budget에 공급자별 사용·폴백 분포 표시 | 구현(로컬 캡처, 값 0) — 원격은 푸시·배포 뒤 | `captures/phase-5-screen6-budget-local.png` |
-| 3 | 실호출로 Groq 429 1회 유도 후 Workers AI 폴백 기록 캡처 | **대기** — 1차(11-08, Workers AI 0): 폴백 OpenRouter 3/3 실패 → 503(아래). 11-09 배치 591/591 확인 → `BUDGET_WORKERS_AI` 80 커밋(전역 질문 75). 푸시·배포 뒤 운영자 2차 유도 → answerId로 기록 | `phase-3.md` 「설명 배치 최종」, `logs/phase-3-explain-batch-2026-11-09.log`(bot/daily-explain) |
+| 3 | 실호출로 Groq 429 1회 유도 후 Workers AI 폴백 기록 캡처 | **대기** — 1차(11-08, Workers AI 0): 폴백 OpenRouter 3/3 실패 → 503. 2차(11-11, Workers AI 80 배포 뒤): Workers AI **3/3 실패** → 503, 받은 id 2개는 groq depth 0(아래 "2차"). 진단용 PROVIDER_ERROR 행·`stat:err`(설계서 v0.1.34) 배포 뒤 3차 | `phase-3.md` 「설명 배치 최종」, `logs/phase-3-explain-batch-2026-11-09.log`(bot/daily-explain) |
 | 4 | 공개 URL에서 사람이 브라우저로 Turnstile 통과 → 자유 질문 1건 답까지 1회 캡처(운영자 2026-11-07 추가) | **통과**(운영자 캡처 2026-11-07) — 아래 "공개 URL 브라우저 캡처" | `captures/phase-5-public-browser-ask.png`·`captures/phase-5-public-budget.png` |
 
 ## 운영자 결정(2026-11-06)
@@ -108,6 +108,18 @@ deploy 79e0596 success — Uploaded ga-commission-copilot · Deployed ga-commiss
 - 공개 `/budget` 11-08: 질문 9/35 · 호출 19/70(groq 16 · workers-ai 0 · openrouter **3**) · 깊이 `{0: 9}` · 캐시 hit 2/miss 9. 차감된 질문 = 9, answer_log의 LLM 행 = 6(재사용 2는 차감 없음) → **3건은 행이 없다** = 저하 ②(시도한 공급자 모두 실패 → 503, answer_log에 남기지 않는 경로). OpenRouter 차감 3 = 그 3건에서 Groq 429 뒤 Workers AI(상한 0)를 건너뛰고 OpenRouter를 시도 → **OpenRouter 3/3 실패**.
 - 판정: 완료 기준 3(Workers AI 폴백)은 이 시험으로 닫지 않는다 — Workers AI 상한 80은 11-09 배치 591 확인 뒤 커밋 예정이었다. 대신 드러난 것: ① OpenRouter 폴백이 동작하지 않는다(원인 미확인 — Workers Logs에만 `[fallback]`·`[gateway]`·`[ask] provider error` 줄), ② 503(저하 ②)은 answer_log 행이 없어 실패한 폴백을 answerId로 가리킬 수 없다, ③ 화면 4에서 답변 재현(화면 7)에 갔다 뒤로 오면 질문 목록이 사라진다(상태가 메모리에만 — 운영자 보고).
 
+## Groq 429 유도 2차(운영자 브라우저 2026-11-11 10:4xZ — 배포 d99b94e, Workers AI 상한 80)
+
+- 받은 answerId 2개는 **둘 다 폴백이 아니다**(원격 answer_log):
+  - `b0cdec94…` A-1002 "8월 시책이 100만 원인데 왜 85만 5천 원만 들어왔나요?" → groq·depth 0·PASS·4,842ms, 툴 `get_statement(202608)`, 본문 "2026년 8월에 지급된 시책 금액은 5,400원이며…" — **뜻이 틀린 답**(부록 A-02 기대: 시책 1,000,000원 중 145,000원 한도 이연 → 855,000원). 숫자 5,400은 툴 결과에 있어 G4는 통과 — Phase 6 오답 유도·관계 오류 케이스로.
+  - `9d4e4f72…` A-1001 "한도로 빠진 14만 5천 원은 언제 받나요?" → groq·depth 0·PASS·3,115ms, 툴 `get_limit(0001)`, 인용 `limitCuts.0.limitCutAmt`·제15조, "지급 시점이 명시되어 있지 않아 확인할 수 없습니다" — 부록 A-03 기대와 맞다.
+- `budget_counter`(원격, 11-11): 질문 `global` **5** · `provider:groq` **8** · `provider:workers-ai` **3** · openrouter 0 · `stat:depth:0` 2 · `stat:cache:miss` 2. answer_log 11-11 행 = 위 2건뿐.
+  → 차감된 질문 5 − 행 2 = **3건은 503(저하 ②, 행 없음)**. 그 3건마다 Workers AI가 1회씩 시도됐고(차감 3) **3/3 실패** — 시도는 질문당 2개라(Groq → Workers AI) OpenRouter는 시도에 들어가지 않았다. Groq 8 = 답한 2건 × 2단계 + 실패 3건의 Groq 시도(429) 3 + 1(실패 3건 중 하나는 1단계 Groq 성공 뒤 2단계에서 Groq 429 → Workers AI 실패로 보인다).
+- 판정: 완료 기준 3은 **아직 닫지 않는다** — Workers AI 폴백이 운영에서 3/3 실패. 원인은 Workers Logs에만 있다(`[fallback] workers-ai …` 줄 — 이 환경에서는 읽을 수 없다: `wrangler`에 로그 조회 명령 없음, `wrangler tail`은 실시간만).
+  - 코드로 본 후보(미확인): (a) 런타임 타임아웃 8초 — 런타임은 AI 바인딩 `run(model, {messages, max_tokens, response_format})`에 추론 강도를 넘기지 않아 모델 기본 "medium"(공식 모델 페이지), 배치는 REST `/ai/v1/chat/completions`에 `reasoning_effort: "low"`로 성공(평균 출력 407토큰·회당 약 4~5초), (b) 추론이 `max_tokens` 1,200을 다 써 본문이 빈 경우(빈 응답 502), (c) 바인딩 입력 검증 오류(5006 등), (d) 응답 모양(`choices`/`response` 밖 — "알 수 없는 응답 모양").
+  - 진단(운영자 결정 2026-11-11 "진단 진행" → 설계서 v0.1.34): 503도 answer_log 거부 행 `PROVIDER_ERROR`(마지막 시도 공급자·모델·순번)와 시도마다 `stat:err:<공급자>:<종류>`(`timeout`·`rate_limit`·`upstream`·`empty`·`not_json`·`shape`·`gateway`·`ai_<코드>`·`other`)를 남긴다 → 배포 뒤 다음 유도에서 503의 answerId와 원격 D1 한 줄로 (a)~(d)를 가른다. 그 뒤 고칠 것을 정한다(추론 강도·타임아웃·입력 모양 — 고치는 커밋은 원인 확인 뒤).
+  - OpenRouter(1차 11-08 3/3 실패)도 같은 `stat:err:openrouter:*`로 본다 — 시도에 들어가려면 Groq·Workers AI 중 하나가 그날 상한이어야 한다(질문당 시도 2개).
+
 ## 시험(LLM 호출 없음)
 
 ```
@@ -133,11 +145,12 @@ pnpm run lint  → 오류 0
 - [x] 공개 URL 브라우저 캡처 1회(완료 기준 4 — 운영자 2026-11-07).
 - [ ] 배포 뒤 확인(계속): 화면 4 위젯 실제 통과(사이트 키의 호스트 이름 목록에 workers.dev 호스트가 있어야 한다)·Cron 등록(`wrangler deploy` 출력의 schedule)·`/budget` 원격 값.
 - [x] 설명 배치 591/591 확인(2026-11-09, run 42575953348 — 생성 35 + 캐시 건너뜀 556, FAIL 0) → `BUDGET_WORKERS_AI` 80 커밋(2026-11-11).
-- [ ] 푸시·배포(운영자) → 완료 기준 3 실호출 캡처(Workers AI 구조화 출력 모양 `choices`/`response` 기록, 게이트웨이 경유 Groq·OpenRouter 첫 실호출 경로 확인 포함).
+- [x] 푸시·배포(운영자 2026-11-11, d99b94e) → 2차 유도(위 "2차" — Workers AI 3/3 실패).
+- [ ] v0.1.34 푸시·배포(운영자) → 3차 유도: 503이면 화면 4의 "기록 보기" answerId(PROVIDER_ERROR 행)를, 답이면 그 answerId를 받아 `stat:err`로 원인 확인 → 수정 → 완료 기준 3 실호출 캡처(Workers AI 구조화 출력 모양 `choices`/`response` 기록, 게이트웨이 경유 Groq·OpenRouter 첫 실호출 경로 확인 포함).
 
 ## 남은 이슈
 
-1. Workers AI 바인딩 structured output의 응답 모양이 공식 문서에 없다 — 두 모양을 받게 했고, 11-08 뒤 첫 폴백에서 확인한다.
+1. Workers AI 바인딩 structured output의 응답 모양이 공식 문서에 없다 — 두 모양을 받게 했고, 첫 성공 폴백에서 확인한다(2차 11-11은 3/3 실패라 아직 — 실패 종류가 `shape`이면 이 항목이 원인).
 2. ~~WAF가 `*.workers.dev`에 걸리는가~~ → Worker 안 레이트 리밋으로 닫음(설계서 v0.1.29). Rate Limiting 바인딩은 Free 포함 여부가 문서에 나오면 다시 본다(D1 쓰기 2문장/질문을 아낄 수 있다).
 3. 질문은 사용자 → 전역 순서로 차감해 전역에서 막히면 이미 센 사용자 1은 돌려주지 않는다(규약 5 — 감소 경로 없음).
 4. ~~배포 뒤 `capture-public.yml`은 `/ask`에서 403~~ → **닫음(운영자 2026-11-07)**: 우회 경로 없이 `capture-local.yml`로 바꿈(CI 안 `wrangler dev --env record` — D1 로컬·Vectorize·AI 원격, Turnstile 없음 — 이름대로 공개 URL 캡처가 아니다). 사람 확인을 요구하는 서버면 스크립트가 묻지 않고 멈춘다(로컬 시험 키 서버로 확인 — 질문 0건, exit 1). 12건이 한 IP라 그 서버에만 `--var BUDGET_USER:20` — 같은 문제가 `record-answer`에도 있어(Phase 5 사용자 상한 10 → 11·12번 BUDGET) 함께 고쳤다. 공개 URL 동작은 완료 기준 4(사람 브라우저 캡처).
