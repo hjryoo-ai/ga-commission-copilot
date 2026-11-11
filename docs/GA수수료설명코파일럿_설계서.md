@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.33)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.34)
 
 > 변경 이력
+> - v0.1.34 (2026-11-11, 운영자 결정 — Phase 5 완료 기준 3 2차 시도 뒤): §4.4 거부 사유 **`PROVIDER_ERROR`**(저하 ② — 시도한 공급자가 모두 실패) 추가 · §6.2 저하 ②: 503에도 **answer_log 거부 행**을 남긴다(provider·model·fallback_depth = 마지막으로 시도한 공급자, grounding_status `NONE`, 고정 문구 — 11-08·11-11 시험에서 503이 행 없이 끝나 원인을 볼 수 없었다), 공개 분포 `stat:refuse:provider_error`, 시도마다 실패 종류 `stat:err:<공급자>:<종류>`(종류 `timeout`·`rate_limit`·`upstream`·`empty`·`not_json`·`shape`·`gateway`·`other`, Workers AI 바인딩 오류에 4자리 코드가 있으면 `ai_<코드>`(5006 입력 검증 등) — 키·본문·메시지 없이 종류만, D1에서 진단) · §7 `/ask` 503은 problem+json `PROVIDER_ERROR` + `answerId`·`budget`(질문 예산은 이미 1 차감) · §8 화면 4 질문 기록을 **sessionStorage**에(같은 탭에서 상세로 갔다 돌아와도 유지, 최근 20건, 접근 실패는 무시 — try/catch) · §6.2 체인은 4xx(요청 오류)도 다음으로 넘기지 않되 시도 목록과 함께 던져 같은 행을 남긴다 · §11 `daily-explain.yml` 예약(cron) 제거 — 설명 배치가 2026-11-09 591/591로 끝나 **workflow_dispatch만**(재생성 시도 수 입력 `regenerate_tries`, 운영자: LIMIT `l-A1003-16` 부호 1건은 1회, 실패면 Phase 6 평가 항목).
 > - v0.1.33 (2026-11-07, 운영자 결정 — Phase 5 완료 기준 4 캡처의 칩·예산 단위): §6.2 **예산 단위를 나눠 적는다** — 전역·사용자 상한은 **질문** 단위(답 1건에 1), 공급자 상한은 **호출** 단위(LLM HTTP 호출 1회에 1). 답 1건 = 호출 1~2회(툴이 필요하면 2)라 전역 상한을 `min(BUDGET_GLOBAL, floor(공급자 호출 상한 합 ÷ 2))`로 바꾼다(v0.1.27의 `min(BUDGET_GLOBAL, 공급자 상한 합)`은 질문과 호출을 같은 단위로 셌다) — 설명 배치 중(Groq 55 + OpenRouter 15) **35**, 11-08 뒤(+ Workers AI 80) **75** · §7 `/ask` 응답(200, 429 `BUDGET`, 429 `RATE_LIMITED` 모두)에 `budget {remainingToday, userRemaining}`(그 요청을 센 뒤 값) — 화면 4는 이 값으로 상단 칩을 고친다(`/me` 다시 부르지 않음, 2026-11-07 공개 캡처에서 칩이 답 뒤에도 줄지 않던 것) · `/budget`·화면 6은 "질문"과 "호출"을 열로 나눠 보인다(`today.calls`·`days[].calls` = 공급자 호출 합) · §10.4 결론을 같은 단위로 · 2단계(툴 계획 → 답)를 호출 1회로 합치는 것은 answer/v4 항목(DECISIONS 11-07 — Phase 6 첫 프롬프트 PR에 안정 키 인용과 함께).
 > - v0.1.32 (2026-11-07, 운영자 결정 — Phase 5): §11 `capture-public.yml` → **`capture-local.yml`**: 배포에 Turnstile이 켜져 자동 클라이언트는 공개 URL `/ask`를 쓸 수 없다(403). 우회 경로는 만들지 않고 CI 안 `wrangler dev --env record`(D1 로컬·Vectorize·AI 원격, `TURNSTILE_SECRET` 없음, 사용자 상한은 그 서버에만 `--var BUDGET_USER:20` — 부록 A 12건이 한 IP라)를 대상으로 부록 A 12건을 찍는다 — 이름대로 "공개 URL 캡처가 아니다". 공개 URL 동작 증거는 사람이 브라우저로 1회 찍는 캡처(PHASES Phase 5 완료 기준에 추가) · §9 Turnstile 쿠키의 IP 결합 트레이드오프: 모바일 데이터망은 IP가 자주 바뀌어 24시간 안에 다시 확인할 수 있다 — 수용(운영자). `/ask` 403이면 화면 4가 위젯을 다시 그리고 막 쓴 질문을 입력창에 되돌린다.
 > - v0.1.31 (2026-11-06, Phase 5 항목 5 보강 — 커밋 보안 검토 지적): Turnstile 쿠키 서명 키에 요청 IP를 넣는다(SESSION_SECRET + 용도 + IP) — 한 번 푼 쿠키를 다른 IP(봇 여러 대)에서 다시 쓰지 못하게. IP는 서명 키에만 쓰고 쿠키·로그에 남기지 않는다. IP가 바뀌면 다시 확인(화면 문구 "같은 네트워크에서 24시간"). Siteverify 응답 `hostname`이 요청 호스트와 다르면 거부. 서버가 거부하면 위젯을 자동으로 다시 돌리지 않는다(자동 통과 모드 무한 반복 방지 — "다시 확인" 버튼).
@@ -256,6 +257,7 @@ ga-commission-copilot/
 | `OTHER_AGENT` | 타인 데이터 요청 | "본인 데이터만 조회할 수 있습니다." |
 | `NEEDS_ENGINE` | 새 계산이 필요한 질문("보험료 50만원이면 얼마?") 중 스텁 없음 | "이 질문은 정산 엔진의 시뮬레이션이 필요합니다. 데모에서는 준비된 계약만 지원합니다." |
 | `BUDGET` | 예산 소진 | "오늘의 질문 예산이 소진되었습니다. 사전 생성된 설명은 계속 볼 수 있습니다." |
+| `PROVIDER_ERROR` | 시도한 공급자가 모두 실패(429·5xx·타임아웃·빈 본문·JSON 아님 — §6.2 저하 ②, v0.1.34) | "지금은 답변을 만들지 못했습니다. 잠시 후 다시 시도해 주세요. 사전 생성된 설명은 계속 볼 수 있습니다." |
 
 거부도 `answer_log`에 남고 `/evals`의 거부율에 집계된다. 거부가 많은 것은 결함이 아니라 설계된 안전 동작이며, 골든 질문에는 거부가 정답인 항목이 15개 포함된다.
 
@@ -402,7 +404,7 @@ CREATE TABLE eval_case_result (
 
 폴백 순서: `groq(openai/gpt-oss-120b)` → `workers-ai(@cf/openai/gpt-oss-120b)` → `openrouter(openrouter/free)` → 저하 모드. 상한이 0이거나 그날 소진된 공급자는 시도에 넣지 않는다(시도 2개 상한에도 세지 않음). 전역 상한은 `min(BUDGET_GLOBAL, floor(공급자 호출 상한 합 ÷ 2))`라 배치 중에는 35(floor((55+0+15) ÷ 2)), 11-08 뒤 75다(v0.1.33 — v0.1.27의 `min(BUDGET_GLOBAL, 공급자 상한 합)` = 70은 질문 1건을 호출 1회로 쳐서 질문이 호출 상한보다 먼저 닿지 않았다). Groq 상한(55)은 호출 단위로 그대로다. 환경변수 `BUDGET_GLOBAL=150`·`BUDGET_USER=10`·`BUDGET_GROQ=55`·`BUDGET_WORKERS_AI=0→80`·`BUDGET_OPENROUTER=15`. **단위**: 전역·사용자는 질문 1건에 1, 공급자는 HTTP 호출마다 1(답 하나에 LLM 2회면 2) — 캐시 히트는 어느 것도 차감하지 않는다. 429·5xx·타임아웃(8초)에서 다음 공급자로 넘어가며, 같은 요청은 최대 2개 공급자까지만 시도한다(실패 요청도 RPD를 소모한다). 공급자별 `budget_counter`를 따로 세고, `/budget`에 공급자별 사용·폴백 깊이 분포를 표시한다. 카운터 갱신은 D1 `UPDATE ... SET used = used + 1 WHERE used < ?` 한 문장으로 원자적으로 하고, 영향 행이 0이면 소진이다.
 
-**저하 모드**(v0.1.27 정식 — v0.1.22 임시 처리 대체): 사전 생성 설명(Q1~Q3)과 AI Gateway 캐시 히트는 예산과 무관하게 계속 제공. 자유 질문은 세 경우로 나눈다 — ① **예산 소진**(전역·사용자, 또는 시도할 공급자가 모두 그날 상한) → 429 `BUDGET`(LLM 호출 없음, answer_log에 거부로), ② **공급자 실패**(시도한 공급자 2개가 모두 429·5xx·타임아웃) → 503(예산 소진이 아니라 일시 장애 — 화면은 "잠시 후 다시"), ③ **규정 검색 불가**(질의 임베딩·Vectorize 실패 — 계정 뉴런 소진 4006 등) → 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`(규정 인용은 G5에서 0건만 통과), 화면 4는 답 카드에 안내를 단다. 화면 상단에 "오늘 남은 질문 n회" 칩을 항상 표시해 소진이 갑작스럽지 않게 한다.
+**저하 모드**(v0.1.27 정식 — v0.1.22 임시 처리 대체): 사전 생성 설명(Q1~Q3)과 AI Gateway 캐시 히트는 예산과 무관하게 계속 제공. 자유 질문은 세 경우로 나눈다 — ① **예산 소진**(전역·사용자, 또는 시도할 공급자가 모두 그날 상한) → 429 `BUDGET`(LLM 호출 없음, answer_log에 거부로), ② **공급자 실패**(시도한 공급자 2개가 모두 429·5xx·타임아웃) → 503(예산 소진이 아니라 일시 장애 — 화면은 "잠시 후 다시"). v0.1.34: 503도 answer_log에 거부 행 `PROVIDER_ERROR`(provider·model·fallback_depth = 마지막 시도, 질문 예산은 이미 차감), 공개 분포 `stat:refuse:provider_error`, 시도마다 실패 종류 `stat:err:<공급자>:<종류>`(키·본문 없이 종류만 — Workers Logs를 못 볼 때 D1로 진단), ③ **규정 검색 불가**(질의 임베딩·Vectorize 실패 — 계정 뉴런 소진 4006 등) → 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`(규정 인용은 G5에서 0건만 통과), 화면 4는 답 카드에 안내를 단다. 화면 상단에 "오늘 남은 질문 n회" 칩을 항상 표시해 소진이 갑작스럽지 않게 한다.
 
 ### 6.3 프롬프트 버전 관리
 
@@ -440,7 +442,7 @@ CREATE TABLE eval_case_result (
 | `GET /api/v1/me/earnings/lines/{calcId}` | 라인 상세 + `explanation {text, citedFields, numbersUsed, groundingStatus, promptVersion}` (없으면 `null`, `FAIL`이면 `{groundingStatus, promptVersion}`만 — 텍스트를 내보내지 않는다, v0.1.14) | — |
 | `GET /api/v1/me/limits` / `/{ledgerId}` | 한도 카드·상세 + `explanation`(kind=LIMIT) | — |
 | `GET /api/v1/me/earnings/{ym}/diff` | 전월 대비 설명(kind=MONTH_DIFF) | — |
-| `POST /api/v1/me/ask {question}` | §4.3 결과: `{answerId, text, citations[], toolCalls[], refused, reason, provider, model, promptVersion, cacheHit, latencyMs, fallbackDepth}`. 예산(v0.1.27 — §6.2 `global`·`ip:<솔트 해시>`·`provider:<이름>`)이 소진되면 LLM 없이 429 `BUDGET`·`retryAfterSeconds`(Phase 4 개발 상한 `ASK_DAILY_CAP`·`ask:dev`는 v0.1.27에서 대체). v0.1.33: 200·429 `BUDGET`·429 `RATE_LIMITED`(problem+json) 모두 `budget {remainingToday, userRemaining}`(그 요청을 센 뒤 — 화면 4 칩 갱신) | 1 (캐시 히트·거부 시 0)  규정 검색이 실패하면 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`(§6.2 저하 ③ — v0.1.22 임시 처리를 v0.1.27에서 정식으로). |
+| `POST /api/v1/me/ask {question}` | §4.3 결과: `{answerId, text, citations[], toolCalls[], refused, reason, provider, model, promptVersion, cacheHit, latencyMs, fallbackDepth}`. 예산(v0.1.27 — §6.2 `global`·`ip:<솔트 해시>`·`provider:<이름>`)이 소진되면 LLM 없이 429 `BUDGET`·`retryAfterSeconds`(Phase 4 개발 상한 `ASK_DAILY_CAP`·`ask:dev`는 v0.1.27에서 대체). v0.1.33: 200·429 `BUDGET`·429 `RATE_LIMITED`(problem+json) 모두 `budget {remainingToday, userRemaining}`(그 요청을 센 뒤 — 화면 4 칩 갱신). v0.1.34: 503 problem+json `PROVIDER_ERROR`에 `answerId`·`budget`(`/answers/{id}`로 거부 행을 본다) | 1 (캐시 히트·거부 시 0)  규정 검색이 실패하면 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`(§6.2 저하 ③ — v0.1.22 임시 처리를 v0.1.27에서 정식으로). |
 | `GET /api/v1/answers/{answerId}` | 재현 뷰: 검색 청크·툴 결과·검증 결과 전문 (본인 세션만) | — |
 | `GET /api/v1/evals` / `/{runId}` | 평가 런 목록·케이스별 결과 (공개) | — |
 | `GET /api/v1/budget` | 오늘·최근 7일 **질문**(전역)과 **호출**(공급자별·합 `calls` — v0.1.33) 사용, 폴백 깊이 분포, 캐시 적중률, 거부 사유, 규정 검색 저하 (공개, no-store — v0.1.28: 분포는 `budget_counter`의 `stat:*` 범위, answer_log를 모으지 않는다) | — |
@@ -498,6 +500,7 @@ CREATE TABLE eval_case_result (
 4. **자유 질문** (`/me/ask`)
    - 입력창 + 예시 질문 칩 6개(골든 질문에서 추출) · 답변 카드: 본문 · 인용(툴 필드/사규 조항) · 툴 호출 펼침 · 공급자·모델·지연 · "이 답변 재현 보기" 링크
    - 거부 카드는 사유 코드별 고정 문구 + 대안 동선(라인 상세로 이동 등)
+   - 질문 기록(v0.1.34): 이 탭의 sessionStorage에 최근 20건(질문·답 응답 본문) — "이 답변 재현 보기"로 화면 7에 갔다 돌아와도 남는다. 다른 설계사로 바꾸면 비운다. 저장소 접근이 막힌 브라우저(사생활 보호 모드 등)는 try/catch로 무시하고 메모리에만
    - 예산 소진 시 입력창 비활성 + 남은 시간
 5. **평가 리포트** (`/evals`, 공개)
    - 최근 런 요약: 통과율·그라운딩 통과율·거부 정확도·툴 정확도·평균 지연 → 버전별 추이 차트(라인)
@@ -606,7 +609,7 @@ CREATE TABLE eval_case_result (
 | 평가 | 자체 하네스(`evals/`): 골든 JSONL + 채점기 TS | 외부 eval 프레임워크는 v0.1에서 쓰지 않는다 — 채점 규칙(그라운딩·거부·툴)이 도메인 특화라 직접 쓰는 편이 짧다 |
 | 관측 | AI Gateway 분석·캐시, Workers Logs(무료 범위), `/budget` 자체 집계 | OpenTelemetry는 v0.1 제외 |
 | 봇 방지 | Cloudflare Turnstile(무료) | `/ask`만 |
-| CI/CD | GitHub Actions: `ci.yml`(push·PR → `pnpm lint`(의존 방향, CLAUDE.md 규약 2)·`pnpm run build:replay`(v0.1.24 — 시험은 빌드하지 않는다)·`pnpm -r test`·`./gradlew test`), `deploy.yml`(main 푸시 → `wrangler deploy`), `weekly-generate.yml`(cron 일 03:00 KST), `daily-explain.yml`(v0.1.23 — cron 00:23 UTC(v0.1.26): 설명 재생성·원격 재검증·배치 90, 수동 실행에서 답변 녹화 → `bot/daily-explain` 브랜치에 커밋), `eval-on-prompt-change.yml`(`prompts/**` 변경 PR), `capture-local.yml`(v0.1.32 — 수동 실행, CI 안 `wrangler dev --env record` 대상 부록 A 12건 캡처 → `bot/capture-local`. 공개 URL 캡처가 아니다 — v0.1.25의 `capture-public.yml`은 Turnstile 뒤 403이라 바꿈) | 시크릿은 Actions Secrets |
+| CI/CD | GitHub Actions: `ci.yml`(push·PR → `pnpm lint`(의존 방향, CLAUDE.md 규약 2)·`pnpm run build:replay`(v0.1.24 — 시험은 빌드하지 않는다)·`pnpm -r test`·`./gradlew test`), `deploy.yml`(main 푸시 → `wrangler deploy`), `weekly-generate.yml`(cron 일 03:00 KST), `daily-explain.yml`(v0.1.23 — 설명 재생성·원격 재검증·배치 90, 답변 녹화 → `bot/daily-explain` 브랜치에 커밋. cron 00:23 UTC(v0.1.26)는 v0.1.34에서 제거 — 배치 591/591 끝, **수동 실행만**, 재생성 시도 수 `regenerate_tries`), `eval-on-prompt-change.yml`(`prompts/**` 변경 PR), `capture-local.yml`(v0.1.32 — 수동 실행, CI 안 `wrangler dev --env record` 대상 부록 A 12건 캡처 → `bot/capture-local`. 공개 URL 캡처가 아니다 — v0.1.25의 `capture-public.yml`은 Turnstile 뒤 403이라 바꿈) | 시크릿은 Actions Secrets |
 
 버전은 구현 시작 시점에 `npm view <pkg> version`·`gradle --version`으로 재확인하고 `package.json`·`gradle/libs.versions.toml`에 고정한다. 본 표는 메이저 라인을 정하는 용도다.
 
