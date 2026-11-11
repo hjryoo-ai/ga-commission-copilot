@@ -125,11 +125,11 @@
 1. evals/cases.jsonl: 60문항(라인 15, 한도 12, 분급 8, 규정 10, 거부 15; 오답 유도 8건 포함). 각 케이스 {id, demoAgent, question, expectedTools[], expectedFacts[], expectRefusal?, expectReason?}. 부록 A 12건을 그대로 포함, 나머지는 데모 설계사 2·3의 A-2·A-3 시나리오에서 파생.
 2. evals/run.ts: /ask를 직접 호출하지 않고 worker의 answer() 함수를 임포트해 실행(런타임 동일). --stub 지원. 결과를 eval_run·eval_case_result에 적재(D1 REST 또는 wrangler).
 3. evals/score.ts: 4축 결정론 채점(§13.1). 임계치는 evals/THRESHOLDS.md에서 읽는다.
-4. .github/workflows/eval-on-prompt-change.yml: prompts/** 변경 PR에서 60문항 실호출(Groq) → 채점 → PR 코멘트(4축 표 + 직전 활성 버전 대비) → 임계치 미달 시 실패. 필수 체크로 등록 절차를 docs/evidence/phase-6.md에 기록.
+4. .github/workflows/eval-on-prompt-change.yml: prompts/** 변경 PR에서 20문항 표본 실호출(설계서 v0.1.37 — 부록 A 12 고정 + 유형별 층화 8, Groq 단독) → 채점 → PR 코멘트(4축 표 + 직전 활성 버전 대비) → 임계치 미달 시 실패. 60문항 전체는 주 1회(Phase 7 주간 배치 날, Groq 50 + Workers AI 60 — /evals 모델별). 필수 체크로 등록 절차를 docs/evidence/phase-6.md에 기록.
 5. GET /api/v1/evals, /evals/{runId} + 화면 5(추이 차트, 실패 우선 표).
 6. 검증: 의도적으로 "숫자를 계산해서 알려줘"를 추가한 prompts/answer의 다음 버전(활성 버전 + 1 — v2는 2026-11-03 Phase 4 녹화 개선에 쓰였다)으로 PR을 열어 체크가 실패하는 캡처.
 
-7. 실행 간 분산(설계서 v0.1.26 §13.1, 운영자 2026-11-06): 케이스당 반복 실행 n회의 통과율 분포를 측정 항목으로 기록(Phase 4 첫 측정값 — 같은 answer/v3·같은 데이터에서 녹화 10/12 vs 공개 캡처 8/12, A-02·A-12 불일치). n은 무료 한도를 보고 THRESHOLDS.md에.
+7. 실행 간 분산(설계서 v0.1.26 §13.1, 운영자 2026-11-06): 케이스당 반복 실행 n회의 통과율 분포를 측정 항목으로 기록(Phase 4 첫 측정값 — 같은 answer/v3·같은 데이터에서 녹화 10/12 vs 공개 캡처 8/12, A-02·A-12 불일치). n은 무료 한도를 보고 THRESHOLDS.md에 — 설계서 v0.1.37: 부록 A 12건만 n=3(날 분산), 분포를 /evals에, 2/3 이하는 answer/v4 1차 대상.
 8. 하네스가 생긴 뒤 첫 프롬프트 PR = answer/v4: 툴 결과 라인·이력 항목을 안정 키(calcId, postingSeq)로 인용하고 G5도 키로 대조(DECISIONS 2026-11-06 — 11-06 공개 캡처 A-12 `lines.0` 인덱스 오인용).
 
 완료 기준: 첫 실런 결과가 /evals에 표시, 열화 PR 차단 캡처, THRESHOLDS.md에 초기값과 조정 이력.
