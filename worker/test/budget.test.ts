@@ -31,10 +31,10 @@ describe("상한(env)", () => {
     expect(withKeys(caps, {}).global).toBe(0);
   });
 
-  it("배포 설정(wrangler.jsonc vars): 배치 중 Workers AI 0, 전역 질문 35(호출 70의 절반)", () => {
+  it("배포 설정(wrangler.jsonc vars): 배치 591/591(11-09) 뒤 Workers AI 80, 전역 질문 75(호출 150의 절반)", () => {
     const caps = budgetCaps(env);
-    expect(caps.providers["workers-ai"]).toBe(0);
-    expect(caps.global).toBe(35);
+    expect(caps.providers["workers-ai"]).toBe(80);
+    expect(caps.global).toBe(75);
   });
 });
 
@@ -150,7 +150,7 @@ describe("GET /api/v1/budget(PHASES Phase 5 항목 6 — 공개)", () => {
     // 질문(전역)과 호출(공급자 합)은 단위가 달라 따로(설계서 v0.1.33)
     expect(b.days.at(-1)).toEqual({ day: today, questions: 4, calls: 5, providers: { groq: 5, "workers-ai": 0, openrouter: 0 } });
     expect(b.today.providers.groq.used).toBe(5);
-    expect([b.today.global, b.today.calls]).toEqual([{ used: 4, cap: 35 }, { used: 5, cap: 70 }]);
+    expect([b.today.global, b.today.calls]).toEqual([{ used: 4, cap: 75 }, { used: 5, cap: 150 }]);
     expect([b.fallbackDepth, b.refusals, b.cache]).toEqual([{ "0": 3, "1": 1, "2": 0 }, { BUDGET: 2 }, { hit: 0, miss: 4 }]);
   });
 

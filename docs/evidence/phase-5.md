@@ -3,7 +3,7 @@
 - 수행일: 2026-11-06(UTC) — 시작(운영자 지시: Phase 4 수용 뒤 PHASES Phase 5 항목 1~7, 폴백 체인 Groq → Workers AI gpt-oss-120b → OpenRouter)
 - 기준 문서: 설계서 v0.1.33 §6.2·§6.4·§7 저하 모드·레이트 리밋·§9 남용 방지·§10.1·§10.2·§10.4, PHASES.md Phase 5
 - 도구 버전: node 25.5.0(CI 24), pnpm 10.28.2, wrangler 4.153.0, vitest 4.1.12
-- 상태: **항목 1~6 구현(LLM 호출 없음 — 시험은 가짜 공급자·가짜 게이트웨이·가짜 Siteverify·로컬 D1)** + 레이트 리밋(WAF 대체). 원격 반영(푸시·배포)은 운영자. 완료 기준의 실호출(Groq 429 유도 → Workers AI 폴백 캡처, 구조화 출력 모양 기록)은 폴백 상한이 열리는 11-08 설명 배치 끝 뒤.
+- 상태: **항목 1~6 구현(LLM 호출 없음 — 시험은 가짜 공급자·가짜 게이트웨이·가짜 Siteverify·로컬 D1)** + 레이트 리밋(WAF 대체). 원격 반영(푸시·배포)은 운영자. 완료 기준의 실호출(Groq 429 유도 → Workers AI 폴백 캡처, 구조화 출력 모양 기록)은 폴백 상한을 여는 배포 뒤 — 설명 배치가 2026-11-09에 591/591로 끝나 `BUDGET_WORKERS_AI` 80 커밋(푸시·배포는 운영자).
 
 ## 완료 기준 대조
 
@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 1 | 테스트 통과 | 진행 — 항목 1~6·레이트 리밋 시험 통과(아래) | `worker/test/budget.test.ts`·`fallback.test.ts`·`ask.test.ts`·`cache.test.ts`·`turnstile.test.ts`·`api.test.ts`, `web/test/budget.test.tsx`·`ask.test.tsx`·`App.test.tsx` |
 | 2 | /budget에 공급자별 사용·폴백 분포 표시 | 구현(로컬 캡처, 값 0) — 원격은 푸시·배포 뒤 | `captures/phase-5-screen6-budget-local.png` |
-| 3 | 실호출로 Groq 429 1회 유도 후 Workers AI 폴백 기록 캡처 | **대기** — `BUDGET_WORKERS_AI=0`(설명 배치와 뉴런 나눔, 설계서 v0.1.27) → 11-08 배치 591/591 뒤 80으로 바꾸는 커밋 다음 | — |
+| 3 | 실호출로 Groq 429 1회 유도 후 Workers AI 폴백 기록 캡처 | **대기** — 1차(11-08, Workers AI 0): 폴백 OpenRouter 3/3 실패 → 503(아래). 11-09 배치 591/591 확인 → `BUDGET_WORKERS_AI` 80 커밋(전역 질문 75). 푸시·배포 뒤 운영자 2차 유도 → answerId로 기록 | `phase-3.md` 「설명 배치 최종」, `logs/phase-3-explain-batch-2026-11-09.log`(bot/daily-explain) |
 | 4 | 공개 URL에서 사람이 브라우저로 Turnstile 통과 → 자유 질문 1건 답까지 1회 캡처(운영자 2026-11-07 추가) | **통과**(운영자 캡처 2026-11-07) — 아래 "공개 URL 브라우저 캡처" | `captures/phase-5-public-browser-ask.png`·`captures/phase-5-public-budget.png` |
 
 ## 운영자 결정(2026-11-06)
@@ -28,7 +28,7 @@
 ### 1 — 예산(`worker/src/llm/budget.ts`)
 
 - 범위: `global`(질문 1건에 1) · `ip:<16 hex>`(질문 1건에 1 — IP + 일일 솔트(HMAC(SESSION_SECRET, "ip-salt:<날>"))의 SHA-256 앞 16자, 원문 IP 저장 없음, 날이 바뀌면 다른 키) · `provider:<이름>`(HTTP 호출마다 1).
-- 상한 env `BUDGET_GLOBAL=150`·`BUDGET_USER=10`·`BUDGET_GROQ=55`·`BUDGET_WORKERS_AI=0`(배치 중)·`BUDGET_OPENROUTER=15`(wrangler.jsonc vars, 0~9999 정수만 — 틀리면 기본값). 전역 = `min(BUDGET_GLOBAL, 공급자 합)` → 배치 중 70. 키가 없는 공급자(OpenRouter 키 등록 전)는 상한 0(`withKeys` — 시도·카운터를 쓰지 않는다).
+- 상한 env `BUDGET_GLOBAL=150`·`BUDGET_USER=10`·`BUDGET_GROQ=55`·`BUDGET_WORKERS_AI=80`(설명 배치 중 0 — 2026-11-09 591/591 뒤 80)·`BUDGET_OPENROUTER=15`(wrangler.jsonc vars, 0~9999 정수만 — 틀리면 기본값). 전역(질문) = `min(BUDGET_GLOBAL, floor(공급자 호출 합 ÷ 2))`(v0.1.33) → 배치 중 35, 지금 75. 키가 없는 공급자(OpenRouter 키 등록 전)는 상한 0(`withKeys` — 시도·카운터를 쓰지 않는다).
 - **단위(설계서 v0.1.33, 운영자 2026-11-07)**: 전역·사용자 = **질문**(답 1건에 1), 공급자 = **호출**(LLM HTTP 1회에 1). 답 1건 = 호출 1~2회(툴이 필요하면 2)라 전역 질문 상한 = `min(BUDGET_GLOBAL, floor(공급자 호출 상한 합 ÷ 2))` — 설명 배치 중 floor((55+0+15)/2) = **35**, 11-08 뒤 floor(150/2) = **75**(v0.1.27의 `min(BUDGET_GLOBAL, 공급자 합)` = 70은 질문을 호출 1회로 쳤다). 2단계를 호출 1회로 합치는 것은 answer/v4(DECISIONS 11-07 — Phase 6 첫 프롬프트 PR, 안정 키 인용과 함께).
 - 갱신은 기존 `reserveBudget`(INSERT OR IGNORE + `UPDATE … SET used = used + 1 WHERE … AND used < ?` 한 문장, 규약 5). 질문은 사용자 → 전역 순서(사용자에 막히면 전역 안 씀), 감소 경로 없음.
 - Phase 4 개발 상한 `ASK_DAILY_CAP`(`ask:dev`) 제거.
@@ -132,7 +132,8 @@ pnpm run lint  → 오류 0
 - [x] 푸시(운영자 2026-11-07) → deploy 성공·Cron 등록(위 배포 절).
 - [x] 공개 URL 브라우저 캡처 1회(완료 기준 4 — 운영자 2026-11-07).
 - [ ] 배포 뒤 확인(계속): 화면 4 위젯 실제 통과(사이트 키의 호스트 이름 목록에 workers.dev 호스트가 있어야 한다)·Cron 등록(`wrangler deploy` 출력의 schedule)·`/budget` 원격 값.
-- [ ] 11-08 설명 배치 591/591 확인 → `BUDGET_WORKERS_AI` 80 커밋 → 푸시·배포 → 완료 기준 3 실호출 캡처(Workers AI 구조화 출력 모양 `choices`/`response` 기록, 게이트웨이 경유 Groq·OpenRouter 첫 실호출 경로 확인 포함).
+- [x] 설명 배치 591/591 확인(2026-11-09, run 42575953348 — 생성 35 + 캐시 건너뜀 556, FAIL 0) → `BUDGET_WORKERS_AI` 80 커밋(2026-11-11).
+- [ ] 푸시·배포(운영자) → 완료 기준 3 실호출 캡처(Workers AI 구조화 출력 모양 `choices`/`response` 기록, 게이트웨이 경유 Groq·OpenRouter 첫 실호출 경로 확인 포함).
 
 ## 남은 이슈
 
