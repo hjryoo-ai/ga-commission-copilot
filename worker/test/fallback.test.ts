@@ -189,12 +189,17 @@ describe("공급자", () => {
   it("schema_hint(설계서 v0.1.35): Workers AI만 system 메시지로 출력 스키마를 앞에 붙인다 — 요청 messages는 그대로 뒤에", async () => {
     let input: { messages?: { role: string; content: string }[] } = {};
     const ai = { run: (async (_m: string, i: typeof input) => ((input = i), { response: { ok: true } })) as never };
-    await workersAi(ai, null, loadPrompt("schema_hint", "v1").body).structured(REQ);
+    await workersAi(ai, null, { body: loadPrompt("schema_hint", "v1").body, version: "v1" }).structured(REQ);
     expect(input.messages!.map((m) => m.role)).toEqual(["system", "user"]);
     expect(input.messages![0]!.content).toContain(JSON.stringify(REQ.schema));
     expect(input.messages![0]!.content).not.toContain("{{schema}}");
     expect(input.messages![1]).toEqual(REQ.messages[0]);
     await workersAi(ai).structured(REQ);
     expect(input.messages).toEqual(REQ.messages);
+    // 게이트웨이 캐시 키에 schema_hint 버전(설계서 v0.1.36 — 버전을 바꾸면 옛 응답을 받지 않는다)
+    let opts: { gateway?: { cacheKey?: string } } = {};
+    const gwAi = { run: (async (_m: string, _i: object, o: typeof opts) => ((opts = o), { response: { ok: true } })) as never };
+    await workersAi(gwAi, "copilot", { body: "{{schema}}", version: "v1" }).structured({ ...REQ, cacheKey: "ans:k:1" });
+    expect(opts.gateway?.cacheKey).toBe("ans:k:1:workers-ai:r4:shv1");
   });
 });

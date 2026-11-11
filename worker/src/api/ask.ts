@@ -17,6 +17,11 @@ import { type AppEnv, common, DISCLAIMER, invalidRequest, notFound, problem } fr
 import { InvalidToolCall, parseToolCall, runTool, serialize } from "../tools";
 import { requireSession } from "./session";
 import { humanVerified } from "./turnstile";
+/** 설계서 v0.1.36 §6.3: Workers AI 폴백의 schema_hint 활성 버전(PROMPT_VERSIONS — 없으면 v1). */
+const schemaHintOf = (env: { PROMPT_VERSIONS?: string }) => {
+  const p = activePrompt(env, "schema_hint");
+  return { body: p.body, version: p.version };
+};
 
 const QUESTION_MAX = 500;
 const ANSWER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -58,7 +63,7 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
   const gw: GatewayRunner | null = gwId ? () => c.env.AI.gateway(gwId) : null;
   // 설계서 v0.1.35 로컬 재현: env.record의 FAKE_GROQ_429=1이면 Groq 자리에 429 스텁 — 배포(TURNSTILE_SECRET 있음)에서는 무시
   const fakeGroq429 = c.env.FAKE_GROQ_429 === "1" && !c.env.TURNSTILE_SECRET;
-  const providers = [fakeGroq429 ? groq429Stub() : groq(c.env, fetch, undefined, gw), workersAi(c.env.AI, gwId, activePrompt(c.env, "schema_hint").body), openrouter(c.env, fetch, undefined, gw)];
+  const providers = [fakeGroq429 ? groq429Stub() : groq(c.env, fetch, undefined, gw), workersAi(c.env.AI, gwId, schemaHintOf(c.env)), openrouter(c.env, fetch, undefined, gw)];
   const chain = fallbackChain(providers, (name) => reserveProvider(c.env.DB, caps, name, day));
   const deps = cloudflareDeps(c.env, traced(chain, c.env, c.env.DB));
   const budgetRefusal = async () => {

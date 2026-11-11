@@ -1,17 +1,29 @@
-# Phase 5 — 예산·폴백·캐시·봇 방지 증거(진행 중)
+# Phase 5 — 예산·폴백·캐시·봇 방지 증거(완료 2026-11-11)
 
-- 수행일: 2026-11-06(UTC) — 시작(운영자 지시: Phase 4 수용 뒤 PHASES Phase 5 항목 1~7, 폴백 체인 Groq → Workers AI gpt-oss-120b → OpenRouter)
-- 기준 문서: 설계서 v0.1.33 §6.2·§6.4·§7 저하 모드·레이트 리밋·§9 남용 방지·§10.1·§10.2·§10.4, PHASES.md Phase 5
+- 수행일: 2026-11-06 ~ 2026-11-11(UTC). 시작은 운영자 지시(Phase 4 수용 뒤 PHASES Phase 5 항목 1~7, 폴백 체인 Groq → Workers AI gpt-oss-120b → OpenRouter), 완료는 운영자 판정(2026-11-11 — 완료 기준 3을 로컬 재현 기록 + 운영 카운터로 닫음)
+- 기준 문서: 설계서 **v0.1.36** §6.2·§6.3·§6.4·§7 저하 모드·레이트 리밋·§9 남용 방지·§10.1·§10.2·§10.4(이 Phase에서 v0.1.27 → v0.1.36), PHASES.md Phase 5
 - 도구 버전: node 25.5.0(CI 24), pnpm 10.28.2, wrangler 4.153.0, vitest 4.1.12
-- 상태(2026-11-11): 완료 기준 1·2·4 끝. 3은 운영 Workers AI 폴백 3/3 실패 → 로컬 재현으로 원인 4개를 고쳐(설계서 v0.1.35) 로컬 통과, 공개 1회 대기. 이전 상태: **항목 1~6 구현(LLM 호출 없음 — 시험은 가짜 공급자·가짜 게이트웨이·가짜 Siteverify·로컬 D1)** + 레이트 리밋(WAF 대체). 원격 반영(푸시·배포)은 운영자. 완료 기준의 실호출(Groq 429 유도 → Workers AI 폴백 캡처, 구조화 출력 모양 기록)은 폴백 상한을 여는 배포 뒤 — 설명 배치가 2026-11-09에 591/591로 끝나 `BUDGET_WORKERS_AI` 80 커밋(푸시·배포는 운영자).
+- 배포: 운영자 푸시 → `deploy.yml`(마지막 80a52c3, 2026-11-11 11:4xZ — ci·deploy 성공). 공개 URL https://ga-commission-copilot.ga-copilot-demo.workers.dev
+
+## 요약(첨부용)
+
+| 영역 | 결과 |
+|---|---|
+| 예산 | D1 `budget_counter` 단일 UPDATE(규약 5). 질문 단위 전역 `min(150, floor(공급자 호출 상한 합 ÷ 2))` = 75(설명 배치 중 35)·사용자 10, 호출 단위 Groq 55·Workers AI 80·OpenRouter 15. `/ask` 응답마다 남은 질문(`budget`) → 화면 4 칩 |
+| 폴백 | Groq → Workers AI → OpenRouter, 질문당 시도 2개, 상한 0·소진 공급자는 건너뜀. 저하 ① 429 `BUDGET` · ② 503 `PROVIDER_ERROR`(answer_log 행 + `stat:err:<공급자>:<종류>`) · ③ 규정 검색 불가면 툴만(`rulesUnavailable`) |
+| Workers AI 폴백 | 운영 11-11 3/3 실패 → 로컬 재현(`FAKE_GROQ_429`)으로 원인 4개 수정(바인딩 `this`·JSON 모드 비강제 → `schema_hint/v1`·게이트웨이 캐시 키·출력 상한 1,500) → A-01·A-05 **depth 1·PASS**, 모양 `choices`, 게이트웨이 경유 |
+| 캐시 | AI Gateway `copilot`(키 = 질문·설계사·스트림·프롬프트·단계 + 공급자·판, 24시간) + 답 단위 재사용(예산 0) + ETag |
+| 봇 방지 | Turnstile(24시간 IP 결합 서명 쿠키) + Worker 안 레이트 리밋(IP당 분당 3, Cron 삭제) |
+| 공개 화면 | 화면 4 사람 확인 → 답(완료 기준 4), 칩 갱신, 질문 기록 sessionStorage, 화면 6 질문·호출 열 |
+| 시험 | worker 435 · web 62 · gen 207 · grounding 68, lint 0 — LLM 호출 없음(가짜 공급자·게이트웨이·Siteverify·로컬 D1) |
 
 ## 완료 기준 대조
 
 | # | 완료 기준(PHASES.md 원문) | 결과 | 증거 |
 |---|---|---|---|
-| 1 | 테스트 통과 | 진행 — 항목 1~6·레이트 리밋 시험 통과(아래) | `worker/test/budget.test.ts`·`fallback.test.ts`·`ask.test.ts`·`cache.test.ts`·`turnstile.test.ts`·`api.test.ts`, `web/test/budget.test.tsx`·`ask.test.tsx`·`App.test.tsx` |
-| 2 | /budget에 공급자별 사용·폴백 분포 표시 | 구현(로컬 캡처, 값 0) — 원격은 푸시·배포 뒤 | `captures/phase-5-screen6-budget-local.png` |
-| 3 | 실호출로 Groq 429 1회 유도 후 Workers AI 폴백 기록 캡처 | **대기(공개 1회)** — 1차(11-08): OpenRouter 3/3 실패. 2차(11-11): Workers AI 3/3 실패(원인 = `this` 없는 바인딩 호출). **로컬 재현 통과**(v0.1.35 — A-01·A-05 depth 1·PASS·`choices`·게이트웨이 경유, 아래). 푸시·배포 뒤 공개 화면 1회 → answerId로 닫는다 | `phase-3.md` 「설명 배치 최종」, `logs/phase-3-explain-batch-2026-11-09.log`(bot/daily-explain) |
+| 1 | 테스트 통과 | **통과** — `pnpm -r test` 전체(2026-11-11 v0.1.36 뒤: worker 435 · web 62 · gen 207 · grounding 68), lint 0(아래 "시험") | `worker/test/budget.test.ts`·`fallback.test.ts`·`ask.test.ts`·`cache.test.ts`·`turnstile.test.ts`·`api.test.ts`, `web/test/budget.test.tsx`·`ask.test.tsx`·`App.test.tsx` |
+| 2 | /budget에 공급자별 사용·폴백 분포 표시 | **통과** — 공개 `/budget`·화면 6(운영자 캡처 2026-11-07, 질문·호출 열 v0.1.33) | `captures/phase-5-public-budget.png`·`captures/phase-5-screen6-budget-split-local.png`·`captures/phase-5-screen6-budget-local.png` |
+| 3 | 실호출로 Groq 429 1회 유도 후 Workers AI 폴백 기록 캡처 | **통과(운영자 판정 2026-11-11)** — 로컬 재현 기록(A-01 `6c5b2926…`·A-05 `4662d371…` — Groq 429 스텁 → Workers AI **depth 1·PASS**, `choices`, 게이트웨이 경유, violations 0) + 11-11 운영 카운터(Groq 429 → Workers AI 시도 3회 — 그때는 바인딩 `this` 결함으로 실패, 고친 것이 로컬 재현). 공개 유도 1회(서로 다른 질문 3건)는 결과와 무관하게 아래에 덧붙인다 | 아래 "로컬 재현"·"2차", `logs/phase-5-fallback-local-2026-11-11.log` |
 | 4 | 공개 URL에서 사람이 브라우저로 Turnstile 통과 → 자유 질문 1건 답까지 1회 캡처(운영자 2026-11-07 추가) | **통과**(운영자 캡처 2026-11-07) — 아래 "공개 URL 브라우저 캡처" | `captures/phase-5-public-browser-ask.png`·`captures/phase-5-public-budget.png` |
 
 ## 운영자 결정(2026-11-06)
@@ -162,7 +174,11 @@ worker vitest → budget.test 10(상한·키 없는 공급자·사용자 키·�
              · cache.test 13(게이트웨이 유니버설 요청·429 통과·자체 오류 3종 → 직접·게이트웨이 없음·카세트 해시 · Workers AI gateway 옵션 · 캐시 키 · 재사용 PASS·창·설계사·프롬프트 · 거부 재사용·FAIL·저하 ③ 제외 · EXPLAIN · /ask 소진 중 재사용 200 예산 0)
              · turnstile.test 9(Siteverify form · 비밀 없음 · 쿠키 없음 403 · 성공 → 쿠키 → 게이트 통과 · 실패 2 · 오류·형식·세션 · 다른 IP 403 · 위조·만료·세션 값)
 web vitest   → ask.test 사람 확인 3(HumanCheck · api.ask 403·RATE_LIMITED·BUDGET 구분 · humanCheckNeeded 다시 받기)
-pnpm -r test   → grounding 68 · web 59 · worker 428 · gen 207 통과(2026-11-07 v0.1.33 뒤, worker는 .dev.vars 없이도)
+             · fallback.test v0.1.34~36: ProvidersFailed 시도 목록·failureKind 10종 · 타임아웃 Groq 8초/폴백 15초 · FAKE_GROQ_429 스텁 · 바인딩 this 회귀(private 필드 가짜) · schema_hint system·캐시 키 판
+             · ask.test 저하 ②(Groq 429 → Workers AI 5006 → 503 PROVIDER_ERROR + answerId·budget·행·stat:err·재현 200·재사용 안 함)
+             · arch.test FAKE_GROQ_429는 env.record 전용(최상위 vars 없음, 읽는 곳 ask.ts 하나 — TURNSTILE_SECRET 검사와 같은 줄)
+web vitest   → ask.test 503 Unavailable(answerId·budget) · 질문 기록 sessionStorage(설계사별·20건·답하는 중 제외·막힌 저장소)
+pnpm -r test   → grounding 68 · web 62 · worker 435 · gen 207 통과(2026-11-11 v0.1.36 뒤)
 pnpm run lint  → 오류 0
 ```
 
@@ -174,11 +190,12 @@ pnpm run lint  → 오류 0
 - [x] ~~WAF 레이트 리밋 규칙~~ → Worker 안 레이트 리밋으로 대체(운영자 결정 2026-11-06).
 - [x] 푸시(운영자 2026-11-07) → deploy 성공·Cron 등록(위 배포 절).
 - [x] 공개 URL 브라우저 캡처 1회(완료 기준 4 — 운영자 2026-11-07).
-- [ ] 배포 뒤 확인(계속): 화면 4 위젯 실제 통과(사이트 키의 호스트 이름 목록에 workers.dev 호스트가 있어야 한다)·Cron 등록(`wrangler deploy` 출력의 schedule)·`/budget` 원격 값.
+- [x] 배포 뒤 확인: 화면 4 위젯 실제 통과(완료 기준 4 캡처)·Cron 등록(`schedule: 17 0 * * *`)·`/budget` 원격 값(2026-11-11 질문 5/75).
 - [x] 설명 배치 591/591 확인(2026-11-09, run 42575953348 — 생성 35 + 캐시 건너뜀 556, FAIL 0) → `BUDGET_WORKERS_AI` 80 커밋(2026-11-11).
 - [x] 푸시·배포(운영자 2026-11-11, d99b94e) → 2차 유도(위 "2차" — Workers AI 3/3 실패).
 - [x] 로컬 재현(v0.1.35, 2026-11-11) — Workers AI 폴백 A-01·A-05 PASS(위 "로컬 재현").
-- [ ] v0.1.34·v0.1.35 푸시·배포(운영자) → 3차 유도(공개): 503이면 화면 4의 "기록 보기" answerId(PROVIDER_ERROR 행)를, 답이면 그 answerId를 받아 `stat:err`로 원인 확인 → 수정 → 완료 기준 3 실호출 캡처(Workers AI 구조화 출력 모양 `choices`/`response` 기록, 게이트웨이 경유 Groq·OpenRouter 첫 실호출 경로 확인 포함).
+- [x] v0.1.34·v0.1.35 푸시·배포(운영자 2026-11-11, 80a52c3 — ci·deploy 성공).
+- [ ] 공개 유도 1회(운영자 — 서로 다른 질문 3건, 완료 기준 3과 무관한 추가 기록): answerId를 받으면 이 문서에 덧붙인다.
 
 ## 남은 이슈
 
@@ -190,3 +207,5 @@ pnpm run lint  → 오류 0
 6. 게이트웨이 캐시 히트도 공급자 예산은 이미 1 차감된 뒤다(예산을 먼저 잡는 순서). "캐시 히트는 예산 미차감"은 답 단위 재사용이 지킨다. 게이트웨이 히트는 같은 키로 2단계가 이어지는 경우 등 보조.
 7. 같은 질문이 근거 실패(FAIL)였으면 재사용하지 않지만, 게이트웨이 캐시가 같은 LLM 응답을 24시간 돌려줘 다시 물어도 같은 FAIL이 나올 수 있다(temperature 0이라 캐시 없이도 비슷하다). 운영자 제안(2026-11-07 — "NOT_GROUNDED 거부 응답에 `cf-aig-skip-cache`, 1줄이면 지금")은 **1줄로 되지 않아 하지 않았다**: `cf-aig-skip-cache`는 요청 헤더라 보내기 전에 정해야 하는데, NOT_GROUNDED는 응답이 돌아와 검증기(G1~G6)를 거친 뒤에야 정해진다 — 그때는 게이트웨이가 이미 그 응답을 캐시했다(응답 쪽에서 캐시를 막는 수단은 없다). 가장 작은 올바른 안: 묻기 전에 answer_log에서 같은 키의 24시간 안 FAIL 행이 있으면 그 질문의 두 단계 요청에 `cf-aig-skip-cache`(ScopedQuery 조회 1개 + 요청 플래그 + 두 공급자 헤더 — 약 15줄·시험). Phase 6 평가 뒤 또는 운영자 승인 시.
 8. ~~Cron Triggers 계정당 5개~~ → 배포에서 오류 없이 등록(`schedule: 17 0 * * *`) — 닫음.
+9. Workers AI 답의 뜻: A-01(로컬 재현) "한도 초과분 145,000원이 **삭감**되어" — 데이터는 이연(DEFER_AFTER_FY). G4~G6 밖 → Phase 6 케이스(운영자 2026-11-11).
+10. 게이트웨이 캐시는 타임아웃·잘린 응답도 저장한다(로컬 재현 차례 5). 판(`CACHE_KEY_REV`)·schema_hint 버전으로 형식을 바꿀 때는 비켜 가지만, 같은 형식에서 나쁜 응답 하나를 지우는 수단은 없다(남은 이슈 7과 같은 종류).

@@ -38,7 +38,7 @@
   // 설계서 v0.1.29: AI_GATEWAY_ID = AI Gateway 이름(§6.4 — 계정 ID 아님), TURNSTILE_SITE_KEY = Turnstile 사이트 키(공개 값 — 비밀은 wrangler secret TURNSTILE_SECRET).
   // 설계서 v0.1.27 §6.2: 일일 예산. BUDGET_WORKERS_AI는 설명 배치 중 0이었고, 2026-11-09 배치 591/591 확인 뒤 80(전역 질문 75 — v0.1.33).
   "vars": {
-    "PROMPT_VERSIONS": "explain_line=v6,explain_limit=v6,explain_month=v6,answer=v3",
+    "PROMPT_VERSIONS": "explain_line=v6,explain_limit=v6,explain_month=v6,answer=v3,schema_hint=v1",
     "BUDGET_GLOBAL": "150",
     "BUDGET_USER": "10",
     "BUDGET_GROQ": "55",
@@ -72,7 +72,7 @@
       ],
       "ai": { "binding": "AI", "remote": true },
       "vars": {
-        "PROMPT_VERSIONS": "explain_line=v6,explain_limit=v6,explain_month=v6,answer=v3",
+        "PROMPT_VERSIONS": "explain_line=v6,explain_limit=v6,explain_month=v6,answer=v3,schema_hint=v1",
         "BUDGET_GLOBAL": "150",
         "BUDGET_USER": "10",
         "BUDGET_GROQ": "55",

@@ -210,9 +210,9 @@ const isGatewayError = (e: unknown) => /gateway/i.test(`${(e as Error)?.name ?? 
 
 /**
  * schemaHint: prompts/schema_hint 본문(설계서 v0.1.35) — Workers AI는 response_format을 강제하지 않아(2026-11-11 실측) 같은 스키마를
- * system 메시지로도 준다. {{schema}} = 요청의 출력 스키마. 없으면(시험) 붙이지 않는다.
+ * system 메시지로도 준다. {{schema}} = 요청의 출력 스키마. 없으면(시험) 붙이지 않는다. version은 게이트웨이 캐시 키에 들어간다(설계서 v0.1.36 — 바꾸면 옛 응답을 받지 않는다).
  */
-export function workersAi(ai: Pick<Ai, "run">, gatewayId: string | null = null, schemaHint: string | null = null): Provider {
+export function workersAi(ai: Pick<Ai, "run">, gatewayId: string | null = null, schemaHint: { body: string; version: string } | null = null): Provider {
   return {
     name: "workers-ai",
     async structured(req) {
@@ -220,7 +220,7 @@ export function workersAi(ai: Pick<Ai, "run">, gatewayId: string | null = null, 
       // 메서드를 떼어 부르면 this가 없어 바인딩 안에서 "Cannot set properties of undefined (setting '#options')"로 즉시 실패한다
       // (2026-11-11 운영 폴백 3/3 실패의 원인 — FAKE_GROQ_429 로컬 재현으로 확인). bind로 바인딩 객체를 붙인다
       const run = (ai.run as unknown as (model: string, input: object, opts?: object) => Promise<unknown>).bind(ai);
-      const hint = schemaHint ? [{ role: "system" as const, content: render(schemaHint, { schema: JSON.stringify(req.schema) }) }] : [];
+      const hint = schemaHint ? [{ role: "system" as const, content: render(schemaHint.body, { schema: JSON.stringify(req.schema) }) }] : [];
       const input = {
         messages: [...hint, ...req.messages],
         temperature: 0,
@@ -237,7 +237,7 @@ export function workersAi(ai: Pick<Ai, "run">, gatewayId: string | null = null, 
         if (!gatewayId) r = await once();
         else {
           try {
-            r = await once({ gateway: { id: gatewayId, cacheTtl: GATEWAY_CACHE_TTL_S, ...(req.cacheKey ? { cacheKey: gatewayCacheKey(req.cacheKey, "workers-ai") } : {}) } });
+            r = await once({ gateway: { id: gatewayId, cacheTtl: GATEWAY_CACHE_TTL_S, ...(req.cacheKey ? { cacheKey: `${gatewayCacheKey(req.cacheKey, "workers-ai")}${schemaHint ? `:sh${schemaHint.version}` : ""}` } : {}) } });
           } catch (e) {
             if (!isGatewayError(e)) throw e;
             console.warn(`[gateway] workers-ai 게이트웨이 오류 — 직접 1회: ${String((e as Error).message).slice(0, 120)}`);
