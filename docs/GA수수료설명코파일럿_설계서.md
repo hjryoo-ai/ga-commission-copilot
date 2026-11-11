@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.36)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.37)
 
 > 변경 이력
+> - v0.1.37 (2026-11-11, 운영자 결정 — Phase 6 평가 실행 예산, DECISIONS 11-11): 60문항 실호출 1회는 호출 약 100~120회·약 30~40만 토큰이라 Groq TPD 200K 밖 → §6.3·§13 **PR 체크 = 20문항 표본**(부록 A 12건 고정 + 나머지 48건에서 유형별 비례 층화 8건, Groq 단독 — 약 40호출·13만 토큰, 그날 공개 런타임 몫 약 7만 토큰 남음), 게이트 판정은 이 20문항 기준(`evals/THRESHOLDS.md`에 명시 — 20문항에서 1건 = 5%p) · **전체 60문항 = 주 1회**(Phase 7 주간 배치 날 — 런타임 폴백 여유가 줄어도 되는 날, Groq 50 + Workers AI 60 호출, 둘 다 gpt-oss-120b, `/evals`는 모델별로 나눠 표시) · §13.1 실행 간 분산 **n=3은 부록 A 12건만**(날을 나눠), 분포(3/3·2/3·1/3·0/3)를 `/evals`에, 2/3 이하 케이스는 answer/v4 1차 대상 목록 · §13 표 "LLM 60/런" → 호출 단위로 고침. 임계치(§13.1)는 그대로.
 > - v0.1.36 (2026-11-11, 운영자 결정 — Phase 5 완료): §10.1 Workers AI 행에 **JSON 모드를 강제하지 않는다**(2026-11-11 REST 대조 실측) · §6.3 `schema_hint`(Workers AI 폴백 system 메시지, v0.1.35)도 프롬프트 레지스트리 버전 관리 대상 — `PROMPT_VERSIONS`에 `schema_hint=v1`, 바꾸면 Phase 6 `eval-on-prompt-change`가 막는다, Workers AI 게이트웨이 캐시 키에 그 버전 · §6.4 게이트웨이 캐시 키에 공급자·요청 형식 판(v0.1.35 — 운영자 수용) · Phase 5 완료 기준 3은 로컬 재현 기록(depth 1·PASS 2건) + 11-11 운영 카운터(Groq 429 → Workers AI 시도 3회)로 닫는다(공개 유도 1회는 결과와 무관하게 추가 기록).
 > - v0.1.35 (2026-11-11, 운영자 결정 — Phase 5 완료 기준 3: 11-11 운영 Workers AI 폴백 3/3 실패): §4.3·§6.2 런타임 Workers AI 호출에 배치와 같은 파라미터(`reasoning_effort: "low"`, 출력 상한 `max_tokens` **1,500** = 배치 `MAX_COMPLETION_TOKENS` — 답변 1,200에서 A-01 2단계가 잘렸다 `finish=length`) · 로컬 재현(같은 날)으로 밝힌 실패 원인: ① 바인딩 메서드를 떼어 불러 `this`가 없었다("Cannot set properties of undefined (setting '#options')" — 운영 3/3 실패, 1ms) → bind ② 바인딩 JSON 모드는 `json_schema`에 스키마 자체(OpenAI `{name, schema, strict}` 감싸기 아님 — 공식 JSON Mode 문서)이고, 그래도 **강제하지 않는다**(네이티브·OpenAI 호환 경로 모두 — 짧은 스키마는 따르지만 answer/v3 실제 요청에서 `reason`·`numbersUsed` 빠짐·`args` 대신 `arguments`) → Workers AI에만 **system 메시지 `prompts/schema_hint/v1`**(스키마 JSON을 그대로 — §6.3 프롬프트 파일, 답변 프롬프트·카세트 해시는 그대로) ③ 게이트웨이 캐시 키가 공급자·요청 형식을 가르지 않아 고친 뒤에도 옛 잘못된 응답이 돌아왔다 → 키 = 요청 키 + 공급자 + 그 공급자 요청 형식의 판(`:workers-ai:r4`, 형식을 바꾸면 판을 올린다). 실패 메시지에 `finish_reason`·출력 토큰 수(본문 없이) · 타임아웃은 1순위 Groq **8초** 유지, 폴백 공급자(Workers AI·OpenRouter) **15초** · 로컬 재현 스위치 `FAKE_GROQ_429`("1"이면 Groq 공급자가 부르지 않고 429 — `wrangler.jsonc` `env.record` 전용(기본 "0"), 최상위 설정에는 없다(아키텍처 시험), `TURNSTILE_SECRET`이 있는 환경(배포)에서는 무시).
 > - v0.1.34 (2026-11-11, 운영자 결정 — Phase 5 완료 기준 3 2차 시도 뒤): §4.4 거부 사유 **`PROVIDER_ERROR`**(저하 ② — 시도한 공급자가 모두 실패) 추가 · §6.2 저하 ②: 503에도 **answer_log 거부 행**을 남긴다(provider·model·fallback_depth = 마지막으로 시도한 공급자, grounding_status `NONE`, 고정 문구 — 11-08·11-11 시험에서 503이 행 없이 끝나 원인을 볼 수 없었다), 공개 분포 `stat:refuse:provider_error`, 시도마다 실패 종류 `stat:err:<공급자>:<종류>`(종류 `timeout`·`rate_limit`·`upstream`·`empty`·`not_json`·`shape`·`gateway`·`other`, Workers AI 바인딩 오류에 4자리 코드가 있으면 `ai_<코드>`(5006 입력 검증 등) — 키·본문·메시지 없이 종류만, D1에서 진단) · §7 `/ask` 503은 problem+json `PROVIDER_ERROR` + `answerId`·`budget`(질문 예산은 이미 1 차감) · §8 화면 4 질문 기록을 **sessionStorage**에(같은 탭에서 상세로 갔다 돌아와도 유지, 최근 20건, 접근 실패는 무시 — try/catch) · §6.2 체인은 4xx(요청 오류)도 다음으로 넘기지 않되 시도 목록과 함께 던져 같은 행을 남긴다 · §11 `daily-explain.yml` 예약(cron) 제거 — 설명 배치가 2026-11-09 591/591로 끝나 **workflow_dispatch만**(재생성 시도 수 입력 `regenerate_tries`, 운영자: LIMIT `l-A1003-16` 부호 1건은 1회, 실패면 Phase 6 평가 항목).
@@ -411,7 +412,7 @@ CREATE TABLE eval_case_result (
 ### 6.3 프롬프트 버전 관리
 
 - `prompts/<name>/v<N>.md` + `prompts/<name>/CHANGELOG.md`. 프롬프트 파일 머리의 frontmatter에 `model_hint`, `max_context_tokens`, `output_schema`(contracts 참조)를 둔다.
-- 런타임은 `PROMPT_VERSIONS` 환경변수(예: `answer=v5,plan=v2`)로 활성 버전을 고른다. 승격 절차: PR에서 `eval-on-prompt-change`가 60문항을 돌려 **그라운딩 통과율·거부 정확도가 직전 활성 버전 이상**일 때만 머지 가능(필수 체크).
+- 런타임은 `PROMPT_VERSIONS` 환경변수(예: `answer=v5,plan=v2`)로 활성 버전을 고른다. 승격 절차: PR에서 `eval-on-prompt-change`가 20문항 표본(v0.1.37 — 부록 A 12 고정 + 유형별 층화 8, Groq 단독; 60문항 전체는 주 1회)을 돌려 **그라운딩 통과율·거부 정확도가 직전 활성 버전 이상**일 때만 머지 가능(필수 체크).
 - 모든 `explanation`·`answer_log`·`eval_run` 행이 버전을 들고 있으므로 `/evals`에서 버전별 추이를 그린다.
 - v0.1.36: `schema_hint`(Workers AI 폴백에만 붙이는 system 메시지 — v0.1.35, §10.1의 JSON 모드 비강제 대응)도 같은 레지스트리 대상이다. `PROMPT_VERSIONS`에 `schema_hint=v1`, 바꾸면 `eval-on-prompt-change`가 같은 관문으로 막는다(Workers AI 경로를 어떻게 돌릴지는 Phase 6 하네스). Workers AI 답의 answer_log `prompt_version`은 answer 활성 버전 그대로이고, 함께 쓴 schema_hint 버전은 그날의 `PROMPT_VERSIONS`로 재현한다. 게이트웨이 캐시 키에 schema_hint 버전이 들어간다(바꾸면 옛 응답을 받지 않는다).
 
@@ -670,7 +671,7 @@ CREATE TABLE eval_case_result (
 | 툴·인가 | 툴 3종 + 세션 | 타인 `agentId` 주입 시도 → 서버 바인딩이 이김, `visibility=internal` 미검색, 읽기 전용 SQL 아키텍처 테스트 | LLM 0 |
 | 예산·폴백 | 공급자 체인 | 공급자 스텁에 429/5xx/타임아웃 주입, 카운터 원자성(동시 50요청), 소진 후 429 응답·설명 API 정상 | LLM 0 |
 | 런타임(실제) | Worker 전체 | `@cloudflare/vitest-plugin`으로 D1·Vectorize·AI 바인딩 포함 실행, LLM은 녹화 스텁 | LLM 0 |
-| **평가(eval)** | 답변 품질 | 골든 60문항 실호출, 채점 4축 | LLM 60/런 |
+| **평가(eval)** | 답변 품질 | 골든 60문항 실호출, 채점 4축 — PR 체크는 20문항 표본(v0.1.37) | LLM 호출 약 40/PR 표본(Groq), 약 110/주간 전체(Groq 50 + Workers AI 60) — 답 1건 = 호출 1~2회 |
 | E2E | 7개 화면 | Playwright, 데모 설계사 3명, 저하 모드 포함 | LLM 0 (스텁) |
 | 성능 | 집중 접속 | k6: 동시 50명 × 홈·명세 3콜 p95 < 500ms; `/ask`는 예산 상한 때문에 부하 테스트 대상이 아님 | LLM 0 |
 
@@ -683,9 +684,9 @@ CREATE TABLE eval_case_result (
 | 툴 정확도 | 기대 툴·인자(월, 증권번호)가 호출된 비율 | 결정론 |
 | 내용 일치 | 기대 답변의 **핵심 사실 3개**(예: "한도 초과=145,000", "정책=DEFER_AFTER_FY", "지급 예정월=데이터 없음")가 답변에 있는지 | 결정론(정규화 문자열·숫자 매칭). LLM-as-judge는 쓰지 않는다 — 무료 한도와 재현성 때문 |
 
-**실행 간 분산(v0.1.26)**: 같은 프롬프트·같은 데이터라도 실행마다 답이 갈린다(Phase 4: 녹화 10/12 vs 공개 캡처 8/12). Phase 6 하네스는 케이스당 n회 반복 실행해 **케이스별 통과율 분포**(n회 중 통과 횟수)를 함께 기록한다 — 4축 점수는 한 번의 실행이 아니라 이 분포의 요약으로 읽는다. n과 집계 방식은 Phase 6에서 무료 한도(Groq TPD)를 보고 `evals/THRESHOLDS.md`에 정한다.
+**실행 간 분산(v0.1.26)**: 같은 프롬프트·같은 데이터라도 실행마다 답이 갈린다(Phase 4: 녹화 10/12 vs 공개 캡처 8/12). Phase 6 하네스는 케이스당 n회 반복 실행해 **케이스별 통과율 분포**(n회 중 통과 횟수)를 함께 기록한다 — 4축 점수는 한 번의 실행이 아니라 이 분포의 요약으로 읽는다. n과 집계 방식은 Phase 6에서 무료 한도(Groq TPD)를 보고 `evals/THRESHOLDS.md`에 정한다. v0.1.37(운영자): **부록 A 12건만 n=3**(날을 나눠 — PR 체크 하루치 예산의 약 0.6배), 분포 3/3·2/3·1/3·0/3을 `/evals`에, 2/3 이하 케이스는 answer/v4 1차 대상. 60문항 전체 분포는 주간 전체 런이 쌓여서 얻는다(따로 돌리지 않는다).
 
-통과 기준(프롬프트 승격 게이트, §6.3): 그라운딩 ≥ 97%, 거부 정확도 ≥ 90%, 툴 정확도 ≥ 90%, 내용 일치 ≥ 85%, 직전 활성 버전 대비 어느 축도 3%p 이상 하락 없음. 수치는 Phase 6에서 첫 런 결과를 보고 조정하되, 조정 이력은 `evals/THRESHOLDS.md`에 남긴다.
+통과 기준(프롬프트 승격 게이트, §6.3 — v0.1.37: PR 체크 20문항 표본 기준, 1건 = 5%p라 "3%p 하락 없음"은 사실상 한 케이스도 나빠지지 않을 것): 그라운딩 ≥ 97%, 거부 정확도 ≥ 90%, 툴 정확도 ≥ 90%, 내용 일치 ≥ 85%, 직전 활성 버전 대비 어느 축도 3%p 이상 하락 없음. 수치는 Phase 6에서 첫 런 결과를 보고 조정하되, 조정 이력은 `evals/THRESHOLDS.md`에 남긴다.
 
 ### 13.2 골든 60문항 구성
 
