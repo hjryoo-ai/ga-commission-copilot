@@ -1,0 +1,11 @@
+
+> @copilot/gen@ explain /home/runner/work/ga-commission-copilot/ga-commission-copilot/gen
+> node explain/run.ts -- --regenerate explain:LIMIT:A-1003:l-A1003-16 --tries 1
+
+프롬프트 explain_line/v6·explain_limit/v6·explain_month/v6, 카세트 explain
+stream fca1971cdbce — subjects 591 (LINE 482 · LIMIT 21 · MONTH_DIFF 88), VCR 16
+[regenerate] explain:LIMIT:A-1003:l-A1003-16 못 바꿈 — 옛 행 유지: #1 본문 점검 ① 부호 붙은 금액: …%가 되었고, 이때 잔여가 -60,000원이며 단계는 한도 소진으로 …
+regenerate: 생성 0(PASS 0 · FAIL 0 — 첫 시도 0/0(-) · 재생성 후 -), 캐시 건너뜀 0, 호출 {"workers-ai":1}, 재시도 {}
+  모델 @cf/openai/gpt-oss-120b: 본문 0건 평균 -문장 · 성공 호출 1회 평균 출력 757토큰(추론 포함)
+  사용량 workers-ai: 성공 1회 · 입력 2676 · 출력 757 토큰(회당 3433.0) · 136.8 뉴런(회당 136.8)
+  재생성 explain:LIMIT:A-1003:l-A1003-16: 못 바꿈(옛 행 유지) — 시도 1, 받지 않음 #1 본문 점검 ① 부호 붙은 금액: …%가 되었고, 이때 잔여가 -60,000원이며 단계는 한도 소진으로 …
