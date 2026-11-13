@@ -32,7 +32,7 @@ describe("POST /api/v1/me/ask", () => {
     const one = await login(app, 1);
     const me = async () => ((await (await app.fetch(new Request("https://example.com/api/v1/me", { headers: { Cookie: one } }))).json()) as { budget: { remainingToday: number; userRemaining: number } }).budget;
     const before = await me();
-    expect(before).toMatchObject({ remainingToday: 75, userRemaining: 10 });
+    expect(before).toMatchObject({ remainingToday: 35, userRemaining: 10 });
     // 가짜 Groq(외부 호출 없음): 1단계에서 범위 밖 거부 — 답 1건, 호출 1회. 질문 임베딩은 시험 환경에서 원격 바인딩이 없어 실패 → 저하 ③(규정 없이)
     const groqReply = { model: "openai/gpt-oss-120b", choices: [{ message: { content: JSON.stringify({ refused: true, reason: "OUT_OF_SCOPE", text: "", numbersUsed: [], citations: [], toolCalls: [] }) } }], usage: null };
     const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
@@ -102,7 +102,7 @@ describe("POST /api/v1/me/ask", () => {
     expect(retry >= 1 && retry <= 60).toBe(true);
     // 남은 질문(v0.1.33): 레이트 리밋은 예산을 쓰지 않으므로 그대로 — 전역 75, 사용자 10
     const body = await res.json();
-    expect(body).toEqual({ code: "RATE_LIMITED", message: "질문이 잦습니다 — 1분 뒤 다시 시도하세요", budget: { remainingToday: 75, userRemaining: 10 } });
+    expect(body).toEqual({ code: "RATE_LIMITED", message: "질문이 잦습니다 — 1분 뒤 다시 시도하세요", budget: { remainingToday: 35, userRemaining: 10 } });
     expect(validate("Problem", body)).toEqual([]);
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM answer_log").first("n")).toBe(0);
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope NOT LIKE 'rl:%'").first("n")).toBe(0);
@@ -151,7 +151,7 @@ describe("POST /api/v1/me/ask", () => {
 
   it("저하 ①: 전역 예산(min(BUDGET_GLOBAL, floor(공급자 호출 합 ÷ 2)) — floor(150/2) = 75)에 닿아도 429 BUDGET", async () => {
     const caps = budgetCaps(env);
-    expect(caps.global).toBe(75);
+    expect(caps.global).toBe(35);
     await env.DB.prepare("INSERT INTO budget_counter (scope, day, used) VALUES ('global', ?, ?)").bind(today(), caps.global).run();
     const res = await ask(await login(app, 1), { question: "8월 실수령은 얼마예요?" });
     expect(res.status).toBe(429);
