@@ -48,6 +48,8 @@ export class ProviderError extends Error {
     message: string,
     readonly status: number,
     readonly retryAfterS: number | null = null,
+    /** 429일 때 x-ratelimit-* 헤더와 본문 앞부분(설계서 §14.1-2 Groq TPD 창 실측 — 평가 하네스가 기록한다). */
+    readonly rateLimit: { headers: Record<string, string>; body: string } | null = null,
   ) {
     super(message);
   }
@@ -161,7 +163,11 @@ function openAiCompatible(
       res ??= await direct();
       if (!res.ok) {
         const retry = res.headers.get("retry-after");
-        throw new ProviderError(`${name} ${res.status}`, res.status, retry ? Number(retry) : null);
+        const rateLimit =
+          res.status === 429
+            ? { headers: Object.fromEntries([...res.headers].filter(([k]) => k.startsWith("x-ratelimit-") || k === "retry-after")), body: (await res.text().catch(() => "")).slice(0, 400) }
+            : null;
+        throw new ProviderError(`${name} ${res.status}`, res.status, retry ? Number(retry) : null, rateLimit);
       }
       const b = (await res.json()) as { model: string; usage?: StructuredResponse["usage"]; choices: { message: { content: string | null } }[] };
       const cacheStatus = res.headers.get("cf-aig-cache-status");

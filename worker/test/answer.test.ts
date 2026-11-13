@@ -251,6 +251,9 @@ describe("Groq 공급자(fetch 가짜)", () => {
     expect(body).toMatchObject({ temperature: 0, reasoning_effort: "low", response_format: { type: "json_schema", json_schema: { strict: true } } });
     const limited = groq({ GROQ_API_KEY: "k" }, async () => new Response("", { status: 429, headers: { "retry-after": "7" } }));
     await expect(limited.structured(req)).rejects.toMatchObject({ status: 429, retryAfterS: 7 });
+    // §14.1-2 실측: 429의 x-ratelimit-* 헤더와 본문 앞부분을 남긴다(다른 헤더는 버린다)
+    const tpd = groq({ GROQ_API_KEY: "k" }, async () => new Response('{"error":{"message":"tokens per day (TPD): Limit 200000"}}', { status: 429, headers: { "retry-after": "30", "x-ratelimit-remaining-tokens": "0", "x-ratelimit-reset-tokens": "7.66s", "set-cookie": "x" } }));
+    await expect(tpd.structured(req)).rejects.toMatchObject({ rateLimit: { headers: { "retry-after": "30", "x-ratelimit-remaining-tokens": "0", "x-ratelimit-reset-tokens": "7.66s" }, body: expect.stringContaining("TPD") } });
     await expect(groq({}).structured(req)).rejects.toBeInstanceOf(ProviderError);
   });
 });

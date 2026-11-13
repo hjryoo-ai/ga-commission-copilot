@@ -51,7 +51,8 @@ function evalProvider(p: Provider, used: Record<string, number>): Provider {
         } catch (e) {
           if (e instanceof ProviderError && e.status === 429 && p.name === "groq" && attempt < 4) {
             const s = e.retryAfterS ?? 60;
-            console.warn(`[eval] groq 429 — ${s}s 기다림`);
+            // §14.1-2(Groq TPD 창이 자정 리셋인지 이동 창인지) 실측 — 시각·헤더·본문을 남긴다
+            console.warn(`[eval] ${new Date().toISOString()} groq 429 — ${s}s 기다림 · ${JSON.stringify(e.rateLimit)}`);
             await sleep(s * 1000);
             continue;
           }
