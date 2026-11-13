@@ -1,0 +1,236 @@
+# 설계서 §6.3·§13·v0.1.37, PHASES Phase 6 항목 4 — 프롬프트 승격 관문 + 수동 평가 런(n=3 분산·Phase 7 주간 60문항).
+#   pull_request: prompts/**가 바뀐 PR만 실호출 — 20문항 표본(pr-sample.json, Groq 단독 40호출 상한) → 채점 → PR 코멘트 → 관문 미달이면 실패.
+#     prompts/**가 안 바뀐 PR도 이 잡은 돌고 곧바로 통과한다(필수 체크가 대기에 걸리지 않게 — paths 필터를 쓰지 않는 이유).
+#     새 프롬프트 버전은 같은 PR에서 worker/wrangler.jsonc PROMPT_VERSIONS도 바꿔야 그 버전이 평가된다(하네스는 PR 머리의 PROMPT_VERSIONS를 쓴다).
+#     직전 활성 버전 = 기준 브랜치의 PROMPT_VERSIONS로 원격 eval_run을 찾은 가장 최근 런(원격 읽기만).
+#   workflow_dispatch: set(appendix·pr·all)·상한·trigger를 골라 돌린다. 관문은 표만 남기고 실패시키지 않는다.
+#     원격 eval_run 적재는 load_remote=true일 때만 — 디스패치하는 운영자가 그 행을 승인하는 것(행 수·컬럼은 요약에 찍는다).
+# 순서: 로컬 D1 마이그레이션 → 스트림·사규집 청크 적재 → 하네스(getPlatformProxy env.record — D1 로컬, AI·Vectorize 원격).
+# 시크릿(CLAUDE.md 규약 10 — 값은 출력하지 않는다): GROQ_API_KEY, CLOUDFLARE_BATCH_API_TOKEN(Workers AI·Vectorize 읽기·D1 편집), CLOUDFLARE_ACCOUNT_ID(로그에서는 <account>).
+# pull_request 이벤트라 포크 PR에는 시크릿이 없다 — 이 저장소 브랜치 PR만 평가된다.
+name: eval-on-prompt-change
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      set:
+        description: "케이스 묶음 — appendix(부록 A 12, n=3 분산) · pr(20문항 표본) · all(60문항 주간)"
+        type: choice
+        options: [appendix, pr, all]
+        default: appendix
+      trigger:
+        description: "eval_run.trigger — variance:YYYY-MM-DD · weekly · manual"
+        type: string
+        default: manual
+      groq_calls:
+        description: "Groq 호출 상한(appendix 24 · pr 40 · all 50)"
+        type: string
+        default: "24"
+      wai_calls:
+        description: "Workers AI 호출 상한(all 60 — 그날 BUDGET_WORKERS_AI 0, 설계서 v0.1.39)"
+        type: string
+        default: "0"
+      load_remote:
+        description: "원격 D1에 eval_run·eval_case_result 적재(load.sql)"
+        type: boolean
+        default: false
+
+# 하루 Groq TPD를 두 런이 나눠 쓰지 않게 하나씩
+concurrency:
+  group: eval-live
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NO_COLOR: "1"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  eval:
+    name: eval-on-prompt-change
+    if: github.repository == 'hjryoo-ai/ga-commission-copilot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      pull-requests: write # PR 코멘트
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 무엇을 돌릴지
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number }}
+          SET: ${{ inputs.set }}
+          TRIGGER: ${{ inputs.trigger }}
+          GROQ_CALLS: ${{ inputs.groq_calls }}
+          WAI_CALLS: ${{ inputs.wai_calls }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- prompts; then
+              echo "prompts/** 변경 없음 — 평가하지 않고 통과"
+              echo "run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            { echo "run=true"; echo "set=pr"; echo "trigger=pr:$PR"; echo "groq=40"; echo "wai=0"; echo "enforce=--enforce"; } >> "$GITHUB_OUTPUT"
+            # 직전 활성 버전 = 기준 브랜치 PROMPT_VERSIONS
+            echo "base_pv=$(git show "$BASE_SHA":worker/wrangler.jsonc | grep -o '"PROMPT_VERSIONS": *"[^"]*"' | head -1 | sed 's/.*: *"//; s/"$//')" >> "$GITHUB_OUTPUT"
+          else
+            [[ "$GROQ_CALLS" =~ ^[0-9]+$ && "$WAI_CALLS" =~ ^[0-9]+$ ]] || { echo "상한은 숫자"; exit 1; }
+            [[ "$TRIGGER" =~ ^[a-z0-9:.-]+$ ]] || { echo "trigger 형식"; exit 1; }
+            { echo "run=true"; echo "set=$SET"; echo "trigger=$TRIGGER"; echo "groq=$GROQ_CALLS"; echo "wai=$WAI_CALLS"; echo "enforce="; } >> "$GITHUB_OUTPUT"
+          fi
+          echo "DAY=$(date -u +%F)" >> "$GITHUB_ENV"
+
+      # 서드파티 액션은 SHA로 고정(시크릿을 쓰는 워크플로)
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        if: steps.plan.outputs.run == 'true'
+
+      - uses: actions/setup-node@v7
+        if: steps.plan.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - uses: actions/setup-java@v5
+        if: steps.plan.outputs.run == 'true'
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - if: steps.plan.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: projection-java installDist
+        if: steps.plan.outputs.run == 'true'
+        run: pnpm run build:replay
+
+      - name: 로컬 D1 준비(마이그레이션 → 스트림 → 사규집 청크 → 시뮬레이션 스텁)
+        if: steps.plan.outputs.run == 'true'
+        working-directory: gen
+        run: |
+          pnpm --dir ../worker exec wrangler d1 migrations apply copilot --local
+          pnpm run load:d1 -- --local
+          pnpm run load:d1 -- --local --rulebook
+          pnpm run load:d1 -- --local --sim-stub
+
+      - name: .dev.vars.record(값은 출력하지 않는다 — 세션·policyKey 비밀은 이 실행에서만 쓰는 무작위)
+        if: steps.plan.outputs.run == 'true'
+        working-directory: worker
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BATCH_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$GROQ_API_KEY" -a -n "$CLOUDFLARE_API_TOKEN" -a -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "GROQ_API_KEY·CLOUDFLARE_BATCH_API_TOKEN·CLOUDFLARE_ACCOUNT_ID 시크릿 없음"; exit 1; }
+          umask 077
+          {
+            printf 'GROQ_API_KEY=%s\n' "$GROQ_API_KEY"
+            printf 'SESSION_SECRET=%s\n' "$(openssl rand -hex 32)"
+            printf 'POLICY_KEY_SECRET=%s\n' "$(openssl rand -hex 32)"
+            printf 'LLM_TRACE=1\n'
+          } > .dev.vars.record
+
+      - name: 하네스(실호출 — 모든 요청 cf-aig-skip-cache, 케이스당 공급자 하나)
+        id: run
+        if: steps.plan.outputs.run == 'true'
+        working-directory: evals
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BATCH_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SET: ${{ steps.plan.outputs.set }}
+          TRIGGER: ${{ steps.plan.outputs.trigger }}
+          GROQ: ${{ steps.plan.outputs.groq }}
+          WAI: ${{ steps.plan.outputs.wai }}
+        run: |
+          mkdir -p out
+          NODE_NO_WARNINGS=1 pnpm run eval -- --live --set "$SET" --groq-calls "$GROQ" --wai-calls "$WAI" --trigger "$TRIGGER" 2>&1 | tee out/run.log
+          echo "dir=$(ls -td out/*/ | head -1 | sed 's:/$::')" >> "$GITHUB_OUTPUT"
+
+      - name: 직전 활성 버전 런(원격 읽기 — 없으면 임계치만)
+        if: steps.plan.outputs.run == 'true' && github.event_name == 'pull_request'
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BATCH_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BASE_PV: ${{ steps.plan.outputs.base_pv }}
+          DIR: ${{ steps.run.outputs.dir }}
+        run: |
+          # eval_run.prompt_versions는 하네스가 PROMPT_VERSIONS를 같은 순서의 JSON 객체로 적은 문자열. 값 형식을 먼저 막는다(SQL에 넣으므로)
+          [[ "$BASE_PV" =~ ^[a-z_]+=v[0-9]+(,[a-z_]+=v[0-9]+)*$ ]] || { echo "기준 PROMPT_VERSIONS 형식: $BASE_PV"; exit 1; }
+          pv=$(node -e 'console.log(JSON.stringify(Object.fromEntries(process.argv[1].split(",").map((p) => p.split("=")))))' "$BASE_PV")
+          q="SELECT r.run_id, c.case_id, c.actual FROM eval_case_result c JOIN eval_run r ON r.run_id = c.run_id WHERE r.run_id = (SELECT run_id FROM eval_run WHERE prompt_versions = '$pv' AND trigger NOT LIKE 'pr:%' ORDER BY started_at DESC LIMIT 1)"
+          pnpm exec wrangler d1 execute copilot --remote --json --command "$q" > /tmp/ref-raw.json
+          node -e 'const r=JSON.parse(require("fs").readFileSync("/tmp/ref-raw.json","utf8"))[0].results;console.log(JSON.stringify({runId:r[0]?.run_id??null,rows:r.map(({case_id,actual})=>({case_id,actual}))}))' > "../evals/$DIR/ref.json"
+          node -e 'const d=require(process.argv[1]);console.log(`기준 런 ${d.runId??"없음"} — ${d.rows.length}행`)' "$PWD/../evals/$DIR/ref.json"
+
+      - name: 관문(THRESHOLDS.md + 직전 활성 대비)
+        id: gate
+        if: steps.plan.outputs.run == 'true'
+        env:
+          DIR: evals/${{ steps.run.outputs.dir }}
+          ENFORCE: ${{ steps.plan.outputs.enforce }}
+        run: |
+          ref=(); [ -f "$DIR/ref.json" ] && ref=(--ref "$DIR/ref.json")
+          set +e
+          node evals/src/gate.ts "$DIR/summary.json" "${ref[@]}" --comment "$DIR/gate.md" $ENFORCE
+          code=$?
+          set -e
+          cat "$DIR/gate.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: PR 코멘트
+        if: steps.plan.outputs.run == 'true' && github.event_name == 'pull_request' && always() && steps.gate.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          DIR: evals/${{ steps.run.outputs.dir }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          { cat "$DIR/gate.md"; echo; echo "[실행 기록]($RUN_URL) · 산출물 eval-out(runs.jsonl·summary.json·load.sql)"; } > /tmp/comment.md
+          gh pr comment "$PR" --body-file /tmp/comment.md
+
+      - name: 원격 적재(load_remote — 운영자 승인 = 디스패치 입력)
+        if: steps.plan.outputs.run == 'true' && github.event_name == 'workflow_dispatch' && inputs.load_remote
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BATCH_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DIR: ../evals/${{ steps.run.outputs.dir }}
+        run: |
+          echo "eval_run $(grep -c '^INSERT INTO eval_run ' "$DIR/load.sql")행 · eval_case_result $(grep -c '^INSERT INTO eval_case_result ' "$DIR/load.sql")행" | tee -a "$GITHUB_STEP_SUMMARY"
+          pnpm exec wrangler d1 execute copilot --remote --file "$DIR/load.sql" 2>&1 | tail -5
+
+      - name: 계정 ID 가리기
+        if: always() && steps.plan.outputs.run == 'true'
+        env:
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          [ -n "$ACCOUNT" ] || exit 0
+          find evals/out -type f \( -name '*.log' -o -name '*.json' -o -name '*.jsonl' -o -name '*.md' \) -exec sed -i "s/$ACCOUNT/<account>/g" {} +
+
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.plan.outputs.run == 'true'
+        with:
+          name: eval-out
+          path: evals/out/
+          if-no-files-found: warn
+
+      - name: 관문 결과
+        if: steps.plan.outputs.run == 'true'
+        env:
+          CODE: ${{ steps.gate.outputs.code }}
+        run: exit "${CODE:-1}"
