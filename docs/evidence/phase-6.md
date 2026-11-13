@@ -9,7 +9,7 @@
 
 | # | 완료 기준(PHASES.md 원문) | 결과 | 증거 |
 |---|---|---|---|
-| 1 | 첫 실런 결과가 /evals에 표시 | 기준선 런 완료·로컬 D1 적재, 원격 적재는 운영자 승인 대기, /evals는 항목 5 | 아래 "첫 실런 결과" |
+| 1 | 첫 실런 결과가 /evals에 표시 | 기준선 런 완료·원격 D1 적재(11-14), /evals 화면은 항목 5 | 아래 "첫 실런 결과" |
 | 2 | 열화 PR 차단 캡처 | 미실행 | — |
 | 3 | THRESHOLDS.md에 초기값과 조정 이력 | 관문값 = 기준선 − 3%p(2026-11-14), 목표 §13.1 유지, 조정 이력 3행 | `evals/THRESHOLDS.md` |
 
@@ -33,6 +33,85 @@
 - 검토 반영(stub 확인에서): A-02 "지급 예정월 데이터로 확인되지 않음" 매칭에 "명시되어 있지 않"·"확인할 수 없" 추가, A-12 핵심 사실은 부록 A대로 145,000 정정 1개(`coreFacts` 1 — 초안이 덧붙인 855,000·1,000,000은 채점 밖).
 - stub 확인(2026-11-11 12:16Z, 카세트 = Phase 4 부록 A 녹화 `worker/test/vcr/answer.json` 2026-11-04 Groq): 12건 끝까지 돈다 — 녹화 없는 rulesUnavailable 2건은 "녹화 없음". 11-04 Groq A-01 답도 "145,000원 삭감된 결과"로 내용 축 실패(금지어 — 의도대로). 기준선이 아니다(카세트가 옛 녹화·12건뿐).
 - 시험: `evals/test/score.test.ts` 7건 + cases 6건, worker `cache.test` skipCache 1건. `pnpm -r test` 전체 통과(evals 13 · worker 436 · web 62 · gen 208 · grounding 68), lint 0, evals tsc 0.
+
+## 기준선 그라운딩 실패 원인(2026-11-14 — LLM 호출 없음)
+
+방법: 실패 19건의 answer_log.violations 토큰을 그 케이스 2단계 요청(llm_trace)의 툴 결과 원문·질문·검증기 규칙(`packages/grounding`)과 대조. 원문 출력 `docs/evidence/logs/phase-6-baseline/grounding-causes.txt`.
+
+### ① G4 10건 — 검증기·표기 공백 vs 근거 없음
+
+| 케이스 | 토큰 | 툴 결과에 | 분류 | 근거 |
+|---|---|---|---|---|
+| G-24 | 0004 | `***0004` 있음 | **검증기 공백** | 맨 4자리 "0004 계약"은 policyTail로 안 잡히고 숫자 "4"(앞 0 제거)가 된다 — policyTail 규칙은 `***0004` 꼴만 |
+| G-25 | 0004 | `***0004` | **검증기 공백** | 같음 |
+| G-28 | 0002 | `***0002` | **검증기 공백** | 같음(이 건은 G4만 — 고치면 그라운딩 통과) |
+| G-30 | 2010 | `***2010` | **검증기 공백** | "2010 계약" → 숫자 2010 |
+| G-31 | 0004 | `***0004` | **검증기 공백** | 같음 |
+| G-27 | 2013 · 4 | `***2013` | **검증기 공백** | "2013" 같음, "4"는 "끝 4자리"의 자릿수(데이터 숫자 아님) |
+| G-32 | 1,105,200 | 없음 | 모델이 계산 — 정당한 거부 | get_deferrals 2028-01~06 항목을 모델이 더함(규칙 1 위반) |
+| G-41 | 60% | 없음(조항 본문 40%·20%) | 모델이 계산 — 정당한 거부 | 100 − 40 |
+| G-19 | 2027년 4월 · 540,000 | 없음 | 근거 없음(툴 부족) — 정당한 거부 | 202804만 부르고 202704를 안 불러 질문의 값을 옮김(오답 유도 케이스) |
+| G-18 | 2027년 5월 · 2028년 5월 | 툴 호출 없음 | 근거 없음(툴 미호출) — 정당한 거부 | 규정만으로 답하며 질문의 달을 옮김(규칙 10 위반) |
+
+→ 검증기 공백 6건(증권번호 끝자리 표기), 정당한 거부 4건(계산 2 · 툴 부족·미호출 2).
+
+### ② G5 6건 — 없는 값 vs 경로 표기
+
+| 케이스 | 인용 | 실제 경로 | 분류 |
+|---|---|---|---|
+| G-24 | get_limit.remaining | ledger.remaining | 경로 표기 불일치(접두 `ledger.` 생략) |
+| G-29 | get_limit.limitAmount | ledger.limitAmount | 경로 표기 불일치(접두) |
+| G-30 | get_limit.utilization | ledger.utilization | 경로 표기 불일치(접두) |
+| G-31 | get_limit.remaining·accumPaid·limitAmount | ledger.* | 경로 표기 불일치(접두) |
+| A-12 | get_statement.lines.0.limitCutAmt | lines.1.limitCutAmt | 경로 표기 불일치(배열 순번 틀림 — 값은 있다) |
+| G-17 | get_statement.byType.DEFERRED | 두 번째 get_statement(202801)의 byType.DEFERRED | **검증기 공백** — 같은 툴을 두 번 부르면 G5가 첫 결과(202712)만 본다(`results.find`) |
+
+→ 없는 값 인용 0건. 경로 표기 불일치 5건(→ 툴 결과 v2의 인용 가능한 경로 목록), 검증기 공백 1건.
+
+### ③ G6 7건 — 코드가 툴 결과 원문에 있었나
+
+| 케이스 | 위반 | 툴 결과 원문에 |
+|---|---|---|
+| A-06 | CODE:FY_COMM · CODE:INCENTIVE | 있음 |
+| G-13 | CODE:CLAWBACK · CODE:RENEWAL | 있음 |
+| G-22 | CODE:FY_COMM | 있음 |
+| G-25 | CODE:PREMIUM_REDUCED | 있음 |
+| G-27 | CODE:FY_COMM | 있음 |
+| G-33 | CODE:DEFERRED | 있음 |
+| G-15 | PHRASE:확정 | 없음 — 모델이 쓴 말("확정하지 않았기") |
+
+→ 코드 6건은 전부 툴 결과의 영문 코드를 옮긴 것(→ 툴 결과 v2 한국어 라벨), 금지 표현 1건은 모델 문장(정당한 거부).
+
+### 검증기 공백으로 확인된 것(고칠 대상 — v4 PR에서, 기준은 그대로)
+
+1. **G4 증권번호 끝자리 표기**: "0004 계약"·"끝 4자리 0004"·"(0004)"처럼 마스킹 없이 쓴 4자리 → policyTail로 잡아 컨텍스트의 `***0004`와 대조(없는 끝자리는 그대로 실패). "끝 4자리"의 4는 숫자 토큰에서 뺀다. 컨텍스트에 그 끝자리가 없으면 지금처럼 실패 — 기준을 낮추지 않는다.
+2. **G5 같은 툴 여러 번**: 인용 경로를 그 툴의 모든 결과에서 찾는다(지금은 첫 결과만). 경로 자체는 정확 일치 그대로(접두 생략·순번 틀림은 계속 실패).
+- 영향(기준선 답을 고친 검증기로 다시 보면): 위반이 이것뿐이던 G-28·G-17 2건이 그라운딩 통과로 바뀐다. 나머지 공백 해당 건(G-24·G-25·G-27·G-30·G-31)은 G5 경로·G6 코드가 남아 계속 실패.
+- `packages/grounding`은 gen(설명 배치)도 쓴다 — 고칠 때 `verify:explain --regrade`로 591건 판정이 바뀌지 않는지(또는 바뀐 건 목록) 함께 낸다.
+
+## answer/v4 설계안(구현 전 — 운영자 검토 대기, 2026-11-14)
+
+기준: G4·G5·G6 기준은 낮추지 않는다. 검증기는 위 "공백으로 확인된 것" 2건만 고친다. 나머지는 툴 결과 형식(v2)과 프롬프트(v4)로.
+
+**A. 툴 결과 v2**(worker/src/tools — 읽기 전용 그대로, 숫자 계산은 DerivedNumbers의 합계·잔여·소진율만)
+1. 코드 옆에 한국어 라벨: `commType: "FY_COMM", commTypeLabel: "초년도 수수료"`, `byType`를 `[{type, label, amount}]`로, 한도 이력 사유·명세 상태·분급 상태(SCHEDULED·HELD·RELEASED)도 라벨. 프롬프트는 "text에는 label만". G6 코드 6건 대상.
+2. 이연 정책 라벨: `limitCutPolicy`가 DEFER_AFTER_FY면 그 라인에 `limitCutLabel: "한도 초과 이연액"`(아니면 "한도 삭감액") — A-01·A-02의 "삭감" 오기가 필드 이름 `limitCutAmt`에서 온다. 값·필드는 그대로, 라벨만 더한다.
+3. 안정 키 인용 경로: 배열 순번 대신 키 — `lines[calcId=c-…].limitCutAmt`, `byType[type=DEFERRED].amount`, 같은 툴 여러 번은 `get_statement@202801.…`(인자로 결과를 고른다). G5는 이 표기를 정확 일치로 본다(접두 생략은 여전히 실패).
+4. 인용 가능한 경로 목록: 결과마다 `citable: ["ledger.remaining", "ledger.limitAmount", …]`(값이 있는 잎 경로만, 최대 N개) — 프롬프트는 "field는 citable에서 고른다". G5 경로 불일치 5건 대상.
+5. 범위 합계: get_deferrals 결과에 요청 범위의 상태별·전체 합계(DerivedNumbers 합계 — 규약 2 허용 범위). G-32·G-37·G-39처럼 "합계"를 묻는 질문이 모델 계산(G4)이나 NEEDS_ENGINE 과잉 거부로 가지 않게.
+
+**B. answer/v4 프롬프트**(prompts/answer/v4.md + CHANGELOG, schema_hint 그대로)
+1. 라우팅 — NEEDS_ENGINE 과잉 거부(A-07·G-14·G-37·G-38·G-39): "NEEDS_ENGINE은 가정한 보험료·새 계약처럼 <data>로 답할 수 없는 새 계산만. 월 비교·합계·예정액은 툴을 부른다. 해약·이벤트 질문은 get_policy_event_sim을 먼저 부르고, found=false·NO_STUB일 때만 NEEDS_ENGINE". OUT_OF_SCOPE 과잉 거부(G-16·G-34): "명세·한도·분급 질문은 OUT_OF_SCOPE가 아니다" 예시 2개.
+2. OTHER_AGENT 구분(G-54·G-56): "다른 설계사 ID(A-0000 꼴)나 이름이 질문에 있으면 OTHER_AGENT" + 서버 결정론 가드 — 질문에 세션 밖 설계사 ID 패턴이 있으면 LLM 없이 OTHER_AGENT(이름은 조회하지 않는다 — ScopedQuery 규약상 다른 설계사 이름 목록을 읽지 않음, 이름은 프롬프트 몫).
+3. 답 모양(내용 축 — 한 문장 답이 대부분): "거부가 아니면 3문장 이상: ① 질문에 대한 값(툴 필드) ② 그 값의 구성·사유(라인 유형 라벨·한도/이연·채권 상계) ③ 상태·남은 확인(지급완료·보류·데이터로 확인되지 않음)". 규칙 3(사용자 틀린 숫자 다시 쓰지 않음)·규칙 1(계산 금지) 유지.
+4. 2단계 1회 합치기 검토: 질문에 연월·증권번호가 명시돼 툴이 결정되는 경우(서버가 파싱 — 예 "2026년 8월", "0004 계약") 서버가 툴을 먼저 부르고 LLM 1회로 답한다. 그 밖은 지금처럼 2회. 효과: Groq 호출·토큰 약 40% 감소(기준선 Groq 29건 중 2호출 25건), 응답 시간 절반. 위험: 파서가 놓친 툴은 부를 수 없다 → 1회 답이 "툴이 더 필요"면 2단계로 넘어가는 탈출구. 채택 여부는 v4 PR의 표본 20건 결과로(같은 PR에서 켜고 끄는 두 런은 Groq TPD상 못 돌린다 — 켜서 한 번, 기준선과 비교).
+
+**C. 거부 코드 RULES_UNAVAILABLE**(§4.4 새 행 — 설계서 먼저)
+- 상황: 규정 검색 불가(rulesUnavailable — 임베딩·Vectorize 실패, 저하 ③)인데 질문이 규정을 물을 때. 문구(고정 안): "지금은 규정 조항을 불러오지 못해 규정 질문에 답할 수 없습니다. 잠시 후 다시 시도해 주세요. 명세·한도 데이터 질문은 계속 답합니다."
+- 결정 주체: 모델이 고르되(rules 블록이 비었다는 표시를 프롬프트에 넣는다) 서버는 `rulesUnavailable=false`일 때 이 코드를 받지 않는다(SERVER_ONLY처럼 검사 — 규정이 있는데 RULES_UNAVAILABLE이면 NOT_GROUNDED로).
+- 케이스: G-42#rulesUnavailable 기대 = RULES_UNAVAILABLE. A-04#rulesUnavailable(한도 산식)은 선택이 필요하다 — (a) RULES_UNAVAILABLE, (b) get_limit 값만으로 "월납 × 12배" 없이 한도·월납을 답함. 제안은 (a)(산식은 규정 내용이라 툴 값만으로는 질문에 답하지 못한다). 케이스 스키마에 모드별 기대(`expectByMode`)를 더한다.
+
+**D. 일정(운영자 2026-11-14)**: variance 3일 동안 항목 5(/evals)와 이 설계 검토 → variance 끝난 다음 날 v4 PR(검증기 공백 2건 + 툴 결과 v2 + answer/v4 + RULES_UNAVAILABLE) → 그다음 날 항목 6 열화 PR 캡처.
 
 ## 항목 4 — `.github/workflows/eval-on-prompt-change.yml`·관문 `evals/src/gate.ts`
 
@@ -120,11 +199,11 @@
 - `node gen/scripts/answer-cassette.ts --since 2026-11-13T22:56:38Z --out evals/vcr/eval.json` → llm_trace 92행 → 카세트 92항목(1.28MB, 계정 ID 없음).
 - 재생 확인 `pnpm -C evals run eval -- --stub --set all`(런 `20261113T232726-stub-replay`): normal 60건 4축·통과 18/60, rulesUnavailable 2/4 — 실런과 같다. G-35는 응답이 없어 "녹화 없음"(ERROR) — 실런과 같은 판정.
 
-### 원격 적재(승인 대기)
+### 원격 적재(운영자 승인 2026-11-14 — 완료)
 
 - `load.sql` = `eval_run` 1행 + `eval_case_result` 64행(65문장, 74KB). 열: eval_run(run_id, started_at, trigger, prompt_versions, stream_hash, model, total, passed, grounding_pass_rate, refusal_accuracy, tool_accuracy, mean_latency_ms) · eval_case_result(run_id, case_id, passed, expected, actual, failure_kind).
 - eval_run의 합계·율은 normal 60건만. rulesUnavailable 4행은 `case_id` 접미 `#rulesUnavailable`로 구분(모드 열은 §5.1 표에 없다 — `actual.mode`에도 있음). 내용 축·공급자는 `actual` JSON.
-- 원격 eval_run 현재 0행(읽기 확인).
+- 적재 전 원격 eval_run 0행. `wrangler d1 execute copilot --remote --file load.sql` → rows_written 130(65행 + 인덱스). 확인 조회: eval_run 1행(total 60·passed 18·0.5·0.8333·0.6486), eval_case_result 64행 중 `#rulesUnavailable` 4행. 관문 기준 조회(`gate.ts --ref-sql` 현재 PROMPT_VERSIONS)가 이 런 64행을 고른다.
 - 실런 뒤 d91289a를 되돌렸다(BUDGET_WORKERS_AI 0 → 80, 시험 35 → 75 — 운영자 푸시·배포 대기).
 
 ## 결정·편차
