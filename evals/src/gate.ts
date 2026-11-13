@@ -1,8 +1,9 @@
 // 프롬프트 승격 관문(설계서 §6.3·§13.1, PHASES Phase 6 항목 4). eval-on-prompt-change.yml이 부른다.
 //   node evals/src/gate.ts <summary.json> [--ref <ref.json>] [--comment <out.md>] [--enforce]
+//   node evals/src/gate.ts --ref-sql <PROMPT_VERSIONS>   — 직전 활성 런 조회 SQL(60문항 런만)
 // 판정: 4축 각각 THRESHOLDS.md 임계치 이상, 직전 활성 버전(ref) 대비 어느 축도 maxDropPp 이상 하락 없음,
 // 그라운딩·거부는 직전 이상(§6.3). 공급자 오류·예산 미실행 케이스가 있으면 판정 불가 = 실패(다시 돌린다).
-// ref.json = 원격 eval_case_result 행([{case_id, actual}]) — 같은 활성 PROMPT_VERSIONS의 가장 최근 런. 표본 케이스만 다시 집계한다.
+// ref.json = 원격 eval_case_result 행([{case_id, actual}]) — 같은 활성 PROMPT_VERSIONS의 가장 최근 60문항 런(baseline·weekly). 표본 케이스만 다시 집계한다.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type AxisSummary, type CaseRun, type CaseScore, readThresholds, type RunSummary, summarize, type Thresholds } from "./score.ts";
@@ -28,6 +29,23 @@ export function refSummary(rows: readonly RefRow[], caseIds: readonly string[]):
     return { run: a, score: a.score };
   });
   return summarize(scored);
+}
+
+/** 직전 활성 기준이 될 수 있는 런 = 60문항 전체 런(기준선·주간)만. variance(부록 A 12건)·pr·manual·stub은 표본 20건을 다 덮지 않아 기준으로 잡지 않는다(운영자 2026-11-14). */
+export const REF_TRIGGERS = ["baseline", "weekly"] as const;
+
+const PV_RE = /^[a-z_]+=v[0-9]+(,[a-z_]+=v[0-9]+)*$/;
+
+/** PROMPT_VERSIONS 문자열 → eval_run.prompt_versions(하네스가 같은 순서의 JSON 객체로 적는다). */
+export const pvJson = (pv: string) => {
+  if (!PV_RE.test(pv)) throw new Error(`PROMPT_VERSIONS 형식: ${pv}`);
+  return JSON.stringify(Object.fromEntries(pv.split(",").map((p) => p.split("="))));
+};
+
+/** 원격 조회 SQL(wrangler d1 execute --command) — 값은 형식 검사를 지난 PROMPT_VERSIONS와 고정 목록뿐. */
+export function refQuery(basePv: string): string {
+  const triggers = REF_TRIGGERS.map((t) => `'${t}'`).join(", ");
+  return `SELECT r.run_id, c.case_id, c.actual FROM eval_case_result c JOIN eval_run r ON r.run_id = c.run_id WHERE r.run_id = (SELECT run_id FROM eval_run WHERE prompt_versions = '${pvJson(basePv)}' AND trigger IN (${triggers}) AND total >= 60 ORDER BY started_at DESC LIMIT 1)`;
 }
 
 export interface GateResult {
@@ -85,6 +103,11 @@ export function gate(cur: RunSummary & { errors?: number }, t: Thresholds, ref: 
 if (import.meta.main) {
   const args = process.argv.slice(2);
   const arg = (k: string) => (args.includes(k) ? args[args.indexOf(k) + 1] : undefined);
+  const refSql = arg("--ref-sql");
+  if (refSql !== undefined) {
+    console.log(refQuery(refSql));
+    process.exit(0);
+  }
   const summaryPath = args[0];
   if (!summaryPath) throw new Error("summary.json 경로");
   const dir = join(summaryPath, "..");

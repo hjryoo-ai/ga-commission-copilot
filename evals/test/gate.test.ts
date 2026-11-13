@@ -1,6 +1,7 @@
 // PHASES Phase 6 항목 4 — 프롬프트 승격 관문(설계서 §6.3·§13.1). LLM 호출 없음.
+import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { gate, refSummary } from "../src/gate";
+import { gate, refQuery, refSummary } from "../src/gate";
 import type { RunSummary, Thresholds } from "../src/score";
 
 const t: Thresholds = { grounding: 90, refusal: 80, tool: 85, content: 70, maxDropPp: 3 };
@@ -43,5 +44,46 @@ describe("gate", () => {
     const s = refSummary([row("A-01", true), row("A-02", false), row("A-02#rulesUnavailable", true), row("G-01", false)], ["A-01", "A-02"]);
     expect(s.total).toBe(2);
     expect(s.grounding).toEqual({ n: 2, pass: 1, rate: 50 });
+  });
+});
+
+describe("refQuery — 직전 활성 기준은 60문항 런(baseline·weekly)만", () => {
+  const PV = "explain_line=v6,answer=v3,schema_hint=v1";
+  const PVJ = JSON.stringify({ explain_line: "v6", answer: "v3", schema_hint: "v1" });
+  const db = () => {
+    const d = new DatabaseSync(":memory:");
+    d.exec("CREATE TABLE eval_run (run_id TEXT, started_at TEXT, trigger TEXT, prompt_versions TEXT, total INTEGER); CREATE TABLE eval_case_result (run_id TEXT, case_id TEXT, actual TEXT)");
+    const run = d.prepare("INSERT INTO eval_run VALUES (?,?,?,?,?)");
+    const row = d.prepare("INSERT INTO eval_case_result VALUES (?,?,?)");
+    const add = (id: string, at: string, trigger: string, total: number, pv = PVJ) => {
+      run.run(id, at, trigger, pv, total);
+      for (let i = 0; i < Math.min(total, 3); i++) row.run(id, `A-0${i + 1}`, "{}");
+    };
+    add("base", "2026-11-13T22:56:38Z", "baseline", 60);
+    add("var1", "2026-11-15T00:10:00Z", "variance:2026-11-15", 12);
+    add("pr7", "2026-11-16T00:10:00Z", "pr:7", 20);
+    add("other-pv", "2026-11-17T00:10:00Z", "weekly", 60, JSON.stringify({ answer: "v4" }));
+    return { d, add };
+  };
+  const pick = (d: DatabaseSync) => [...new Set((d.prepare(refQuery(PV)).all() as { run_id: string }[]).map((r) => r.run_id))];
+
+  it("variance·pr 런이 더 늦어도 기준선을 고른다(같은 PROMPT_VERSIONS)", () => {
+    expect(pick(db().d)).toEqual(["base"]);
+  });
+
+  it("같은 버전의 weekly가 나중에 있으면 그것", () => {
+    const { d, add } = db();
+    add("wk", "2026-11-22T03:00:00Z", "weekly", 60);
+    expect(pick(d)).toEqual(["wk"]);
+  });
+
+  it("60건이 안 되는 weekly(상한 미달로 끊긴 런 등)는 기준이 아니다", () => {
+    const { d, add } = db();
+    add("wk-short", "2026-11-22T03:00:00Z", "weekly", 40);
+    expect(pick(d)).toEqual(["base"]);
+  });
+
+  it("PROMPT_VERSIONS 형식이 아니면 SQL을 만들지 않는다", () => {
+    expect(() => refQuery("answer=v3' OR 1=1 --")).toThrow("형식");
   });
 });

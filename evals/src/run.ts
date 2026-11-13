@@ -12,6 +12,7 @@ import { activeStream, DEMO_TENANT, rulebookChunks, ScopedQuery } from "../../wo
 import { type AnswerDeps, type AnswerResult, answerQuestion, cloudflareDeps } from "../../worker/src/llm/answer";
 import { activePrompt } from "../../worker/src/llm/promptRegistry";
 import { groq, type Provider, ProviderError, type ProviderName, requestHash, type StructuredRequest, type StructuredResponse, traced, workersAi } from "../../worker/src/llm/providers";
+import { assignProviders, weekParity } from "./assign";
 import { type CaseRun, type EvalCase, scoreCase, summarize } from "./score";
 
 const ROOT = join(import.meta.dirname, "../..");
@@ -101,6 +102,8 @@ interface RunMeta {
   promptVersions: string;
   streamHash: string;
   calls: Record<string, number>;
+  /** 공급자 배정 offset(assign.ts) — 기준선 런(2026-11-13)은 배정 도입 전이라 없다(순서대로 Groq 먼저). */
+  assignOffset?: number;
   rescoredAt?: string;
 }
 
@@ -148,7 +151,7 @@ async function main() {
         if (!c) throw new Error(`케이스 없음: ${run.caseId}`);
         return { run, score: scoreCase(c, run), c };
       });
-      const meta: RunMeta = { runId: prev.runId, trigger: prev.trigger, set: prev.set, live: prev.live, startedAt: prev.startedAt, finishedAt: prev.finishedAt ?? prev.startedAt, promptVersions: prev.promptVersions, streamHash: prev.streamHash, calls: prev.calls, rescoredAt: new Date().toISOString() };
+      const meta: RunMeta = { runId: prev.runId, trigger: prev.trigger, set: prev.set, live: prev.live, startedAt: prev.startedAt, finishedAt: prev.finishedAt ?? prev.startedAt, promptVersions: prev.promptVersions, streamHash: prev.streamHash, calls: prev.calls, ...(prev.assignOffset === undefined ? {} : { assignOffset: prev.assignOffset }), rescoredAt: new Date().toISOString() };
       await writeOutputs(env, out, meta, runs);
       return;
     }
@@ -172,11 +175,17 @@ async function main() {
     console.log(`[eval] ${runId} — ${cases.length}건(${set}), ${live ? `live Groq ${caps.groq}·Workers AI ${caps["workers-ai"]} 호출` : "stub"}, stream ${stream.streamHash.slice(0, 12)}, PROMPT_VERSIONS ${env.PROMPT_VERSIONS}`);
     // 기준선(normal)을 먼저 다 돌리고 rulesUnavailable 모드를 뒤에 — 상한이 모자라면 별도 집계 쪽이 빠지게(운영자 11-13)
     const order = (["normal", "rulesUnavailable"] as const).flatMap((mode) => cases.filter((c) => c.modes.includes(mode)).map((c) => ({ c, mode })));
-    for (const { c, mode } of order) {
+    // 공급자 배정(운영자 2026-11-14): 유형마다 상한 비율대로 번갈아 — 앞 N건 몰아주기면 모델 비교가 문항 유형과 섞인다. offset = ISO 주 홀짝
+    const assignOffset = Number(arg("--assign-offset") ?? weekParity(new Date(startedAt)));
+    const assigned = assignProviders(order, caps, assignOffset);
+    for (const [i, { c, mode }] of order.entries()) {
       const q = new ScopedQuery(env.DB, { tenantId: DEMO_TENANT, agentId: c.agentId, stream });
       let run: CaseRun = { caseId: c.id, mode };
-      // 케이스당 공급자 하나 — 남은 상한이 2호출(툴 계획 + 답) 이상인 쪽, Groq 먼저
-      const name = live ? ((["groq", "workers-ai"] as const).find((n) => (used[n] ?? 0) + 2 <= caps[n]) ?? null) : "groq";
+      // 케이스당 공급자 하나 — 배정된 쪽에 2호출(툴 계획 + 답) 여유가 없으면 다른 쪽(reassigned), 둘 다 없으면 미실행
+      const want = assigned[i]!;
+      const other = want === "groq" ? "workers-ai" : "groq";
+      const name = live ? ([want, other] as const).find((n) => (used[n] ?? 0) + 2 <= caps[n]) ?? null : "groq";
+      if (live && name && name !== want) run = { ...run, reassigned: true };
       if (!name) run = { ...run, error: "예산(eval 상한) — 미실행" };
       else {
         const deps = stub ? stubDeps(env, cassette!, c.question) : cloudflareDeps(env, base[name]);
@@ -193,7 +202,7 @@ async function main() {
       runs.push({ run, score, c });
       console.log(`[eval] ${new Date().toISOString()} ${c.id}${mode === "normal" ? "" : ` (${mode})`} ${run.provider ?? "-"} ${score.passed ? "PASS" : `✗ ${score.failureKind}`}${run.error ? ` ${run.error}` : ""} ${run.latencyMs ?? 0}ms — 호출 ${JSON.stringify(used)}`);
     }
-    await writeOutputs(env, out, { runId, trigger, set, live, startedAt, finishedAt: new Date().toISOString(), promptVersions: env.PROMPT_VERSIONS ?? "", streamHash: stream.streamHash, calls: used }, runs);
+    await writeOutputs(env, out, { runId, trigger, set, live, startedAt, finishedAt: new Date().toISOString(), promptVersions: env.PROMPT_VERSIONS ?? "", streamHash: stream.streamHash, calls: used, assignOffset }, runs);
   } finally {
     await proxy.dispose();
   }

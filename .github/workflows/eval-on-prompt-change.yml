@@ -2,7 +2,7 @@
 #   pull_request: prompts/**가 바뀐 PR만 실호출 — 20문항 표본(pr-sample.json, Groq 단독 40호출 상한) → 채점 → PR 코멘트 → 관문 미달이면 실패.
 #     prompts/**가 안 바뀐 PR도 이 잡은 돌고 곧바로 통과한다(필수 체크가 대기에 걸리지 않게 — paths 필터를 쓰지 않는 이유).
 #     새 프롬프트 버전은 같은 PR에서 worker/wrangler.jsonc PROMPT_VERSIONS도 바꿔야 그 버전이 평가된다(하네스는 PR 머리의 PROMPT_VERSIONS를 쓴다).
-#     직전 활성 버전 = 기준 브랜치의 PROMPT_VERSIONS로 원격 eval_run을 찾은 가장 최근 런(원격 읽기만).
+#     직전 활성 버전 = 기준 브랜치의 PROMPT_VERSIONS로 원격 eval_run을 찾은 가장 최근 60문항 런(baseline·weekly — variance·pr 런 제외, 원격 읽기만).
 #   workflow_dispatch: set(appendix·pr·all)·상한·trigger를 골라 돌린다. 관문은 표만 남기고 실패시키지 않는다.
 #     원격 eval_run 적재는 load_remote=true일 때만 — 디스패치하는 운영자가 그 행을 승인하는 것(행 수·컬럼은 요약에 찍는다).
 # 순서: 로컬 D1 마이그레이션 → 스트림·사규집 청크 적재 → 하네스(getPlatformProxy env.record — D1 로컬, AI·Vectorize 원격).
@@ -169,10 +169,8 @@ jobs:
           BASE_PV: ${{ steps.plan.outputs.base_pv }}
           DIR: ${{ steps.run.outputs.dir }}
         run: |
-          # eval_run.prompt_versions는 하네스가 PROMPT_VERSIONS를 같은 순서의 JSON 객체로 적은 문자열. 값 형식을 먼저 막는다(SQL에 넣으므로)
-          [[ "$BASE_PV" =~ ^[a-z_]+=v[0-9]+(,[a-z_]+=v[0-9]+)*$ ]] || { echo "기준 PROMPT_VERSIONS 형식: $BASE_PV"; exit 1; }
-          pv=$(node -e 'console.log(JSON.stringify(Object.fromEntries(process.argv[1].split(",").map((p) => p.split("=")))))' "$BASE_PV")
-          q="SELECT r.run_id, c.case_id, c.actual FROM eval_case_result c JOIN eval_run r ON r.run_id = c.run_id WHERE r.run_id = (SELECT run_id FROM eval_run WHERE prompt_versions = '$pv' AND trigger NOT LIKE 'pr:%' ORDER BY started_at DESC LIMIT 1)"
+          # 60문항 런(baseline·weekly)만 기준 — variance(12건)·pr 런은 표본 20건을 다 덮지 않는다. SQL·형식 검사는 gate.ts(시험 있음)
+          q=$(node ../evals/src/gate.ts --ref-sql "$BASE_PV")
           pnpm exec wrangler d1 execute copilot --remote --json --command "$q" > /tmp/ref-raw.json
           node -e 'const r=JSON.parse(require("fs").readFileSync("/tmp/ref-raw.json","utf8"))[0].results;console.log(JSON.stringify({runId:r[0]?.run_id??null,rows:r.map(({case_id,actual})=>({case_id,actual}))}))' > "../evals/$DIR/ref.json"
           node -e 'const d=require(process.argv[1]);console.log(`기준 런 ${d.runId??"없음"} — ${d.rows.length}행`)' "$PWD/../evals/$DIR/ref.json"

@@ -29,6 +29,8 @@ export interface CaseRun {
   /** answer_log.answer_id(로컬 D1) · 끝난 시각 — 녹화·대조용. */
   answerId?: string;
   at?: string;
+  /** 배정된 공급자 상한이 모자라 다른 공급자로 돌렸다(run.ts). */
+  reassigned?: boolean;
   /** G4·G5·G6 위반 토큰(answer_log.violations와 같은 모양) — 채점에는 쓰지 않는다. */
   violations?: unknown;
   provider?: string;
