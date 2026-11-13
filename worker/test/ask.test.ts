@@ -122,14 +122,16 @@ describe("POST /api/v1/me/ask", () => {
     };
     const res = await worker.fetch(
       new Request("https://example.com/api/v1/me/ask", { method: "POST", headers: { "Content-Type": "application/json", Cookie: one }, body: JSON.stringify({ question: "8월 실수령은 얼마예요?" }) }),
-      { ...env, AI: fakeAi } as unknown as Env,
+      // 체인에 Workers AI가 있어야 하는 시험 — 배포 설정이 평가 실런 당일 0이어도(설계서 v0.1.39) 여기서는 80
+      { ...env, AI: fakeAi, BUDGET_WORKERS_AI: "80" } as unknown as Env,
       createExecutionContext(),
     );
     vi.restoreAllMocks();
     expect([res.status, res.headers.get("Content-Type")]).toEqual([503, "application/problem+json"]);
     const b = (await res.json()) as { code: string; answerId: string; budget: { remainingToday: number; userRemaining: number } };
     expect(validate("Problem", b)).toEqual([]);
-    expect([b.code, b.budget]).toEqual(["PROVIDER_ERROR", { remainingToday: budgetCaps(env).global - 1, userRemaining: budgetCaps(env).user - 1 }]);
+    const wai80 = budgetCaps({ ...env, BUDGET_WORKERS_AI: "80" });
+    expect([b.code, b.budget]).toEqual(["PROVIDER_ERROR", { remainingToday: wai80.global - 1, userRemaining: wai80.user - 1 }]);
     const row = await env.DB.prepare("SELECT provider, model, fallback_depth, refused, refuse_reason, grounding_status, answer FROM answer_log WHERE answer_id = ?").bind(b.answerId).first();
     expect(row).toEqual({ provider: "workers-ai", model: WORKERS_AI_MODEL, fallback_depth: 1, refused: 1, refuse_reason: "PROVIDER_ERROR", grounding_status: "NONE", answer: REFUSAL_TEXT.PROVIDER_ERROR });
     const stats = await env.DB.prepare("SELECT scope, used FROM budget_counter WHERE scope LIKE 'stat:%' ORDER BY scope").all();
