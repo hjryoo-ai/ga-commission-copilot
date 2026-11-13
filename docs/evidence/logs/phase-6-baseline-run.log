@@ -1,0 +1,134 @@
+
+> @copilot/evals@ eval /Users/hjr/Documents/workspace/ai/ga-commision-copilot/evals
+> pnpm run build && node out/run.mjs -- --live --set all --trigger baseline
+
+
+> @copilot/evals@ build /Users/hjr/Documents/workspace/ai/ga-commision-copilot/evals
+> esbuild src/run.ts --bundle --platform=node --format=esm --target=node24 --loader:.md=text --external:wrangler --outfile=out/run.mjs --log-level=warning
+
+⎔ Establishing remote connection...
+Using secrets defined in ../worker/.dev.vars.record
+[eval] 20261113T225638-baseline — 60건(all), live Groq 50·Workers AI 60 호출, stream fca1971cdbce, PROMPT_VERSIONS explain_line=v6,explain_limit=v6,explain_month=v6,answer=v3,schema_hint=v1
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T22:57:12.015Z A-01 groq ✗ CONTENT 33733ms — 호출 {"groq":2}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T22:58:11.128Z A-02 groq ✗ GROUNDING 59113ms — 호출 {"groq":4}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T22:59:11.530Z A-03 groq ✗ CONTENT 60401ms — 호출 {"groq":6}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T22:59:41.163Z A-04 groq ✗ TOOL 29633ms — 호출 {"groq":7}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:00:41.424Z A-05 groq ✗ CONTENT 60261ms — 호출 {"groq":9}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:01:42.793Z A-06 groq ✗ GROUNDING 61369ms — 호출 {"groq":11}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:02:11.342Z A-07 groq ✗ REFUSAL 28549ms — 호출 {"groq":12}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:02:41.473Z A-08 groq PASS 30131ms — 호출 {"groq":13}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:03:11.432Z A-09 groq PASS 29959ms — 호출 {"groq":14}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:04:11.376Z A-10 groq PASS 59944ms — 호출 {"groq":16}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:04:41.369Z A-11 groq PASS 29993ms — 호출 {"groq":17}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:05:41.514Z A-12 groq ✗ GROUNDING 60145ms — 호출 {"groq":19}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:06:42.069Z G-13 groq ✗ GROUNDING 60555ms — 호출 {"groq":21}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:07:11.794Z G-14 groq ✗ REFUSAL 29725ms — 호출 {"groq":22}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:08:12.311Z G-15 groq ✗ GROUNDING 60516ms — 호출 {"groq":24}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:08:41.277Z G-16 groq ✗ REFUSAL 28966ms — 호출 {"groq":25}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:09:42.128Z G-17 groq ✗ GROUNDING 60851ms — 호출 {"groq":27}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:10:11.821Z G-18 groq ✗ GROUNDING 29693ms — 호출 {"groq":28}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:11:11.722Z G-19 groq ✗ GROUNDING 59900ms — 호출 {"groq":30}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:12:11.522Z G-20 groq ✗ CONTENT 59800ms — 호출 {"groq":32}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:13:11.709Z G-21 groq ✗ CONTENT 60187ms — 호출 {"groq":34}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:14:12.380Z G-22 groq ✗ GROUNDING 60671ms — 호출 {"groq":36}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:15:11.856Z G-23 groq ✗ CONTENT 59476ms — 호출 {"groq":38}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:16:11.351Z G-24 groq ✗ GROUNDING 59494ms — 호출 {"groq":40}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:17:12.146Z G-25 groq ✗ GROUNDING 60795ms — 호출 {"groq":42}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:18:11.876Z G-26 groq ✗ CONTENT 59730ms — 호출 {"groq":44}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:19:11.913Z G-27 groq ✗ GROUNDING 60037ms — 호출 {"groq":46}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:20:12.283Z G-28 groq ✗ GROUNDING 60370ms — 호출 {"groq":48}
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[gateway] groq 게이트웨이 오류 — 직접 1회: Cannot stringify arbitrary non-POJOs
+[eval] 2026-11-13T23:21:11.792Z G-29 groq ✗ GROUNDING 59509ms — 호출 {"groq":50}
+[eval] 2026-11-13T23:21:30.842Z G-30 workers-ai ✗ GROUNDING 19050ms — 호출 {"groq":50,"workers-ai":2}
+[eval] 2026-11-13T23:21:41.384Z G-31 workers-ai ✗ GROUNDING 10542ms — 호출 {"groq":50,"workers-ai":4}
+[eval] 2026-11-13T23:21:49.489Z G-32 workers-ai ✗ GROUNDING 8105ms — 호출 {"groq":50,"workers-ai":6}
+[eval] 2026-11-13T23:21:55.929Z G-33 workers-ai ✗ GROUNDING 6440ms — 호출 {"groq":50,"workers-ai":8}
+[eval] 2026-11-13T23:22:02.585Z G-34 workers-ai ✗ REFUSAL 6656ms — 호출 {"groq":50,"workers-ai":9}
+[eval] 2026-11-13T23:22:18.093Z G-35 workers-ai ✗ ERROR Error: workers-ai: 15000ms 타임아웃 15508ms — 호출 {"groq":50,"workers-ai":10}
+[eval] 2026-11-13T23:22:29.721Z G-36 workers-ai ✗ CONTENT 11627ms — 호출 {"groq":50,"workers-ai":12}
+[eval] 2026-11-13T23:22:33.806Z G-37 workers-ai ✗ REFUSAL 4085ms — 호출 {"groq":50,"workers-ai":13}
+[eval] 2026-11-13T23:22:35.800Z G-38 workers-ai ✗ REFUSAL 1994ms — 호출 {"groq":50,"workers-ai":14}
+[eval] 2026-11-13T23:22:39.457Z G-39 workers-ai ✗ REFUSAL 3657ms — 호출 {"groq":50,"workers-ai":15}
+[eval] 2026-11-13T23:22:46.105Z G-40 workers-ai ✗ CONTENT 6648ms — 호출 {"groq":50,"workers-ai":16}
+[eval] 2026-11-13T23:22:53.172Z G-41 workers-ai ✗ GROUNDING 7067ms — 호출 {"groq":50,"workers-ai":17}
+[eval] 2026-11-13T23:22:58.702Z G-42 workers-ai ✗ CONTENT 5529ms — 호출 {"groq":50,"workers-ai":18}
+[eval] 2026-11-13T23:23:03.610Z G-43 workers-ai ✗ CONTENT 4908ms — 호출 {"groq":50,"workers-ai":19}
+[eval] 2026-11-13T23:23:09.967Z G-44 workers-ai ✗ CONTENT 6357ms — 호출 {"groq":50,"workers-ai":20}
+[eval] 2026-11-13T23:23:15.690Z G-45 workers-ai PASS 5723ms — 호출 {"groq":50,"workers-ai":21}
+[eval] 2026-11-13T23:23:19.587Z G-46 workers-ai ✗ CONTENT 3896ms — 호출 {"groq":50,"workers-ai":22}
+[eval] 2026-11-13T23:23:25.629Z G-47 workers-ai PASS 6042ms — 호출 {"groq":50,"workers-ai":23}
+[eval] 2026-11-13T23:23:30.347Z G-48 workers-ai ✗ CONTENT 4718ms — 호출 {"groq":50,"workers-ai":24}
+[eval] 2026-11-13T23:23:32.902Z G-49 workers-ai PASS 2555ms — 호출 {"groq":50,"workers-ai":25}
+[eval] 2026-11-13T23:23:34.946Z G-50 workers-ai PASS 2044ms — 호출 {"groq":50,"workers-ai":26}
+[eval] 2026-11-13T23:23:37.280Z G-51 workers-ai PASS 2333ms — 호출 {"groq":50,"workers-ai":27}
+[eval] 2026-11-13T23:23:38.736Z G-52 workers-ai PASS 1456ms — 호출 {"groq":50,"workers-ai":28}
+[eval] 2026-11-13T23:23:41.124Z G-53 workers-ai PASS 2388ms — 호출 {"groq":50,"workers-ai":29}
+[eval] 2026-11-13T23:23:51.059Z G-54 workers-ai ✗ REFUSAL 9934ms — 호출 {"groq":50,"workers-ai":31}
+[eval] 2026-11-13T23:23:53.170Z G-55 workers-ai PASS 2111ms — 호출 {"groq":50,"workers-ai":32}
+[eval] 2026-11-13T23:23:56.142Z G-56 workers-ai ✗ REFUSAL 2972ms — 호출 {"groq":50,"workers-ai":33}
+[eval] 2026-11-13T23:23:58.397Z G-57 workers-ai PASS 2255ms — 호출 {"groq":50,"workers-ai":34}
+[eval] 2026-11-13T23:24:03.108Z G-58 workers-ai PASS 4710ms — 호출 {"groq":50,"workers-ai":36}
+[eval] 2026-11-13T23:24:05.162Z G-59 workers-ai PASS 2054ms — 호출 {"groq":50,"workers-ai":37}
+[eval] 2026-11-13T23:24:11.011Z G-60 workers-ai PASS 5849ms — 호출 {"groq":50,"workers-ai":39}
+[answer] 규정 검색 실패 — 규정 없이 툴만으로: rulesUnavailable(eval 모드)
+[eval] 2026-11-13T23:24:16.930Z A-04 (rulesUnavailable) workers-ai ✗ REFUSAL 5919ms — 호출 {"groq":50,"workers-ai":40}
+[answer] 규정 검색 실패 — 규정 없이 툴만으로: rulesUnavailable(eval 모드)
+[eval] 2026-11-13T23:24:18.309Z A-11 (rulesUnavailable) workers-ai PASS 1379ms — 호출 {"groq":50,"workers-ai":41}
+[answer] 규정 검색 실패 — 규정 없이 툴만으로: rulesUnavailable(eval 모드)
+[eval] 2026-11-13T23:24:21.145Z G-42 (rulesUnavailable) workers-ai ✗ REFUSAL 2836ms — 호출 {"groq":50,"workers-ai":42}
+[answer] 규정 검색 실패 — 규정 없이 툴만으로: rulesUnavailable(eval 모드)
+[eval] 2026-11-13T23:24:22.716Z G-57 (rulesUnavailable) workers-ai PASS 1571ms — 호출 {"groq":50,"workers-ai":43}
+[eval] 요약 {"total":60,"passed":16,"grounding":{"n":38,"pass":19,"rate":50},"refusal":{"n":60,"pass":50,"rate":83.33},"tool":{"n":37,"pass":24,"rate":64.86},"content":{"n":45,"pass":3,"rate":6.67},"meanLatencyMs":27545}
+[eval]   groq: {"total":29,"passed":4,"grounding":{"n":23,"pass":9,"rate":39.13},"refusal":{"n":29,"pass":26,"rate":89.66},"tool":{"n":25,"pass":18,"rate":72},"content":{"n":26,"pass":1,"rate":3.85},"meanLatencyMs":50811}
+[eval]   workers-ai: {"total":31,"passed":12,"grounding":{"n":15,"pass":10,"rate":66.67},"refusal":{"n":31,"pass":24,"rate":77.42},"tool":{"n":12,"pass":6,"rate":50},"content":{"n":19,"pass":2,"rate":10.53},"meanLatencyMs":5781}
+[eval] → /Users/hjr/Documents/workspace/ai/ga-commision-copilot/evals/out/20261113T225638-baseline
+exit 0

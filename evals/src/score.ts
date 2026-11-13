@@ -26,6 +26,11 @@ export interface CaseRun {
   mode: "normal" | "rulesUnavailable";
   /** 공급자 실패·예산 미실행이면 error. */
   error?: string;
+  /** answer_log.answer_id(로컬 D1) · 끝난 시각 — 녹화·대조용. */
+  answerId?: string;
+  at?: string;
+  /** G4·G5·G6 위반 토큰(answer_log.violations와 같은 모양) — 채점에는 쓰지 않는다. */
+  violations?: unknown;
   provider?: string;
   model?: string;
   refused?: boolean;
@@ -33,6 +38,8 @@ export interface CaseRun {
   groundingStatus?: "PASS" | "FAIL" | "NONE";
   text?: string;
   toolCalls?: { tool: string; args: Record<string, string> }[];
+  /** 규정 인용의 조항 표기("제17조") — 답 화면에 본문과 함께 나온다. "제N조 인용" 사실은 여기서도 찾는다. */
+  citedArticles?: string[];
   rulesUnavailable?: boolean;
   latencyMs?: number;
 }
@@ -78,7 +85,9 @@ export function scoreCase(c: EvalCase, r: CaseRun): CaseScore {
   // 내용 일치(§13.1 핵심 사실 = expectedFacts 앞 coreFacts개, 기본 3). 거부 정답 케이스·rulesUnavailable 모드는 채점하지 않는다(THRESHOLDS.md)
   if (!c.expectRefusal && r.mode === "normal") {
     const text = norm(r.refused ? "" : (r.text ?? ""));
-    for (const f of c.expectedFacts.slice(0, c.coreFacts ?? 3)) if (!f.match.some((m) => text.includes(norm(m)))) missingFacts.push(f.fact);
+    // 사실은 본문 + 규정 인용 조항에서 찾는다(답 화면이 둘을 같이 보여 준다 — 기준선 런 검토 2026-11-13). 금지어는 본문만.
+    const shown = r.refused ? text : `${text}|${norm((r.citedArticles ?? []).join("|"))}`;
+    for (const f of c.expectedFacts.slice(0, c.coreFacts ?? 3)) if (!f.match.some((m) => shown.includes(norm(m)))) missingFacts.push(f.fact);
     for (const w of c.forbidden) if (text.includes(norm(w))) forbiddenHits.push(w);
     content = missingFacts.length === 0 && forbiddenHits.length === 0;
   }
