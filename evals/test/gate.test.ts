@@ -83,6 +83,12 @@ describe("refQuery — 직전 활성 기준은 60문항 런(baseline·weekly)만
     expect(pick(d)).toEqual(["base"]);
   });
 
+  it("재채점 런(rescore:baseline, 원본과 같은 started_at)이 있으면 그것 — 원본 행은 남아 있어도", () => {
+    const { d, add } = db();
+    add("base-r1", "2026-11-13T22:56:38Z", "rescore:baseline", 60);
+    expect(pick(d)).toEqual(["base-r1"]);
+  });
+
   it("PROMPT_VERSIONS 형식이 아니면 SQL을 만들지 않는다", () => {
     expect(() => refQuery("answer=v3' OR 1=1 --")).toThrow("형식");
   });

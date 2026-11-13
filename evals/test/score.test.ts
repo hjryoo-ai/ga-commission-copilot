@@ -66,7 +66,7 @@ describe("summarize·readThresholds", () => {
   });
   it("THRESHOLDS.md 표에서 임계치를 읽는다", () => {
     const t = readThresholds(readFileSync(join(import.meta.dirname, "../THRESHOLDS.md"), "utf8"));
-    expect(t).toEqual({ grounding: 47, refusal: 80.3, tool: 61.8, content: 8.1, maxDropPp: 3 });
+    expect(t).toEqual({ grounding: 52.2, refusal: 80.3, tool: 63.6, content: 25.8, maxDropPp: 3 });
   });
   it("내용 축: 조항 인용 사실은 규정 인용에서도 찾고, 금지어는 본문만 본다", () => {
     const rule: EvalCase = { ...base, id: "G-43", bucket: "rule", expectedTools: [], expectedFacts: [{ fact: "제17조 인용", match: ["제17조"], source: "" }], forbidden: ["제17조"], coreFacts: 1 };
@@ -74,5 +74,16 @@ describe("summarize·readThresholds", () => {
     expect(scoreCase(rule, run).content).toBe(true);
     expect(scoreCase(rule, { ...run, citedArticles: [] }).missingFacts).toEqual(["제17조 인용"]);
     expect(scoreCase({ ...rule, forbidden: ["다시"] }, run).forbiddenHits).toEqual(["다시"]);
+  });
+  it("툴 축: 선택 툴은 불렀을 때만 인자를 본다(A-04 — 골든 점검 2026-11-14)", () => {
+    const opt: EvalCase = { ...base, id: "A-04", expectedTools: [{ tool: "get_limit", args: { policyNo: "0001" }, optional: true }] };
+    expect(scoreCase(opt, { ...ok, toolCalls: [] }).tool).toBeNull();
+    expect(scoreCase(opt, { ...ok, toolCalls: [{ tool: "get_limit", args: { policyNo: "***0001" } }] }).tool).toBe(true);
+    expect(scoreCase(opt, { ...ok, toolCalls: [{ tool: "get_limit", args: { policyNo: "0002" } }] }).tool).toBe(false);
+    expect(scoreCase(opt, { ...ok, toolCalls: [{ tool: "get_statement", args: { ym: "202608" } }] }).tool).toBeNull();
+    // 필수와 섞이면 필수는 그대로
+    const mixed: EvalCase = { ...opt, expectedTools: [{ tool: "get_statement", args: { ym: "202608" } }, ...opt.expectedTools] };
+    expect(scoreCase(mixed, { ...ok, toolCalls: [] }).tool).toBe(false);
+    expect(scoreCase(mixed, { ...ok, toolCalls: [{ tool: "get_statement", args: { ym: "202608" } }] }).tool).toBe(true);
   });
 });

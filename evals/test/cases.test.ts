@@ -1,4 +1,5 @@
 // PHASES Phase 6 항목 1 — 골든 60문항(설계서 §13.2·v0.1.37) 구성·계약·표본 검사. LLM 호출 없음.
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
@@ -11,6 +12,8 @@ const cases = readFileSync(join(root, "evals/cases.jsonl"), "utf8")
   .map((l) => JSON.parse(l) as Case);
 const schema = JSON.parse(readFileSync(join(root, "contracts/eval/v1/case.schema.json"), "utf8")) as object;
 const sample = JSON.parse(readFileSync(join(root, "evals/pr-sample.json"), "utf8")) as { fixed: string[]; stratified: Record<string, string[]> };
+const golden = readFileSync(join(root, "evals/GOLDEN-REVIEW.md"), "utf8");
+const reviewed = new Set([...golden.matchAll(/^\| ((?:A|G)-\d{2}) \|/gm)].map((m) => m[1]!));
 const appendix = (JSON.parse(readFileSync(join(root, "gen/scripts/appendix-a.json"), "utf8")) as { cases: { case: string; question: string }[] }).cases;
 
 interface Case {
@@ -53,7 +56,7 @@ describe("골든 60문항(evals/cases.jsonl)", () => {
       else {
         expect(c.expectReason, c.id).toBeNull();
         expect(c.expectedFacts.length, c.id).toBeGreaterThanOrEqual(c.coreFacts ?? 3);
-        if (c.coreFacts !== undefined) expect(c.id, "coreFacts는 부록 A가 적게 정한 케이스만").toBe("A-12");
+        if (c.coreFacts !== undefined) expect(c.id === "A-12" || reviewed.has(c.id), `${c.id}: coreFacts는 부록 A(A-12) 또는 골든 점검(GOLDEN-REVIEW.md)에 사유가 있는 케이스만`).toBe(true);
       }
     }
   });
@@ -90,5 +93,10 @@ describe("골든 60문항(evals/cases.jsonl)", () => {
     expect(Object.fromEntries(Object.entries(sample.stratified).map(([b, ids]) => [b, ids.length]))).toEqual(floors);
     for (const [b, ids] of Object.entries(sample.stratified)) for (const id of ids) expect(cases.find((c) => c.id === id)?.bucket, id).toBe(b);
     expect([...sample.fixed, ...Object.values(sample.stratified).flat()]).toHaveLength(20);
+  });
+
+  it("골든 동결(2026-11-14) — cases.jsonl을 바꾸면 GOLDEN-REVIEW.md 동결 해시와 변경 표를 같이 고친다", () => {
+    const hash = createHash("sha256").update(readFileSync(join(root, "evals/cases.jsonl"))).digest("hex");
+    expect(golden.match(/동결 해시\(sha256, `evals\/cases.jsonl`\): `([0-9a-f]{64})`/)?.[1]).toBe(hash);
   });
 });

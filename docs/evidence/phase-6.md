@@ -34,6 +34,33 @@
 - stub 확인(2026-11-11 12:16Z, 카세트 = Phase 4 부록 A 녹화 `worker/test/vcr/answer.json` 2026-11-04 Groq): 12건 끝까지 돈다 — 녹화 없는 rulesUnavailable 2건은 "녹화 없음". 11-04 Groq A-01 답도 "145,000원 삭감된 결과"로 내용 축 실패(금지어 — 의도대로). 기준선이 아니다(카세트가 옛 녹화·12건뿐).
 - 시험: `evals/test/score.test.ts` 7건 + cases 6건, worker `cache.test` skipCache 1건. `pnpm -r test` 전체 통과(evals 13 · worker 436 · web 62 · gen 208 · grounding 68), lint 0, evals tsc 0.
 
+## PR-A — 검증기 구멍 2건 + 골든 점검 + 재채점(2026-11-14, LLM 호출 0, 브랜치 `pr-a/grounding-golden`)
+
+운영자 결정(2026-11-14): PR을 셋으로 — PR-A(호출 0, n=3 기간 병행) · PR-B(n=3 다음 날 — 툴 결과 v2·answer/v4·RULES_UNAVAILABLE) · PR-C(2단계 합치기, PR-B 결과 본 뒤).
+
+1. **검증기 구멍 2건만**(그 밖 완화 없음)
+   - G4: 문맥 키워드(계약·증권번호·끝 4자리·끝자리·뒷자리, "계약(0004)")가 붙은 맨 4자리만 policyTail — 컨텍스트 마스킹 값(`***0004`)과 맞아야 통과, 없는 끝자리("0009 계약"·"2027 계약")는 실패. "끝 4자리"의 4는 숫자 토큰이 아니다. 회귀 시험: "0004원"·"2027년 계약"·"1,566원은 계약"·"2027년 5월에 체결한 계약"은 그대로 실패(면제 없음). `packages/grounding/test/verifier.test.ts` +9.
+   - G5: 같은 툴 여러 번이면 인용 경로를 그 툴의 모든 결과와 대조(경로는 정확 일치 그대로 — `lines.0` vs `lines.1`(A-12류)·다른 툴 결과는 계속 실패). `worker/test/answer.test.ts` +4.
+   - 설명 591행(활성 버전, `data/explain`) 전수 재판정: 새·이전 검증기 모두 PASS 591, 판정 변화 0(맨 4자리 계약·"끝 4자리" 표현이 든 행 45). `verify:explain --regrade` 저장 FAIL 행 0. 로그 `docs/evidence/logs/phase-6-pr-a-regrade.log`.
+2. **골든·채점기 점검**(`evals/GOLDEN-REVIEW.md`): 뜻이 같은 표현 추가 1건(G-40 "분급 없이"), 질문 범위를 넘는 핵심 사실을 핵심 밖으로 16건(사실은 지우지 않고 뒤로 — `coreFacts`), A-04는 운영자 결정 1(get_limit 선택 툴·규정 인용 필수 — 채점기 `expectedTools[].optional`). 부록 A 나머지 11건은 정본이라 그대로. rulesUnavailable 4건 모드별 기대값은 PR-B. 그 뒤 **골든 동결**(해시 `13544b19…` — `cases.test.ts`가 대조).
+3. **재채점**(`--rescore … --as r1 --reverify` — 카세트의 같은 모델 출력을 지금 worker 코드로 다시 통과, LLM 0): 새 run `20261113T225638-baseline-r1`(trigger `rescore:baseline`, started_at 원본과 같음). 원본 `runs.jsonl`·원격 원본 행 보존. 원격 적재 rows_written 130(1 + 64행).
+
+| 축 | 기준선(원본) | 재채점 r1 | 관문값 전 → 후(max(기존, r1 − 3%p) 버림) |
+|---|---|---|---|
+| 그라운딩 | 50% (19/38) | 55.26% (21/38) | 47 → 52.2 |
+| 거부 | 83.33% (50/60) | 83.33% (50/60) | 80.3 → 80.3 |
+| 툴 | 64.86% (24/37) | 66.67% (24/36) | 61.8 → 63.6 |
+| 내용 | 11.11% (5/45) | 28.89% (13/45) | 8.1 → 25.8 |
+| 통과 | 18/60 | 26/60 | |
+
+- 바뀐 케이스: 검증기 G-17·G-28(그라운딩 FAIL → PASS; G-28은 내용 축에서 계속 실패), 골든 A-04(툴 축 해당 없음·내용 통과)·G-23·G-36·G-40·G-44·G-46·G-48(내용 통과). rulesUnavailable 4건은 2/4 그대로(A-04#RU 툴 축 해당 없음으로).
+- 관문 기준 런 조회는 재채점 런(`rescore:baseline`·`rescore:weekly`)도 받고 동률(started_at)이면 run_id 내림차순 — 원격에서 r1 64행을 고른다(`gate.test.ts` +1). 이 조회 변경은 PR-A 머지 전까지 main의 관문에 반영되지 않는다(main은 원본 기준선).
+- 주의: r1의 20문항 표본만 떼면 그라운딩 53.33 · 거부 90 · 툴 75 · 내용 26.67% — 내용이 관문값 25.8%보다 한 건(6.7%p) 위. 같은 프롬프트로 다시 돌려도 분산으로 걸릴 수 있다 — n=3 분포를 보고 허용 폭 제안(THRESHOLDS.md "직전 대비 허용 폭").
+
+## 알려진 한계(운영자 2026-11-14 — README 초안 `docs/README-draft.md`에도)
+
+- 검증기는 **근거에 있는 숫자를 틀린 자리에 쓴 것**(G-20: 채권 상계 `receivableOffset` 1,566원인데 "0원" — 0은 같은 결과의 `clawbackOffset` 칸 값이라 G4 통과)과 **숫자 없이 지어낸 사유**(G-15: "정산 엔진이 아직 확정하지 않았기 때문" — 이번엔 금지 표현 "확정"으로 G6에 걸렸을 뿐)를 잡지 못한다. 내용 일치 축이 맡는다.
+
 ## 기준선 그라운딩 실패 원인(2026-11-14 — LLM 호출 없음)
 
 방법: 실패 19건의 answer_log.violations 토큰을 그 케이스 2단계 요청(llm_trace)의 툴 결과 원문·질문·검증기 규칙(`packages/grounding`)과 대조. 원문 출력 `docs/evidence/logs/phase-6-baseline/grounding-causes.txt`.
