@@ -1,0 +1,8 @@
+# PR-A 검증기 구멍 2건 — 설명 591행 재판정(LLM 0, 2026-11-14)
+## gen data/explain 활성 버전 전수 gateExplanation(새 검증기 / 이전 검증기)
+stream fca1971cdbce: 본문 있는 행 591 · 새 검증기 PASS 591 · 저장 판정과 다름 0 · 맨 4자리 계약/끝 4자리 표현 행 45
+stream fca1971cdbce: 본문 있는 행 591 · 새 검증기 PASS 591 · 저장 판정과 다름 0 · 맨 4자리 계약/끝 4자리 표현 행 45
+## verify:explain --regrade(저장 FAIL 행)
+regrade fca1971cdbce: FAIL 행 0 → PASS로 0
+## verify:explain --local(로컬 D1 적재분 — 이전/새 검증기 출력 동일)
+explanation 재검증 fca1971cdbce(slot b, 활성): 행 32 — PASS 32 · FAIL 0, PASS 행 위반 0(활성 버전) · 이력 버전 위반 14

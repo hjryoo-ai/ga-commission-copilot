@@ -3,7 +3,7 @@
 // - "94만 5천 원"·"0.945백만"·"2천5백만" 같은 만/억 묶음은 정수로 접는다. 소수 연산은 문자열·BigInt로만 한다(double 금지, 규약 8).
 // - 비율은 "%"·"퍼센트"가 붙은 것, 날짜는 YYYY-MM-DD·YYYY년 M월 D일·YYYY년 M월·yyyyMM·M월·D일.
 // - 제외: 조항 번호(제12조), 순번(1번째·둘째), 목록 머리(1.), 식별자(calcId·ledgerId·상품 키 같은 대문자 코드·설계사 ID·증권번호 — 설계사 ID·증권번호는 G6 몫).
-//   마스킹 증권번호 뒷자리(***0001)는 제외가 아니라 kind "policyTail"로 컨텍스트의 마스킹 값과 대조한다.
+//   마스킹 증권번호 뒷자리(***0001)는 제외가 아니라 kind "policyTail"로 컨텍스트의 마스킹 값과 대조한다. 맨 4자리도 문맥 키워드(계약·증권번호·끝 4자리)가 붙으면 policyTail.
 
 export type TokenKind = "number" | "percent" | "date" | "month" | "monthOfYear" | "monthDay" | "year" | "day" | "policyTail";
 
@@ -97,6 +97,18 @@ const EXCLUDE: readonly RegExp[] = [
   /\bPOL-\d{4}-\d{4,5}\b/g, // 증권번호(G6)
   /\b[A-Z][A-Z_]+:[^\s)]+/g, // 규칙 버전 ID(COMM_RATE:…)
   /\b[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)+\b/g, // 대문자 코드(상품 키 WHOLE-LIFE-20Y·CHILD-30Y, FY_COMM) — 숫자가 아닌 식별자(§6.1 4)
+  // "끝 4자리"의 4는 자릿수다(데이터 숫자 아님 — 2026-11-14 기준선 G-27). 뒤에 4자리가 오면 아래 뒷자리 규칙이 통째로 잡는다
+  /(?:끝|뒷)\s*(?:4|네)\s*자리(?!\s*(?:는|가|이|:)?\s*\(?\s*\d{4}(?![\d,]))/g,
+];
+
+/**
+ * 맨 4자리 증권번호 뒷자리(마스킹 없이 쓴 것 — "0004 계약"·"끝 4자리 0004"·"증권번호 2013"). 문맥 키워드가 붙은 4자리만 policyTail이고
+ * 컨텍스트의 마스킹 값(***0004)과 맞아야 한다 — 그 밖의 4자리(금액·연도)는 그대로 숫자·연도 토큰(2026-11-14 기준선 G4 검증기 공백 6건, 운영자 PR-A).
+ */
+const POLICY_TAIL_CTX: readonly RegExp[] = [
+  /(?:증권\s*번호|계약\s*번호|(?:끝|뒷)\s*(?:4|네)\s*자리|끝자리|뒷자리)\s*(?:는|가|이|:)?\s*\(?\s*(\d{4})(?![\d,]|\s*년)/g,
+  /(?<![\d.,*])(\d{4})(?![\d,])(?=\s*(?:번\s*)?계약)/g,
+  /계약\s*\(\s*(\d{4})\s*\)/g,
 ];
 
 interface Rule {
@@ -106,6 +118,7 @@ interface Rule {
 
 const RULES: readonly Rule[] = [
   { re: /\*{2,}(\d{4})/g, make: (m) => ({ kind: "policyTail", value: m[1]! }) },
+  ...POLICY_TAIL_CTX.map((re) => ({ re, make: (m: RegExpExecArray) => ({ kind: "policyTail" as const, value: m[1]! }) })),
   {
     re: /(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/g,
     make: (m) => (validMonth(m[2]!) && validDay(m[3]!) ? { kind: "date", value: `${m[1]}-${pad2(m[2]!)}-${pad2(m[3]!)}` } : null),

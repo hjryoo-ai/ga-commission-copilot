@@ -323,3 +323,32 @@ describe("contextNumbers: 컨텍스트 → S", () => {
     expect(s.numbers.size).toBe(0);
   });
 });
+
+// 2026-11-14 기준선 G4 검증기 공백(운영자 PR-A): 마스킹 없이 쓴 증권번호 뒷자리. 문맥 키워드가 붙은 4자리만, 컨텍스트 마스킹 값과 맞아야 통과.
+describe("G4 증권번호 뒷자리(맨 4자리) — 문맥 키워드가 붙은 것만", () => {
+  const ctx = { ledger: { policyMasked: "***0004", limitAmount: 1200000, remaining: -60000 } };
+  it.each([
+    ["0004 계약의 한도는 1,200,000원입니다."],
+    ["해당 계약(끝 4자리 0004)의 한도는 1,200,000원입니다."],
+    ["증권번호 끝 4자리 0004 계약의 한도는 1,200,000원입니다."],
+    ["0004번 계약은 한도를 60,000원 넘었습니다."],
+    ["계약(0004)의 한도는 1,200,000원입니다."],
+  ])("통과: %s", (text) => {
+    expect(GroundingVerifier.verify(text, ctx).missing).toEqual([]);
+  });
+  it("컨텍스트에 없는 뒷자리는 실패(지어낸 계약)", () => {
+    expect(GroundingVerifier.verify("0009 계약의 한도는 1,200,000원입니다.", ctx).missing).toEqual(["0009"]);
+    expect(GroundingVerifier.verify("2027 계약은 한도가 1,200,000원입니다.", ctx).missing).toEqual(["2027"]);
+  });
+  it("문맥 키워드가 없는 4자리는 면제되지 않는다 — 금액·연도 그대로(회귀)", () => {
+    expect(GroundingVerifier.verify("0004원을 받았습니다.", ctx).missing).toEqual(["0004"]);
+    expect(GroundingVerifier.verify("2027년 계약의 한도는 1,200,000원입니다.", ctx).missing).toEqual(["2027년"]);
+    expect(GroundingVerifier.verify("채권 상계 1,566원은 계약 기준입니다.", ctx).missing).toEqual(["1,566"]);
+    expect(GroundingVerifier.verify("2027년 5월에 체결한 계약", ctx).missing).toEqual(["2027년 5월"]);
+    expect(extractTokens("0004 계약 1,566원").map((t) => t.kind)).toEqual(["policyTail", "number"]);
+  });
+  it('"끝 4자리"의 4는 숫자 토큰이 아니다(뒤에 번호가 없어도)', () => {
+    expect(extractTokens("증권번호는 끝 4자리만 씁니다.")).toEqual([]);
+    expect(GroundingVerifier.verify("증권번호 끝 4자리 0004", ctx).missing).toEqual([]);
+  });
+});
