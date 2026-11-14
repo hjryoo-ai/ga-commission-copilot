@@ -541,6 +541,583 @@
           "const": "가상 데모 데이터 · 설계사 참고용 · 비확정 · 고객 제시 불가"
         }
       }
+    },
+    "EvalRunSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "startedAt",
+        "trigger",
+        "promptVersions",
+        "streamHash",
+        "model",
+        "total",
+        "passed",
+        "rates",
+        "meanLatencyMs",
+        "latencyIncludesWait",
+        "rulesUnavailable"
+      ],
+      "description": "eval_run 한 행(설계서 §5.1) + 내용 일치율(케이스 판정에서). 율은 0~1, 4축은 normal 모드만(v0.1.40).",
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "trigger": {
+          "type": "string"
+        },
+        "promptVersions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "streamHash": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "passed": {
+          "type": "integer"
+        },
+        "rates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grounding",
+            "refusal",
+            "tool",
+            "content"
+          ],
+          "properties": {
+            "grounding": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "refusal": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "tool": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "content": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "meanLatencyMs": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "rulesUnavailable": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "total",
+            "passed"
+          ],
+          "properties": {
+            "total": {
+              "type": "integer"
+            },
+            "passed": {
+              "type": "integer"
+            }
+          }
+        },
+        "latencyIncludesWait": {
+          "type": "boolean",
+          "description": "true면 평균 지연에 하네스의 Groq 호출 간격·429 대기가 들어 있다(2026-11-14 이전 런 — 기준선·r1). 설계서 v0.1.43 §8-5"
+        }
+      }
+    },
+    "EvalAxes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "passed",
+        "grounding",
+        "refusal",
+        "tool",
+        "content"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer"
+        },
+        "passed": {
+          "type": "integer"
+        },
+        "grounding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n",
+            "pass",
+            "rate"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pass": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rate": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "refusal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n",
+            "pass",
+            "rate"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pass": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rate": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "tool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n",
+            "pass",
+            "rate"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pass": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rate": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "content": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n",
+            "pass",
+            "rate"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pass": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rate": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    },
+    "EvalCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caseId",
+        "mode",
+        "bucket",
+        "question",
+        "passed",
+        "failureKind",
+        "provider",
+        "refused",
+        "reason",
+        "groundingStatus",
+        "text",
+        "toolCalls",
+        "error",
+        "latencyMs",
+        "expectedTools",
+        "facts",
+        "expectRefusal",
+        "expectReason",
+        "missingFacts",
+        "forbiddenHits",
+        "violations"
+      ],
+      "properties": {
+        "caseId": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "normal",
+            "rulesUnavailable"
+          ]
+        },
+        "bucket": {
+          "enum": [
+            "line",
+            "limit",
+            "deferral",
+            "rule",
+            "refusal"
+          ]
+        },
+        "question": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "failureKind": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "GROUNDING",
+            "REFUSAL",
+            "TOOL",
+            "CONTENT",
+            "ERROR",
+            null
+          ]
+        },
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "refused": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "groundingStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 600
+        },
+        "toolCalls": {
+          "type": "array"
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "latencyMs": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expectedTools": {
+          "type": "array"
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "expectRefusal": {
+          "type": "boolean"
+        },
+        "expectReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "missingFacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbiddenHits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "violations": {}
+      }
+    },
+    "EvalsResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "variance",
+        "disclaimer"
+      ],
+      "description": "GET /api/v1/evals(PHASES Phase 6 항목 5 — 공개). 최근 런 12개 + 부록 A n=3 분산(설계서 v0.1.37 — 가장 최근 variance 런과 같은 PROMPT_VERSIONS의 최근 3런).",
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/EvalRunSummary"
+          }
+        },
+        "variance": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "promptVersions",
+                "runs",
+                "cases",
+                "distribution"
+              ],
+              "properties": {
+                "promptVersions": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "runs": {
+                  "type": "array",
+                  "maxItems": 3,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "runId",
+                      "startedAt",
+                      "trigger"
+                    ],
+                    "properties": {
+                      "runId": {
+                        "type": "string"
+                      },
+                      "startedAt": {
+                        "type": "string"
+                      },
+                      "trigger": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "cases": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "caseId",
+                      "question",
+                      "results",
+                      "passes",
+                      "n"
+                    ],
+                    "properties": {
+                      "caseId": {
+                        "type": "string"
+                      },
+                      "question": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "results": {
+                        "type": "array",
+                        "items": {
+                          "type": [
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      },
+                      "passes": {
+                        "type": "integer"
+                      },
+                      "n": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "distribution": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "disclaimer": {
+          "type": "string"
+        }
+      }
+    },
+    "EvalRunResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run",
+        "byProvider",
+        "byBucket",
+        "cases",
+        "rulesUnavailable",
+        "disclaimer"
+      ],
+      "description": "GET /api/v1/evals/{runId} — 케이스 표는 실패 우선(설계서 §8-5), 유형별 통과(운영자 2026-11-14), 모델별 4축(v0.1.37), rulesUnavailable 따로(v0.1.40).",
+      "properties": {
+        "run": {
+          "$ref": "#/components/schemas/EvalRunSummary"
+        },
+        "byProvider": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/components/schemas/EvalAxes"
+          }
+        },
+        "byBucket": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "bucket",
+              "total",
+              "passed"
+            ],
+            "properties": {
+              "bucket": {
+                "enum": [
+                  "line",
+                  "limit",
+                  "deferral",
+                  "rule",
+                  "refusal"
+                ]
+              },
+              "total": {
+                "type": "integer"
+              },
+              "passed": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/EvalCase"
+          }
+        },
+        "rulesUnavailable": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/EvalCase"
+          }
+        },
+        "disclaimer": {
+          "type": "string"
+        }
+      }
     }
   }
 }

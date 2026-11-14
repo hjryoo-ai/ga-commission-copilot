@@ -5,7 +5,7 @@
 // 실호출 규칙(운영자): 모든 LLM 요청에 cf-aig-skip-cache(v0.1.38), 답 단위 재사용 없음(answerQuestion만 부른다), 공급자는 케이스마다 하나로 고정
 // (Groq 상한 → 넘으면 Workers AI — v0.1.37 주간 방식, 한 케이스 안에서 공급자를 섞지 않는다). Groq는 TPM 8K라 호출 사이 간격·429 대기.
 // 결과: evals/out/<runId>/{runs.jsonl,summary.json,load.sql} + 로컬 D1 eval_run·eval_case_result. 원격 적재는 load.sql을 사람이 확인한 뒤.
-//   node out/run.mjs --rescore evals/out/<runId>  — 채점기를 고친 뒤 같은 답을 다시 매긴다(summary·load.sql·로컬 D1 행을 바꾼다).
+//   node out/run.mjs --rescore evals/out/<runId> [--as r1] [--reverify]  — --reverify면 카세트의 같은 모델 출력을 지금 검증기로 다시 통과(LLM 0). 채점기·골든을 고친 뒤 같은 답을 다시 매긴다. --as면 새 run(<runId>-r1, trigger rescore:<원본>), 없으면 제자리.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { activeStream, DEMO_TENANT, rulebookChunks, ScopedQuery } from "../../worker/src/db/ScopedQuery";
@@ -34,6 +34,9 @@ const pick = set === "all" ? allCases.map((c) => c.id) : set === "appendix" ? sa
 const cases = allCases.filter((c) => pick.includes(c.id));
 
 /** 공급자 호출 수를 세고, Groq는 간격을 두며 429면 기다렸다 다시(평가는 공급자를 바꾸지 않는다). 모든 요청에 skipCache. */
+/** 하네스가 일부러 기다린 시간(Groq 호출 간격·429 대기) — 케이스 응답 시간에서 뺀다(운영자 2026-11-14: 평균 지연에 대기를 넣지 않는다). */
+const waited = { ms: 0 };
+
 function evalProvider(p: Provider, used: Record<string, number>): Provider {
   let last = 0;
   return {
@@ -42,7 +45,10 @@ function evalProvider(p: Provider, used: Record<string, number>): Provider {
       for (let attempt = 0; ; attempt++) {
         if (p.name === "groq") {
           const wait = last + GROQ_GAP_MS - Date.now();
-          if (wait > 0) await sleep(wait);
+          if (wait > 0) {
+            await sleep(wait);
+            waited.ms += wait;
+          }
           last = Date.now();
         }
         used[p.name] = (used[p.name] ?? 0) + 1;
@@ -54,6 +60,7 @@ function evalProvider(p: Provider, used: Record<string, number>): Provider {
             // §14.1-2(Groq TPD 창이 자정 리셋인지 이동 창인지) 실측 — 시각·헤더·본문을 남긴다
             console.warn(`[eval] ${new Date().toISOString()} groq 429 — ${s}s 기다림 · ${JSON.stringify(e.rateLimit)}`);
             await sleep(s * 1000);
+            waited.ms += s * 1000;
             continue;
           }
           throw e;
@@ -106,6 +113,10 @@ interface RunMeta {
   /** 공급자 배정 offset(assign.ts) — 기준선 런(2026-11-13)은 배정 도입 전이라 없다(순서대로 Groq 먼저). */
   assignOffset?: number;
   rescoredAt?: string;
+  /** --rescore --as로 만든 런의 원본 run_id. */
+  rescoredFrom?: string;
+  /** --reverify — 녹화한 모델 출력을 지금 검증기로 다시 판정했다. */
+  reverified?: boolean;
 }
 
 /** summary.json·runs.jsonl·load.sql + 로컬 D1(같은 run_id 행은 지우고 다시). 4축 기준선은 normal 모드만, rulesUnavailable은 따로. */
@@ -143,16 +154,36 @@ async function main() {
   const env = proxy.env;
   try {
     if (rescore) {
-      const out = resolve(rescore);
-      const prev = JSON.parse(readFileSync(join(out, "summary.json"), "utf8")) as RunMeta;
+      const src = resolve(rescore);
+      const prev = JSON.parse(readFileSync(join(src, "summary.json"), "utf8")) as RunMeta;
+      // --as <접미>: 원본 런(파일·원격 행)은 그대로 두고 새 run으로(운영자 2026-11-14 PR-A) — run_id = 원본-접미, trigger = rescore:<원본>
+      const as = arg("--as");
+      if (as !== undefined && !/^[a-z0-9]+$/.test(as)) throw new Error("--as 접미는 영소문자·숫자");
+      const out = as ? `${src}-${as}` : src;
+      if (as) mkdirSync(out, { recursive: true });
       const byId = new Map(allCases.map((c) => [c.id, c]));
-      const runs = readFileSync(join(out, "runs.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => {
-        const { score: _old, ...run } = JSON.parse(l) as CaseRun & { score: unknown };
-        const c = byId.get(run.caseId);
-        if (!c) throw new Error(`케이스 없음: ${run.caseId}`);
-        return { run, score: scoreCase(c, run), c };
-      });
-      const meta: RunMeta = { runId: prev.runId, trigger: prev.trigger, set: prev.set, live: prev.live, startedAt: prev.startedAt, finishedAt: prev.finishedAt ?? prev.startedAt, promptVersions: prev.promptVersions, streamHash: prev.streamHash, calls: prev.calls, ...(prev.assignOffset === undefined ? {} : { assignOffset: prev.assignOffset }), rescoredAt: new Date().toISOString() };
+      // --reverify: 녹화(카세트)의 같은 모델 출력을 지금 worker 코드(검증기 포함)로 다시 통과시킨다 — LLM 0. 답 판정 칸만 바꾸고
+      // 공급자·모델·응답 시간·시각은 원본 그대로(재생 시간은 실제 응답 시간이 아니다)
+      const reverify = args.includes("--reverify");
+      const cassette = reverify ? (JSON.parse(readFileSync(arg("--cassette") ?? join(ROOT, "evals/vcr/eval.json"), "utf8")) as Cassette) : null;
+      const stream = reverify ? await activeStream(env.DB) : null;
+      if (reverify && (!stream || stream.streamHash !== prev.streamHash)) throw new Error("--reverify: 로컬 활성 스트림이 원본 런과 다르다");
+      const runs: Scored[] = [];
+      for (const l of readFileSync(join(src, "runs.jsonl"), "utf8").split("\n").filter(Boolean)) {
+        const { score: _old, ...orig } = JSON.parse(l) as CaseRun & { score: unknown };
+        const c = byId.get(orig.caseId);
+        if (!c) throw new Error(`케이스 없음: ${orig.caseId}`);
+        let run: CaseRun = orig;
+        if (reverify && !orig.error) {
+          const deps = stubDeps(env, cassette!, c.question);
+          if (orig.mode === "rulesUnavailable") deps.embed = () => Promise.reject(new Error("rulesUnavailable(eval 모드)"));
+          const r = await answerQuestion(deps, new ScopedQuery(env.DB, { tenantId: DEMO_TENANT, agentId: c.agentId, stream: stream! }), env, c.question);
+          run = { ...orig, refused: r.refused, reason: r.reason, groundingStatus: r.groundingStatus, text: r.text, toolCalls: r.toolCalls.map((t) => ({ tool: t.tool, args: t.args as Record<string, string> })), citedArticles: r.citations.filter((x) => x.kind === "rule").map((x) => x.article), violations: r.grounding, rulesUnavailable: r.rulesUnavailable };
+          if (run.groundingStatus !== orig.groundingStatus) console.log(`[eval] 재검증 ${c.id}${orig.mode === "normal" ? "" : ` (${orig.mode})`}: ${orig.groundingStatus} → ${run.groundingStatus} ${JSON.stringify(r.grounding)}`);
+        }
+        runs.push({ run, score: scoreCase(c, run), c });
+      }
+      const meta: RunMeta = { runId: as ? `${prev.runId}-${as}` : prev.runId, trigger: as ? `rescore:${prev.trigger}` : prev.trigger, ...(as ? { rescoredFrom: prev.runId } : {}), set: prev.set, live: prev.live, startedAt: prev.startedAt, finishedAt: prev.finishedAt ?? prev.startedAt, promptVersions: prev.promptVersions, streamHash: prev.streamHash, calls: prev.calls, ...(reverify ? { reverified: true } : {}), ...(prev.assignOffset === undefined ? {} : { assignOffset: prev.assignOffset }), rescoredAt: new Date().toISOString() };
       await writeOutputs(env, out, meta, runs);
       return;
     }
@@ -192,11 +223,13 @@ async function main() {
         const deps = stub ? stubDeps(env, cassette!, c.question) : cloudflareDeps(env, base[name]);
         if (mode === "rulesUnavailable") deps.embed = () => Promise.reject(new Error("rulesUnavailable(eval 모드)"));
         const t0 = Date.now();
+        const w0 = waited.ms;
+        const took = () => Date.now() - t0 - (waited.ms - w0);
         try {
           const r: AnswerResult = await answerQuestion(deps, q, env, c.question);
-          run = { ...run, answerId: r.answerId, at: new Date().toISOString(), provider: r.provider, model: r.model, refused: r.refused, reason: r.reason, groundingStatus: r.groundingStatus, text: r.text, toolCalls: r.toolCalls.map((t) => ({ tool: t.tool, args: t.args as Record<string, string> })), citedArticles: r.citations.filter((x) => x.kind === "rule").map((x) => x.article), violations: r.grounding, rulesUnavailable: r.rulesUnavailable, latencyMs: Date.now() - t0 };
+          run = { ...run, answerId: r.answerId, at: new Date().toISOString(), provider: r.provider, model: r.model, refused: r.refused, reason: r.reason, groundingStatus: r.groundingStatus, text: r.text, toolCalls: r.toolCalls.map((t) => ({ tool: t.tool, args: t.args as Record<string, string> })), citedArticles: r.citations.filter((x) => x.kind === "rule").map((x) => x.article), violations: r.grounding, rulesUnavailable: r.rulesUnavailable, latencyMs: took(), latencyExcludesWait: true };
         } catch (e) {
-          run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 200)}`, latencyMs: Date.now() - t0 };
+          run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 200)}`, latencyMs: took(), latencyExcludesWait: true };
         }
       }
       const score = scoreCase(c, run);

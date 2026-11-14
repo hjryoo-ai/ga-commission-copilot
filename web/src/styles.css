@@ -634,3 +634,26 @@ table.budget .num {
 table.budget:not(.usage-table) thead th + th {
   text-align: right;
 }
+
+/* 화면 5 평가 리포트(PHASES Phase 6 항목 5) — 추이 라인: 2px 선·8px 점·흐린 격자, 범례 + 끝 라벨 + 표(색만으로 읽지 않게) */
+.trend { margin: 0; }
+.trend .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; padding: 0; margin: 0 0 8px; font-size: 0.875rem; color: var(--ink); }
+.trend .legend li { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { display: inline-block; width: 12px; height: 4px; border-radius: 2px; }
+.trend-plot { position: relative; }
+.trend svg { display: block; max-width: 100%; }
+.trend .grid { stroke: var(--line); stroke-width: 1; }
+.trend .crosshair { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.trend .tick { fill: var(--muted); font-size: 11px; }
+.trend .end-label { fill: var(--ink); font-size: 11px; }
+.trend .tooltip { position: absolute; top: 0; transform: translateX(-50%); background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 0.8125rem; display: flex; flex-direction: column; gap: 2px; pointer-events: none; white-space: nowrap; box-shadow: 0 2px 6px rgb(0 0 0 / 0.08); }
+.trend .tooltip span { display: inline-flex; align-items: center; gap: 6px; }
+.evals-cases tr.failed th { color: var(--crit); }
+.evals-cases summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
+.evals-cases summary .note-line { display: block; margin-top: 2px; }
+.case-detail dd { margin: 0 0 6px; }
+.case-detail dt { font-weight: 600; font-size: 0.8125rem; color: var(--muted); }
+tr.target td:last-child { font-weight: 600; }
+.evals-runs th a { word-break: break-all; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
+.evals-runs th:first-child { min-width: 12rem; }

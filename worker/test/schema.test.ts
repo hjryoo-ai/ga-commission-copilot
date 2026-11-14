@@ -31,6 +31,8 @@ const INDEXES = [
   // ix_expl_agent는 0004에서 삭제(설계서 v0.1.15 — explanation PK가 (tenant_id, agent_id, kind)로 시작)
   "ix_ans_created",
   "ix_llm_trace_hash", // 0005
+  "ix_eval_run_started", // 0007(Phase 6 항목 5 — /evals 목록)
+  "ix_eval_run_trigger", // 0007(variance 구간)
 ];
 
 async function names(type: "table" | "index"): Promise<string[]> {
@@ -47,12 +49,12 @@ async function columns(table: string): Promise<{ name: string; pk: number; notnu
   return results;
 }
 
-describe("D1 스키마 0001~0006", () => {
+describe("D1 스키마 0001~0007", () => {
   it("읽기 모델 8개 × 슬롯 2 + 추가 테이블 10개 = 26개 테이블, 원래 이름의 읽기 모델 표는 없다", async () => {
     expect(await names("table")).toEqual([...READ_MODEL, ...COPILOT].sort());
   });
 
-  it("인덱스 8개(상위 3 × 슬롯 2, 이름 <원래이름>_<slot> + §5.1 ix_ans_created + 0005 ix_llm_trace_hash) + stream_meta 유일 인덱스 2개", async () => {
+  it("인덱스 10개(상위 3 × 슬롯 2, 이름 <원래이름>_<slot> + §5.1 ix_ans_created + 0005 ix_llm_trace_hash + 0007 eval_run 2) + stream_meta 유일 인덱스 2개", async () => {
     expect(await names("index")).toEqual(expect.arrayContaining(INDEXES));
     const explicit = (await names("index")).filter((n) => n.startsWith("ix_"));
     expect(explicit.sort()).toEqual([...INDEXES].sort());

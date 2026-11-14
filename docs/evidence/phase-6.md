@@ -34,6 +34,48 @@
 - stub 확인(2026-11-11 12:16Z, 카세트 = Phase 4 부록 A 녹화 `worker/test/vcr/answer.json` 2026-11-04 Groq): 12건 끝까지 돈다 — 녹화 없는 rulesUnavailable 2건은 "녹화 없음". 11-04 Groq A-01 답도 "145,000원 삭감된 결과"로 내용 축 실패(금지어 — 의도대로). 기준선이 아니다(카세트가 옛 녹화·12건뿐).
 - 시험: `evals/test/score.test.ts` 7건 + cases 6건, worker `cache.test` skipCache 1건. `pnpm -r test` 전체 통과(evals 13 · worker 436 · web 62 · gen 208 · grounding 68), lint 0, evals tsc 0.
 
+## 항목 5 — GET /api/v1/evals · /evals/{runId} + 화면 5(2026-11-14, 브랜치 `pr-a/grounding-golden`, LLM 0)
+
+- API(`worker/src/api/evals.ts`, D1 접근은 `ScopedQuery.ts`의 evalRuns·evalRunsByTriggerPrefix·evalRun·evalCases — 전역 표): 목록 = 최근 12런(4축 율 0~1 — eval_run의 3축 + 내용 일치율은 케이스 판정(actual.score)에서, rulesUnavailable 따로) + 부록 A n=3 분산(가장 최근 variance 런과 같은 PROMPT_VERSIONS의 최근 3런, 케이스별 통과 횟수·분포). 상세 = 실패 우선 케이스 표(질문·기대·실제·빠진 사실·금지어·검증 위반 토큰, 본문 600자)·유형별 통과(cases의 bucket)·모델별 4축·rulesUnavailable 따로. 다시 채점하지 않는다(하네스 판정을 센다). 질문 문장은 골든 `evals/cases.jsonl`을 Worker Text 모듈로(wrangler rules `**/*.jsonl` · vitest 같은 변환). 계약 `copilot-overlay.json` addSchemas EvalsResponse·EvalRunResponse(+ EvalRunSummary·EvalAxes·EvalCase). `Cache-Control: public, max-age=60`.
+- 인덱스 마이그레이션 `0007_eval_run_indexes.sql`(ix_eval_run_started·ix_eval_run_trigger — EXPLAIN 시험). **원격 적용은 운영자 승인 대기**(인덱스뿐이라 적용 전에도 조회는 된다 — eval_run이 작다).
+- 화면(`web/src/screens/Evals.tsx`, 경로 `/evals`·`/evals/{runId}`, 설계사 선택에서 링크): 4축 추이 라인(60문항 런만 — 기준선·주간·재채점, PR 표본·variance·stub 런은 표에만), 런 표, n=3 분산 표(n회 중 n−1회 이하 = v4 대상), 런 상세(모델별 4축·유형별 통과·케이스 실패 먼저·규정 검색 끈 모드 따로).
+- 차트(dataviz 절차): 4축 범주 색 = 기본 팔레트 1~4(#2a78d6·#eb6834·#1baf7a·#eda100) — `validate_palette.js --mode light --surface #ffffff` 전 항목 PASS(인접 CVD ΔE 최소 9.1, 정상 시각 22.9), 대비 3:1 미만 2색(#1baf7a 2.82·#eda100 2.17) → 범례 + 끝 직접 라벨 + 런 표 숫자로 보완. 2px 선·8px 점(흰 2px 테두리)·흐린 격자, y축 하나(0~100%), 십자선 + 툴팁(가장자리 고정). 컨테이너 폭을 재서 실제 픽셀로 그린다(휴대폰 폭에서도 11px 글자), x 라벨은 약 90px 간격. 다크 모드는 앱 전체에 없다(라이트만).
+- 렌더 확인(로컬 `wrangler dev --local` + 빌드한 web, Playwright 캡처): 1100px·390px 모두 가로 넘침 0px, 툴팁 표시 확인. 캡처 `docs/evidence/captures/phase-6-evals-local-desktop.png`(호버)·`-phone.png`·`-run.png` — 로컬 D1이라 stub 런이 섞여 있다. **공개 URL 캡처는 배포 뒤**.
+- 운영자 검토 반영(2026-11-14, PR-A 추가 커밋):
+  - 추이: 원본과 재채점을 선으로 잇지 않는다 — 같은 원본은 재채점 번호가 가장 큰 1점만(라벨 "재채점 r1"), 원본은 런 표에만, 제목 런 수도 그 기준("60문항 런 1개"). 캡처 `docs/evidence/captures/phase-6-evals-local-trend.png`.
+  - 390px 런 표: 표 안에서 가로로 밀린다 — `.table-scroll` scrollWidth 540 / clientWidth 358, scrollLeft 끝 182, 터치 스와이프(모바일 에뮬레이션 CDP)로도 182, 페이지 가로 넘침 0. 캡처 `…-phone-table-scrolled.png`(밀어 낸 상태 — 거부·툴·내용·규정 검색 끔 열이 보인다).
+  - 평균 지연: 하네스가 Groq 호출 간격·429 대기를 뺀 응답 시간을 적고 케이스에 `latencyExcludesWait: true`(다음 런부터). API `latencyIncludesWait`(케이스에 표시가 없으면 true) → 기준선·r1 상세에 "호출 간격 포함" 표기. 27,545ms는 Groq 케이스(2호출 사이 30초)가 끌어올린 값이다.
+  - 케이스 표: 접힌 행에도 실패 요약(거부 사유·빠진 사실·금지어·위반 토큰 앞 3개)이 보이고, 펼치면 기대·실제 본문·빠진 사실·검증 위반. 캡처 `…-cases-open.png`(A-01 펼침, A-02·A-03·A-05 접힘).
+- 유형별 재집계(운영자 요청 — cases.jsonl bucket으로): 기준선 라인 0/15 · 한도 0/12 · 분급 0/8 · 규정 5/10 · 거부 13/15 — 운영자의 번호 구간 집계와 같다. 재채점 r1: 라인 2/15 · 한도 1/12 · 분급 1/8 · 규정 9/10 · 거부 13/15.
+- 시험: worker `test/evals.test.ts` 10건(빈 표·최근 순·내용율·RU 따로·n=3 같은 버전 3런·실패 우선·유형별·모델별·404·EXPLAIN), schema 0001~0007. web `test/evals.test.tsx` 6건. 전체 worker 457 · web 70 · evals 33 · grounding 76 · gen 208, lint 0.
+
+## PR-A — 검증기 구멍 2건 + 골든 점검 + 재채점(2026-11-14, LLM 호출 0, 브랜치 `pr-a/grounding-golden`)
+
+운영자 결정(2026-11-14): PR을 셋으로 — PR-A(호출 0, n=3 기간 병행) · PR-B(n=3 다음 날 — 툴 결과 v2·answer/v4·RULES_UNAVAILABLE) · PR-C(2단계 합치기, PR-B 결과 본 뒤).
+
+1. **검증기 구멍 2건만**(그 밖 완화 없음)
+   - G4: 문맥 키워드(계약·증권번호·끝 4자리·끝자리·뒷자리, "계약(0004)")가 붙은 맨 4자리만 policyTail — 컨텍스트 마스킹 값(`***0004`)과 맞아야 통과, 없는 끝자리("0009 계약"·"2027 계약")는 실패. "끝 4자리"의 4는 숫자 토큰이 아니다. 회귀 시험: "0004원"·"2027년 계약"·"1,566원은 계약"·"2027년 5월에 체결한 계약"은 그대로 실패(면제 없음). `packages/grounding/test/verifier.test.ts` +9.
+   - G5: 같은 툴 여러 번이면 인용 경로를 그 툴의 모든 결과와 대조(경로는 정확 일치 그대로 — `lines.0` vs `lines.1`(A-12류)·다른 툴 결과는 계속 실패). `worker/test/answer.test.ts` +4.
+   - 설명 591행(활성 버전, `data/explain`) 전수 재판정: 새·이전 검증기 모두 PASS 591, 판정 변화 0(맨 4자리 계약·"끝 4자리" 표현이 든 행 45). `verify:explain --regrade` 저장 FAIL 행 0. 로그 `docs/evidence/logs/phase-6-pr-a-regrade.log`.
+2. **골든·채점기 점검**(`evals/GOLDEN-REVIEW.md`): 뜻이 같은 표현 추가 1건(G-40 "분급 없이"), 질문 범위를 넘는 핵심 사실을 핵심 밖으로 16건(사실은 지우지 않고 뒤로 — `coreFacts`), A-04는 운영자 결정 1(get_limit 선택 툴·규정 인용 필수 — 채점기 `expectedTools[].optional`). 부록 A 나머지 11건은 정본이라 그대로. rulesUnavailable 4건 모드별 기대값은 PR-B. 그 뒤 **골든 동결**(해시 `13544b19…` — `cases.test.ts`가 대조).
+3. **재채점**(`--rescore … --as r1 --reverify` — 카세트의 같은 모델 출력을 지금 worker 코드로 다시 통과, LLM 0): 새 run `20261113T225638-baseline-r1`(trigger `rescore:baseline`, started_at 원본과 같음). 원본 `runs.jsonl`·원격 원본 행 보존. 원격 적재 rows_written 130(1 + 64행).
+
+| 축 | 기준선(원본) | 재채점 r1 | 관문값 전 → 후(max(기존, r1 − 3%p) 버림) |
+|---|---|---|---|
+| 그라운딩 | 50% (19/38) | 55.26% (21/38) | 47 → 52.2 |
+| 거부 | 83.33% (50/60) | 83.33% (50/60) | 80.3 → 80.3 |
+| 툴 | 64.86% (24/37) | 66.67% (24/36) | 61.8 → 63.6 |
+| 내용 | 11.11% (5/45) | 28.89% (13/45) | 8.1 → 25.8 |
+| 통과 | 18/60 | 26/60 | |
+
+- 바뀐 케이스: 검증기 G-17·G-28(그라운딩 FAIL → PASS; G-28은 내용 축에서 계속 실패), 골든 A-04(툴 축 해당 없음·내용 통과)·G-23·G-36·G-40·G-44·G-46·G-48(내용 통과). rulesUnavailable 4건은 2/4 그대로(A-04#RU 툴 축 해당 없음으로).
+- 관문 기준 런 조회는 재채점 런(`rescore:baseline`·`rescore:weekly`)도 받고 동률(started_at)이면 run_id 내림차순 — 원격에서 r1 64행을 고른다(`gate.test.ts` +1). 이 조회 변경은 PR-A 머지 전까지 main의 관문에 반영되지 않는다(main은 원본 기준선).
+- 주의: r1의 20문항 표본만 떼면 그라운딩 53.33 · 거부 90 · 툴 75 · 내용 26.67% — 내용이 관문값 25.8%보다 한 건(6.7%p) 위. 같은 프롬프트로 다시 돌려도 분산으로 걸릴 수 있다 — n=3 분포를 보고 허용 폭 제안(THRESHOLDS.md "직전 대비 허용 폭").
+
+## 알려진 한계(운영자 2026-11-14 — README 초안 `docs/README-draft.md`에도)
+
+- 검증기는 **근거에 있는 숫자를 틀린 자리에 쓴 것**(G-20: 채권 상계 `receivableOffset` 1,566원인데 "0원" — 0은 같은 결과의 `clawbackOffset` 칸 값이라 G4 통과)과 **숫자 없이 지어낸 사유**(G-15: "정산 엔진이 아직 확정하지 않았기 때문" — 이번엔 금지 표현 "확정"으로 G6에 걸렸을 뿐)를 잡지 못한다. 내용 일치 축이 맡는다.
+
 ## 기준선 그라운딩 실패 원인(2026-11-14 — LLM 호출 없음)
 
 방법: 실패 19건의 answer_log.violations 토큰을 그 케이스 2단계 요청(llm_trace)의 툴 결과 원문·질문·검증기 규칙(`packages/grounding`)과 대조. 원문 출력 `docs/evidence/logs/phase-6-baseline/grounding-causes.txt`.

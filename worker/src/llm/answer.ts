@@ -206,8 +206,9 @@ export function groundAnswerDetail(out: AnswerOutput, results: readonly ToolResu
   const g5Unknown: string[] = [];
   for (const c of out.citations) {
     if (c.kind === "tool") {
-      const r = results.find((x) => x.tool === c.tool);
-      if (!r || !fieldInContext(c.field, contextKeys(r.data as Json))) g5Unknown.push(`${c.tool}.${c.field}`);
+      // 같은 툴을 여러 번 불렀으면 그 툴의 모든 결과에서 찾는다(2026-11-14 기준선 G-17 — 첫 결과만 보던 검증기 공백). 경로는 정확 일치 그대로
+      const hit = results.some((x) => x.tool === c.tool && fieldInContext(c.field, contextKeys(x.data as Json)));
+      if (!hit) g5Unknown.push(`${c.tool}.${c.field}`);
     } else if (!citedRow(c, rows)) g5Unknown.push(`${c.article} ${c.chunkId}`);
   }
   return { g1Shape: [], g4Missing, g5Unknown, g6Words: forbiddenViolations(out.text, { ownAgentId }) };

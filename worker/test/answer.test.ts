@@ -1,7 +1,8 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { rulebookChunks, ScopedQuery } from "../src/db/ScopedQuery";
-import { type AnswerDeps, type AnswerOutput, answerQuestion, articleNo, normalizeQuestion, REFUSAL_TEXT, shapeProblems, TOP_K } from "../src/llm/answer";
+import { type AnswerDeps, type AnswerOutput, answerQuestion, articleNo, groundAnswerDetail, normalizeQuestion, REFUSAL_TEXT, shapeProblems, TOP_K } from "../src/llm/answer";
+import type { ToolResult } from "../src/tools";
 import { activePrompt, loadPrompt, parsePrompt, render } from "../src/llm/promptRegistry";
 import { groq, ProviderError, type StructuredRequest } from "../src/llm/providers";
 import { HASH, seed } from "./fixture";
@@ -283,5 +284,26 @@ describe("답변 카세트 재생(운영자 2026-11-01 — LLM_TRACE 녹화 → 
     expect(row).toMatchObject({ provider: "groq", model: "m" });
     expect(JSON.parse(row!.request)).toMatchObject({ model: "m", response_format: { type: "json_schema" } });
     expect(JSON.parse(row!.response)).toEqual({ json: { ok: true }, model: "m", usage: null });
+  });
+});
+
+// 2026-11-14 기준선 G5 검증기 공백(운영자 PR-A): 같은 툴을 두 번 부르면 인용 경로를 모든 결과에서 찾는다. 경로는 정확 일치 그대로.
+describe("G5 같은 툴 여러 번 — 모든 결과와 대조", () => {
+  const st = (ym: string, data: Record<string, unknown>): ToolResult => ({ tool: "get_statement", args: { ym }, data: data as ToolResult["data"], tokens: 0, truncated: false });
+  const results = [st("202712", { gross: 23139, byType: { RENEWAL: 23139 } }), st("202801", { gross: 414639, byType: { RENEWAL: 36639, DEFERRED: 378000 }, lines: [{ amount: 36639 }, { amount: 378000, limitCutAmt: 1000 }] })];
+  const out = (field: string): AnswerOutput => ({ refused: false, reason: null, text: "2028년 1월 총액은 414,639원입니다.", numbersUsed: [], citations: [{ kind: "tool", tool: "get_statement", field, article: "", chunkId: "" }], toolCalls: [] });
+  it("두 번째 결과에만 있는 경로(G-17 byType.DEFERRED)는 통과", () => {
+    expect(groundAnswerDetail(out("byType.DEFERRED"), results, [], "A-1002").g5Unknown).toEqual([]);
+  });
+  it("어느 결과에도 없는 경로는 실패", () => {
+    expect(groundAnswerDetail(out("byType.CLAWBACK"), results, [], "A-1002").g5Unknown).toEqual(["get_statement.byType.CLAWBACK"]);
+  });
+  it("배열 순번이 틀린 경로는 계속 실패(A-12 lines.0 vs lines.1 — 완화 아님)", () => {
+    expect(groundAnswerDetail(out("lines.0.limitCutAmt"), results, [], "A-1002").g5Unknown).toEqual(["get_statement.lines.0.limitCutAmt"]);
+    expect(groundAnswerDetail(out("lines.1.limitCutAmt"), results, [], "A-1002").g5Unknown).toEqual([]);
+  });
+  it("다른 툴 결과의 경로는 인정하지 않는다", () => {
+    const o = { ...out("byType.DEFERRED"), citations: [{ kind: "tool" as const, tool: "get_limit", field: "byType.DEFERRED", article: "", chunkId: "" }] };
+    expect(groundAnswerDetail(o, results, [], "A-1002").g5Unknown).toEqual(["get_limit.byType.DEFERRED"]);
   });
 });

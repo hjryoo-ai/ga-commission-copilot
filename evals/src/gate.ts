@@ -31,8 +31,8 @@ export function refSummary(rows: readonly RefRow[], caseIds: readonly string[]):
   return summarize(scored);
 }
 
-/** 직전 활성 기준이 될 수 있는 런 = 60문항 전체 런(기준선·주간)만. variance(부록 A 12건)·pr·manual·stub은 표본 20건을 다 덮지 않아 기준으로 잡지 않는다(운영자 2026-11-14). */
-export const REF_TRIGGERS = ["baseline", "weekly"] as const;
+/** 직전 활성 기준이 될 수 있는 런 = 60문항 전체 런(기준선·주간)과 그 재채점 런(rescore: — 같은 답을 고친 채점기·골든으로, started_at은 원본과 같고 run_id가 원본-r1이라 동률이면 재채점이 먼저)만. variance(부록 A 12건)·pr·manual·stub은 표본 20건을 다 덮지 않아 기준으로 잡지 않는다(운영자 2026-11-14). */
+export const REF_TRIGGERS = ["baseline", "weekly", "rescore:baseline", "rescore:weekly"] as const;
 
 const PV_RE = /^[a-z_]+=v[0-9]+(,[a-z_]+=v[0-9]+)*$/;
 
@@ -45,7 +45,7 @@ export const pvJson = (pv: string) => {
 /** 원격 조회 SQL(wrangler d1 execute --command) — 값은 형식 검사를 지난 PROMPT_VERSIONS와 고정 목록뿐. */
 export function refQuery(basePv: string): string {
   const triggers = REF_TRIGGERS.map((t) => `'${t}'`).join(", ");
-  return `SELECT r.run_id, c.case_id, c.actual FROM eval_case_result c JOIN eval_run r ON r.run_id = c.run_id WHERE r.run_id = (SELECT run_id FROM eval_run WHERE prompt_versions = '${pvJson(basePv)}' AND trigger IN (${triggers}) AND total >= 60 ORDER BY started_at DESC LIMIT 1)`;
+  return `SELECT r.run_id, c.case_id, c.actual FROM eval_case_result c JOIN eval_run r ON r.run_id = c.run_id WHERE r.run_id = (SELECT run_id FROM eval_run WHERE prompt_versions = '${pvJson(basePv)}' AND trigger IN (${triggers}) AND total >= 60 ORDER BY started_at DESC, run_id DESC LIMIT 1)`;
 }
 
 export interface GateResult {

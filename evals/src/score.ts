@@ -7,7 +7,7 @@ export interface EvalCase {
   agentId: string;
   bucket: "line" | "limit" | "deferral" | "rule" | "refusal";
   question: string;
-  expectedTools: { tool: string; args: Record<string, string> }[];
+  expectedTools: { tool: string; args: Record<string, string>; optional?: boolean }[];
   expectedFacts: { fact: string; match: string[]; source: string }[];
   expectRefusal: boolean;
   expectReason: string | null;
@@ -44,6 +44,8 @@ export interface CaseRun {
   citedArticles?: string[];
   rulesUnavailable?: boolean;
   latencyMs?: number;
+  /** true면 latencyMs에서 하네스 대기(Groq 호출 간격·429)를 뺐다 — 2026-11-14 이전 런(기준선·r1)은 없음 = 대기 포함. */
+  latencyExcludesWait?: boolean;
 }
 
 /** 축 판정 — null = 이 케이스에는 해당 없음(분모에서 뺀다). */
@@ -70,17 +72,24 @@ function argEqual(key: string, want: string, got: string | undefined): boolean {
   return String(got) === want;
 }
 
+const callMatches = (e: EvalCase["expectedTools"][number], c: NonNullable<CaseRun["toolCalls"]>[number]) => c.tool === e.tool && Object.entries(e.args).every(([k, v]) => argEqual(k, v, c.args?.[k]));
+
+/** 필수 툴은 모두 호출(인자 일치), 선택 툴(optional)은 같은 툴을 불렀을 때만 그 중 하나가 인자와 맞아야 한다(골든 점검 2026-11-14 — A-04). */
 export function toolsMatch(expected: EvalCase["expectedTools"], called: NonNullable<CaseRun["toolCalls"]>): boolean {
-  return expected.every((e) => called.some((c) => c.tool === e.tool && Object.entries(e.args).every(([k, v]) => argEqual(k, v, c.args?.[k]))));
+  return expected.every((e) => (e.optional && !called.some((c) => c.tool === e.tool)) || called.some((c) => callMatches(e, c)));
 }
 
+/** 툴 축 대상인가 — 필수 툴이 있거나, 선택 툴을 실제로 불렀을 때. */
+export const toolAxisApplies = (expected: EvalCase["expectedTools"], called: NonNullable<CaseRun["toolCalls"]>) =>
+  expected.some((e) => !e.optional) || expected.some((e) => e.optional && called.some((c) => c.tool === e.tool));
+
 export function scoreCase(c: EvalCase, r: CaseRun): CaseScore {
-  if (r.error) return { grounding: null, refusal: false, tool: c.expectedTools.length ? false : null, content: c.expectRefusal ? null : false, passed: false, failureKind: "ERROR", missingFacts: [], forbiddenHits: [] };
+  if (r.error) return { grounding: null, refusal: false, tool: c.expectedTools.some((e) => !e.optional) ? false : null, content: c.expectRefusal ? null : false, passed: false, failureKind: "ERROR", missingFacts: [], forbiddenHits: [] };
   // 모델 거부 = 검증기를 거치지 않은 거부(groundingStatus NONE). 검증기가 막은 NOT_GROUNDED(FAIL)는 그라운딩 축에서 센다.
   const modelRefused = Boolean(r.refused) && r.groundingStatus === "NONE";
   const grounding = r.groundingStatus === "PASS" ? true : r.groundingStatus === "FAIL" ? false : null;
   const refusal = c.expectRefusal ? modelRefused && r.reason === c.expectReason : !(modelRefused && MODEL_REFUSALS.has(r.reason ?? ""));
-  const tool = c.expectedTools.length ? toolsMatch(c.expectedTools, r.toolCalls ?? []) : null;
+  const tool = toolAxisApplies(c.expectedTools, r.toolCalls ?? []) ? toolsMatch(c.expectedTools, r.toolCalls ?? []) : null;
   let content: boolean | null = null;
   const missingFacts: string[] = [];
   const forbiddenHits: string[] = [];

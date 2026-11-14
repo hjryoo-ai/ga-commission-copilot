@@ -1,4 +1,4 @@
-// 작은 경로기(의존성 없이 History API). 경로는 닫힌 목록 — 설계서 §8 화면 1~4·6·7 + 라인 상세.
+// 작은 경로기(의존성 없이 History API). 경로는 닫힌 목록 — 설계서 §8 화면 1~7 + 라인 상세.
 import { type AnchorHTMLAttributes, type MouseEvent, useEffect, useState } from "react";
 
 export type Route =
@@ -10,6 +10,8 @@ export type Route =
   | { name: "ask" }
   | { name: "answer"; answerId: string }
   | { name: "budget" }
+  | { name: "evals" }
+  | { name: "evalRun"; runId: string }
   | { name: "notFound" };
 
 export function match(path: string): Route {
@@ -24,6 +26,9 @@ export function match(path: string): Route {
   if (m) return { name: "limit", ledgerId: decodeURIComponent(m[1]!) };
   if (path === "/me/ask") return { name: "ask" };
   if (path === "/budget") return { name: "budget" };
+  if (path === "/evals") return { name: "evals" };
+  m = path.match(/^\/evals\/([0-9]{8}T[0-9]{6}-[a-z0-9-]{1,60})$/);
+  if (m) return { name: "evalRun", runId: m[1]! };
   m = path.match(/^\/answers\/([0-9a-f-]{36})$/);
   if (m) return { name: "answer", answerId: m[1]! };
   return { name: "notFound" };
@@ -37,6 +42,8 @@ export const paths = {
   limit: (ledgerId: string) => `/me/limits/${encodeURIComponent(ledgerId)}`,
   ask: () => "/me/ask",
   budget: () => "/budget",
+  evals: () => "/evals",
+  evalRun: (runId: string) => `/evals/${encodeURIComponent(runId)}`,
   answer: (answerId: string) => `/answers/${encodeURIComponent(answerId)}`,
 };
 

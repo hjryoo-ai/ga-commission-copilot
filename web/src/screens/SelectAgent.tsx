@@ -54,6 +54,8 @@ export function SelectAgent() {
         </section>
         <p>
           <Link to={paths.budget()}>예산·관측 — 오늘 질문 예산과 공급자별 사용</Link>
+          <br />
+          <Link to={paths.evals()}>평가 리포트 — 골든 60문항 4축 채점 결과와 추이</Link>
         </p>
       </main>
       <Footer />

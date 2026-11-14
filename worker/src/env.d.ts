@@ -23,6 +23,11 @@ declare module "*.md" {
   const text: string;
   export default text;
 }
+// evals/cases.jsonl(골든 — 동결)도 텍스트 모듈 — api/evals.ts가 질문 문장을 읽는다
+declare module "*.jsonl" {
+  const text: string;
+  export default text;
+}
 interface Env {
   SESSION_SECRET?: string;
   POLICY_KEY_SECRET?: string;

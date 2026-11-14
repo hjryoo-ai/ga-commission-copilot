@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ga.example/copilot/contracts/eval/v1/case.schema.json",
   "title": "골든 평가 케이스 v1(설계서 §13.1·§13.2, PHASES Phase 6 항목 1)",
-  "description": "evals/cases.jsonl 한 줄. expectedFacts의 앞 coreFacts개(기본 3)가 핵심 사실(내용 일치 축). match는 정규화 문자열 중 하나라도 있으면 그 사실이 있다. forbidden은 답에 나오면 내용 일치 실패(오답 유도·음수 부호·삭감 등). 툴 축은 expectedTools가 호출 목록에 모두 있으면 통과(추가 호출 허용). modes에 rulesUnavailable이 있으면 하네스가 규정 검색을 끈 채로도 돌린다.",
+  "description": "evals/cases.jsonl 한 줄. expectedFacts의 앞 coreFacts개(기본 3)가 핵심 사실(내용 일치 축). match는 정규화 문자열 중 하나라도 있으면 그 사실이 있다. forbidden은 답에 나오면 내용 일치 실패(오답 유도·음수 부호·삭감 등). 툴 축은 expectedTools(optional 아닌 것)가 호출 목록에 모두 있으면 통과(추가 호출 허용) — optional은 불렀을 때만 인자를 채점하고, 필수 없이 optional만 있는데 부르지 않았으면 툴 축 해당 없음(골든 점검 2026-11-14, evals/GOLDEN-REVIEW.md). modes에 rulesUnavailable이 있으면 하네스가 규정 검색을 끈 채로도 돌린다.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -77,6 +77,10 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "optional": {
+            "type": "boolean",
+            "description": "true면 선택 툴 — 질문이 계약을 지목하지 않는 등 부르지 않아도 맞는 답(A-04). 불렀으면 같은 툴의 어느 호출이 args와 맞아야 한다."
           }
         }
       }

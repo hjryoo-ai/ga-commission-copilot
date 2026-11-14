@@ -5,8 +5,8 @@ export default defineConfig(async () => {
   const migrations = await readD1Migrations("./migrations");
   return {
     plugins: [
-      // wrangler rules의 Text 모듈(*.md)과 같게 — 프롬프트 파일을 문자열 기본 내보내기로
-      { name: "md-text", transform: (code: string, id: string) => (id.endsWith(".md") ? { code: `export default ${JSON.stringify(code)};`, map: null } : undefined) },
+      // wrangler rules의 Text 모듈(*.md·*.jsonl)과 같게 — 프롬프트·골든 파일을 문자열 기본 내보내기로
+      { name: "md-text", transform: (code: string, id: string) => (/\.(md|jsonl)$/.test(id) ? { code: `export default ${JSON.stringify(code)};`, map: null } : undefined) },
       cloudflareTest({
         wrangler: { configPath: "./wrangler.jsonc" },
         // AI·Vectorize는 원격 전용 바인딩이다. 테스트는 계정·무료 한도를 쓰지 않는다.
