@@ -454,6 +454,64 @@ export async function budgetUsed(db: D1Database, scope: string, day: string): Pr
   return (await db.prepare("SELECT used FROM budget_counter WHERE scope = ? AND day = ?").bind(scope, day).first<number>("used")) ?? 0;
 }
 
+/** eval_run 한 행(설계서 §5.1 — 전역 운영 표, 테넌트 열 없음. 율은 0~1 REAL). */
+export interface EvalRunRow {
+  run_id: string;
+  started_at: string;
+  trigger: string;
+  prompt_versions: string;
+  stream_hash: string;
+  model: string;
+  total: number | null;
+  passed: number | null;
+  grounding_pass_rate: number | null;
+  refusal_accuracy: number | null;
+  tool_accuracy: number | null;
+  mean_latency_ms: number | null;
+}
+
+const EVAL_RUN_COLUMNS = "run_id, started_at, trigger, prompt_versions, stream_hash, model, total, passed, grounding_pass_rate, refusal_accuracy, tool_accuracy, mean_latency_ms";
+const RUN_ID = /^[0-9]{8}T[0-9]{6}-[a-z0-9-]{1,60}$/;
+
+/** 최근 평가 런(공개 /evals — PHASES Phase 6 항목 5). ix_eval_run_started. */
+export async function evalRuns(db: D1Database, limit: number): Promise<EvalRunRow[]> {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) throw new Error("invalid eval limit");
+  return (await db.prepare(`SELECT ${EVAL_RUN_COLUMNS} FROM eval_run ORDER BY started_at DESC, run_id DESC LIMIT ?`).bind(limit).all<EvalRunRow>()).results;
+}
+
+/** trigger 접두(예 "variance:")의 최근 런 — 'variance:' ≤ trigger < 'variance;' 구간(ix_eval_run_trigger). */
+export async function evalRunsByTriggerPrefix(db: D1Database, prefix: string, limit: number): Promise<EvalRunRow[]> {
+  if (!/^[a-z]+:$/.test(prefix) || !Number.isSafeInteger(limit) || limit < 1 || limit > 50) throw new Error("invalid eval trigger prefix");
+  const upper = `${prefix.slice(0, -1)};`;
+  return (await db.prepare(`SELECT ${EVAL_RUN_COLUMNS} FROM eval_run WHERE trigger >= ? AND trigger < ? ORDER BY trigger DESC, started_at DESC LIMIT ?`).bind(prefix, upper, limit).all<EvalRunRow>()).results;
+}
+
+export async function evalRun(db: D1Database, runId: string): Promise<EvalRunRow | null> {
+  if (!RUN_ID.test(runId)) return null;
+  return db.prepare(`SELECT ${EVAL_RUN_COLUMNS} FROM eval_run WHERE run_id = ?`).bind(runId).first<EvalRunRow>();
+}
+
+export interface EvalCaseRow {
+  run_id: string;
+  case_id: string;
+  passed: number;
+  expected: string;
+  actual: string;
+  failure_kind: string | null;
+}
+
+/** 런들의 케이스 행(PK run_id 앞부분 — 런 하나 64행 남짓). */
+export async function evalCases(db: D1Database, runIds: readonly string[]): Promise<EvalCaseRow[]> {
+  if (runIds.length === 0) return [];
+  if (runIds.length > 20 || !runIds.every((r) => RUN_ID.test(r))) throw new Error("invalid eval run ids");
+  return (
+    await db
+      .prepare(`SELECT run_id, case_id, passed, expected, actual, failure_kind FROM eval_case_result WHERE run_id IN (${runIds.map(() => "?").join(", ")}) ORDER BY run_id, case_id`)
+      .bind(...runIds)
+      .all<EvalCaseRow>()
+  ).results;
+}
+
 const perStream = new Map<string, unknown>();
 
 /** isolate 단위 캐시: 같은 스트림이면 한 번만 계산한다. 키에 stream_hash가 들어가므로 전환되면 새로 계산된다. */

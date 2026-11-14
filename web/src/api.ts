@@ -267,6 +267,83 @@ export interface BudgetReport {
 }
 
 /** 공급자 실패(503) — 화면은 "잠시 후 다시". */
+/** GET /api/v1/evals(화면 5 — 공개, PHASES Phase 6 항목 5). 율은 0~1, 4축은 normal 모드만(설계서 v0.1.40). */
+export interface EvalAxis {
+  n: number;
+  pass: number;
+  rate: number | null;
+}
+export interface EvalRates {
+  grounding: number | null;
+  refusal: number | null;
+  tool: number | null;
+  content: number | null;
+}
+export interface EvalRunSummary {
+  runId: string;
+  startedAt: string;
+  trigger: string;
+  promptVersions: Record<string, string>;
+  streamHash: string;
+  model: string;
+  total: number;
+  passed: number;
+  rates: EvalRates;
+  meanLatencyMs: number | null;
+  rulesUnavailable: { total: number; passed: number };
+}
+export interface EvalVariance {
+  promptVersions: Record<string, string>;
+  runs: { runId: string; startedAt: string; trigger: string }[];
+  cases: { caseId: string; question: string | null; results: (boolean | null)[]; passes: number; n: number }[];
+  distribution: Record<string, number>;
+}
+export interface EvalsReport {
+  runs: EvalRunSummary[];
+  variance: EvalVariance | null;
+  disclaimer: string;
+}
+export type EvalBucket = "line" | "limit" | "deferral" | "rule" | "refusal";
+export interface EvalAxes {
+  total: number;
+  passed: number;
+  grounding: EvalAxis;
+  refusal: EvalAxis;
+  tool: EvalAxis;
+  content: EvalAxis;
+}
+export interface EvalCase {
+  caseId: string;
+  mode: "normal" | "rulesUnavailable";
+  bucket: EvalBucket;
+  question: string | null;
+  passed: boolean;
+  failureKind: "GROUNDING" | "REFUSAL" | "TOOL" | "CONTENT" | "ERROR" | null;
+  provider: string | null;
+  refused: boolean | null;
+  reason: string | null;
+  groundingStatus: string | null;
+  text: string | null;
+  toolCalls: { tool: string; args: Record<string, string> }[];
+  error: string | null;
+  latencyMs: number | null;
+  expectedTools: { tool: string; args: Record<string, string>; optional?: boolean }[];
+  facts: string[];
+  expectRefusal: boolean;
+  expectReason: string | null;
+  missingFacts: string[];
+  forbiddenHits: string[];
+  violations: { g1Shape?: string[]; g4Missing?: string[]; g5Unknown?: string[]; g6Words?: string[] } | null;
+}
+export interface EvalRunDetail {
+  run: EvalRunSummary;
+  byProvider: Record<string, EvalAxes>;
+  byBucket: { bucket: EvalBucket; total: number; passed: number }[];
+  cases: EvalCase[];
+  rulesUnavailable: EvalCase[];
+  disclaimer: string;
+}
+
 /** 503 — 공급자 실패(PROVIDER_ERROR, 설계서 v0.1.34: answerId로 거부 행을 재현 화면에서 본다, budget은 이미 1 줄어든 값) 또는 그 밖의 일시 장애. */
 export class Unavailable extends Error {
   constructor(
@@ -315,6 +392,8 @@ export const api = {
   limits: () => call<Limits>("/api/v1/me/limits"),
   limit: (ledgerId: string) => call<LimitDetail>(`/api/v1/me/limits/${encodeURIComponent(ledgerId)}`),
   budget: () => call<BudgetReport>("/api/v1/budget"),
+  evals: () => call<EvalsReport>("/api/v1/evals"),
+  evalRun: (runId: string) => call<EvalRunDetail>(`/api/v1/evals/${encodeURIComponent(runId)}`),
   answer: (answerId: string) => call<AnswerReplay>(`/api/v1/answers/${encodeURIComponent(answerId)}`),
   /** 429(예산 소진 BUDGET)는 오류가 아니라 거부 답 — 본문을 그대로 돌려준다. 같은 429라도 problem+json RATE_LIMITED(분당 한도)는 RateLimited. */
   async ask(question: string): Promise<AskResult> {

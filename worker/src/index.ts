@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { answers } from "./api/ask";
 import { budget } from "./api/budget";
+import { evals } from "./api/evals";
 import { health } from "./api/health";
 import { type AppEnv, notFound, problem } from "./api/http";
 import { me } from "./api/me";
@@ -15,6 +16,7 @@ app.route("/api/v1/demo", demo);
 app.route("/api/v1/me", me);
 app.route("/api/v1/answers", answers);
 app.route("/api/v1/budget", budget);
+app.route("/api/v1/evals", evals);
 
 // 없는 경로·메서드 불일치는 같은 404(상위 §7 거부·형식). 정적 자산은 run_worker_first 밖이라 여기 오지 않는다.
 app.notFound((c) => notFound(c));

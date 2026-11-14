@@ -34,6 +34,16 @@
 - stub 확인(2026-11-11 12:16Z, 카세트 = Phase 4 부록 A 녹화 `worker/test/vcr/answer.json` 2026-11-04 Groq): 12건 끝까지 돈다 — 녹화 없는 rulesUnavailable 2건은 "녹화 없음". 11-04 Groq A-01 답도 "145,000원 삭감된 결과"로 내용 축 실패(금지어 — 의도대로). 기준선이 아니다(카세트가 옛 녹화·12건뿐).
 - 시험: `evals/test/score.test.ts` 7건 + cases 6건, worker `cache.test` skipCache 1건. `pnpm -r test` 전체 통과(evals 13 · worker 436 · web 62 · gen 208 · grounding 68), lint 0, evals tsc 0.
 
+## 항목 5 — GET /api/v1/evals · /evals/{runId} + 화면 5(2026-11-14, 브랜치 `pr-a/grounding-golden`, LLM 0)
+
+- API(`worker/src/api/evals.ts`, D1 접근은 `ScopedQuery.ts`의 evalRuns·evalRunsByTriggerPrefix·evalRun·evalCases — 전역 표): 목록 = 최근 12런(4축 율 0~1 — eval_run의 3축 + 내용 일치율은 케이스 판정(actual.score)에서, rulesUnavailable 따로) + 부록 A n=3 분산(가장 최근 variance 런과 같은 PROMPT_VERSIONS의 최근 3런, 케이스별 통과 횟수·분포). 상세 = 실패 우선 케이스 표(질문·기대·실제·빠진 사실·금지어·검증 위반 토큰, 본문 600자)·유형별 통과(cases의 bucket)·모델별 4축·rulesUnavailable 따로. 다시 채점하지 않는다(하네스 판정을 센다). 질문 문장은 골든 `evals/cases.jsonl`을 Worker Text 모듈로(wrangler rules `**/*.jsonl` · vitest 같은 변환). 계약 `copilot-overlay.json` addSchemas EvalsResponse·EvalRunResponse(+ EvalRunSummary·EvalAxes·EvalCase). `Cache-Control: public, max-age=60`.
+- 인덱스 마이그레이션 `0007_eval_run_indexes.sql`(ix_eval_run_started·ix_eval_run_trigger — EXPLAIN 시험). **원격 적용은 운영자 승인 대기**(인덱스뿐이라 적용 전에도 조회는 된다 — eval_run이 작다).
+- 화면(`web/src/screens/Evals.tsx`, 경로 `/evals`·`/evals/{runId}`, 설계사 선택에서 링크): 4축 추이 라인(60문항 런만 — 기준선·주간·재채점, PR 표본·variance·stub 런은 표에만), 런 표, n=3 분산 표(n회 중 n−1회 이하 = v4 대상), 런 상세(모델별 4축·유형별 통과·케이스 실패 먼저·규정 검색 끈 모드 따로).
+- 차트(dataviz 절차): 4축 범주 색 = 기본 팔레트 1~4(#2a78d6·#eb6834·#1baf7a·#eda100) — `validate_palette.js --mode light --surface #ffffff` 전 항목 PASS(인접 CVD ΔE 최소 9.1, 정상 시각 22.9), 대비 3:1 미만 2색(#1baf7a 2.82·#eda100 2.17) → 범례 + 끝 직접 라벨 + 런 표 숫자로 보완. 2px 선·8px 점(흰 2px 테두리)·흐린 격자, y축 하나(0~100%), 십자선 + 툴팁(가장자리 고정). 컨테이너 폭을 재서 실제 픽셀로 그린다(휴대폰 폭에서도 11px 글자), x 라벨은 약 90px 간격. 다크 모드는 앱 전체에 없다(라이트만).
+- 렌더 확인(로컬 `wrangler dev --local` + 빌드한 web, Playwright 캡처): 1100px·390px 모두 가로 넘침 0px, 툴팁 표시 확인. 캡처 `docs/evidence/captures/phase-6-evals-local-desktop.png`(호버)·`-phone.png`·`-run.png` — 로컬 D1이라 stub 런이 섞여 있다. **공개 URL 캡처는 배포 뒤**.
+- 유형별 재집계(운영자 요청 — cases.jsonl bucket으로): 기준선 라인 0/15 · 한도 0/12 · 분급 0/8 · 규정 5/10 · 거부 13/15 — 운영자의 번호 구간 집계와 같다. 재채점 r1: 라인 2/15 · 한도 1/12 · 분급 1/8 · 규정 9/10 · 거부 13/15.
+- 시험: worker `test/evals.test.ts` 9건(빈 표·최근 순·내용율·RU 따로·n=3 같은 버전 3런·실패 우선·유형별·모델별·404·EXPLAIN), schema 0001~0007. web `test/evals.test.tsx` 6건. 전체 worker 456 · web 69 · evals 33 · grounding 76 · gen 208, lint 0.
+
 ## PR-A — 검증기 구멍 2건 + 골든 점검 + 재채점(2026-11-14, LLM 호출 0, 브랜치 `pr-a/grounding-golden`)
 
 운영자 결정(2026-11-14): PR을 셋으로 — PR-A(호출 0, n=3 기간 병행) · PR-B(n=3 다음 날 — 툴 결과 v2·answer/v4·RULES_UNAVAILABLE) · PR-C(2단계 합치기, PR-B 결과 본 뒤).
