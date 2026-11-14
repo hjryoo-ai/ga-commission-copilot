@@ -1,6 +1,7 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.41)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.42)
 
 > 변경 이력
+> - v0.1.42 (2026-11-14, Phase 6 항목 5): §7 `GET /api/v1/evals`(최근 런 12개 — 율 0~1, eval_run 3축 + 내용 일치율은 케이스 판정에서, rulesUnavailable 따로 + 부록 A n=3 분산: 가장 최근 variance 런과 같은 PROMPT_VERSIONS의 최근 3런) · `/evals/{runId}`(실패 우선 케이스 표·유형별 통과(라인·한도·분급·규정·거부 — 운영자 2026-11-14)·모델별 4축·rulesUnavailable 따로), 질문 문장은 골든 `evals/cases.jsonl`(동결)을 Worker 텍스트 모듈로 읽는다(eval 행에 질문이 없다) · §5.1 마이그레이션 0007 `ix_eval_run_started (started_at, run_id)`·`ix_eval_run_trigger (trigger, started_at)`(§5.3 풀스캔 금지) · §8-5 추이 차트는 60문항 런(baseline·weekly·그 재채점)만 — PR 표본·variance·stub 런은 표에만.
 > - v0.1.41 (2026-11-14, 운영자 결정 — Phase 6 기준선 뒤): §13.1 **관문값 래칫** — 버전 승격 시 관문값 = max(기존, 승격 런(그 버전의 첫 60문항 런) − 3%p), §13.1 목표가 상한, 내려가지 않는다 · §6.3 "직전 활성 버전" 비교 기준은 **60문항 런(baseline·weekly)만**(variance 12건·PR 20건 런 제외) · 직전 대비 3%p 허용 폭은 부록 A n=3 분포를 보고 다시 정한다(20문항 표본 1건 = 5~7%p — 실행 간 분산에 걸릴 수 있다, 지금은 그대로) · §13 주간 60문항 런의 공급자 배정은 **유형별로 상한 비율대로 번갈아**(앞 N건 몰아주기 금지 — 기준선 런은 Groq가 앞 29건을 맡아 모델 비교가 문항 유형과 섞였다), 배정 무늬는 ISO 주 홀짝으로 한 칸씩 민다.
 > - v0.1.40 (2026-11-14, 운영자 결정 — Phase 6 첫 실런 기준선): §13.1 통과 기준 수치(97·90·90·85)는 **목표**이고, 관문이 쓰는 값은 `evals/THRESHOLDS.md`의 **관문값 = 기준선 − 3%p 이하**(기준선 2026-11-13 `20261113T225638-baseline` normal 60건: 그라운딩 50 · 거부 83.33 · 툴 64.86 · 내용 11.11% → 관문값 47 · 80.3 · 61.8 · 8.1%). 기준선과 관문값은 normal 60건만, rulesUnavailable 모드 4건은 따로 집계한다 · 내용 일치의 "답변에 있는지"는 **본문 + 규정 인용 조항**(`citations[].article` — 답 화면이 같이 보여 준다, "제N조 인용" 사실), 금지어는 본문만.
 > - v0.1.39 (2026-11-13, 운영자 검토 지시 — Phase 6 첫 실런): §6.2 Workers AI 폴백 상한은 **평가 실런(60문항 주간 방식) 당일 0** — eval Workers AI 60호출(약 6,600뉴런)과 공개 폴백 80회(약 8,800)가 한날 겹치면 10,000을 넘어 4006(실런 도중 기준선이 깨지고 공개 질문 임베딩도 막힌다). 0이면 전역 질문 상한은 35(floor((55+0+15) ÷ 2))로 내려가지만 임베딩은 막히지 않는다. 실런 전 커밋·배포, 실런 뒤 80으로 되돌리는 커밋(Phase 7 주간 배치 날도 같은 규칙).
@@ -352,6 +353,7 @@ CREATE TABLE eval_case_result (
   failure_kind TEXT,                -- GROUNDING / REFUSAL / TOOL / CONTENT
   PRIMARY KEY (run_id, case_id)
 );
+-- v0.1.42(0007): CREATE INDEX ix_eval_run_started ON eval_run (started_at, run_id); CREATE INDEX ix_eval_run_trigger ON eval_run (trigger, started_at);  -- /evals 목록·variance 구간
 ```
 
 ### 5.2 Vectorize 인덱스
@@ -454,7 +456,7 @@ CREATE TABLE eval_case_result (
 | `GET /api/v1/me/earnings/{ym}/diff` | 전월 대비 설명(kind=MONTH_DIFF) | — |
 | `POST /api/v1/me/ask {question}` | §4.3 결과: `{answerId, text, citations[], toolCalls[], refused, reason, provider, model, promptVersion, cacheHit, latencyMs, fallbackDepth}`. 예산(v0.1.27 — §6.2 `global`·`ip:<솔트 해시>`·`provider:<이름>`)이 소진되면 LLM 없이 429 `BUDGET`·`retryAfterSeconds`(Phase 4 개발 상한 `ASK_DAILY_CAP`·`ask:dev`는 v0.1.27에서 대체). v0.1.33: 200·429 `BUDGET`·429 `RATE_LIMITED`(problem+json) 모두 `budget {remainingToday, userRemaining}`(그 요청을 센 뒤 — 화면 4 칩 갱신). v0.1.34: 503 problem+json `PROVIDER_ERROR`에 `answerId`·`budget`(`/answers/{id}`로 거부 행을 본다) | 1 (캐시 히트·거부 시 0)  규정 검색이 실패하면 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`(§6.2 저하 ③ — v0.1.22 임시 처리를 v0.1.27에서 정식으로). |
 | `GET /api/v1/answers/{answerId}` | 재현 뷰: 검색 청크·툴 결과·검증 결과 전문 (본인 세션만) | — |
-| `GET /api/v1/evals` / `/{runId}` | 평가 런 목록·케이스별 결과 (공개) | — |
+| `GET /api/v1/evals` / `/{runId}` | 평가 런 목록·케이스별 결과 (공개) — v0.1.42: 목록은 최근 12런(4축 율 0~1, 내용 일치율은 케이스 판정에서) + 부록 A n=3 분산, 상세는 실패 우선 케이스·유형별 통과·모델별 4축·rulesUnavailable 따로. 질문 문장은 골든 `evals/cases.jsonl` | — |
 | `GET /api/v1/budget` | 오늘·최근 7일 **질문**(전역)과 **호출**(공급자별·합 `calls` — v0.1.33) 사용, 폴백 깊이 분포, 캐시 적중률, 거부 사유, 규정 검색 저하 (공개, no-store — v0.1.28: 분포는 `budget_counter`의 `stat:*` 범위, answer_log를 모으지 않는다) | — |
 
 공통 필드: `asOf {streamHash, generatedAt, demoNo}`(v0.1.11 — 화면 칩이 "데모 설계사 n"을 표시), `dataStatus: OK|DEGRADED`(저하 모드), `disclaimer`(고정 문구). 금액은 정수 원.
@@ -515,6 +517,7 @@ CREATE TABLE eval_case_result (
 5. **평가 리포트** (`/evals`, 공개)
    - 최근 런 요약: 통과율·그라운딩 통과율·거부 정확도·툴 정확도·평균 지연 → 버전별 추이 차트(라인)
    - 런 상세: 케이스 60개 표(질문·기대·실제·실패 종류), 실패 케이스 우선 정렬
+   - v0.1.42: 추이 차트는 60문항 런(기준선·주간·재채점)만, 런 표에는 모두. 부록 A n=3 분산 표(케이스 × 3런, n회 중 n−1회 이하 = answer/v4 대상), 런 상세에 유형별 통과(라인·한도·분급·규정·거부)·모델별 4축(v0.1.37)·규정 검색을 끈 모드 따로(v0.1.40)
 6. **예산·관측** (`/budget`, 공개)
    - 오늘 사용/상한(전역·공급자별), 최근 7일 일별 호출 막대(공급자 적층), 폴백 깊이 분포, 캐시 적중률, 거부 사유 분포
 7. **답변 재현** (`/answers/:id`, 본인 세션만)
