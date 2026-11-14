@@ -88,7 +88,7 @@ export function TrendChart({ runs }: { runs: readonly EvalRunSummary[] }) {
           {pts.map((p, i) => (i % every === 0 || i === last) && (i === last || last - i >= every) && (
             <text key={p.runId} x={x(i)} y={H - 8} textAnchor={pts.length === 1 ? "middle" : i === 0 ? "start" : i === last ? "end" : "middle"} className="tick">
               {shortDate(p.startedAt)}
-              {p.trigger.startsWith("rescore:") ? " 재채점" : ""}
+              {rescoreTag(p.runId, p.trigger)}
             </text>
           ))}
           {h && <line x1={x(hover!)} x2={x(hover!)} y1={pad.t} y2={pad.t + ih} className="crosshair" />}
@@ -221,14 +221,40 @@ function VarianceTable({ v }: { v: EvalVariance }) {
 /** 추이는 60문항 전체 런(기준선·주간·그 재채점)만 — PR 표본 20건·variance 12건·stub 런은 문항이 달라 같은 선에 놓지 않는다(표에는 모두). */
 export const TREND_TRIGGER = /^(baseline|weekly|rescore:(baseline|weekly))$/;
 
+/** 재채점 런의 원본 run_id(접미 -r<n>)와 번호 — 원본이면 n 0. */
+const rescoreOf = (runId: string, trigger: string) => {
+  const m = trigger.startsWith("rescore:") ? runId.match(/^(.*)-r(\d+)$/) : null;
+  return m ? { base: m[1]!, n: Number(m[2]) } : { base: runId, n: 0 };
+};
+const rescoreTag = (runId: string, trigger: string) => {
+  const r = rescoreOf(runId, trigger);
+  return r.n ? ` 재채점 r${r.n}` : "";
+};
+
+/**
+ * 원본과 재채점을 선으로 잇지 않는다(같은 모델 출력을 다시 채점한 것이라 추이가 아니다 — 운영자 2026-11-14, 설계서 v0.1.43).
+ * 같은 원본은 재채점 번호가 가장 큰 1점만, 원본은 런 표에만. 입력 순서(최근 먼저)는 지킨다.
+ */
+export function trendPoints(runs: readonly EvalRunSummary[]): EvalRunSummary[] {
+  const best = new Map<string, EvalRunSummary>();
+  for (const x of runs) {
+    if (!TREND_TRIGGER.test(x.trigger) || x.total < 60) continue;
+    const { base, n } = rescoreOf(x.runId, x.trigger);
+    const cur = best.get(base);
+    if (!cur || rescoreOf(cur.runId, cur.trigger).n < n) best.set(base, x);
+  }
+  const keep = new Set(best.values());
+  return runs.filter((x) => keep.has(x));
+}
+
 export function EvalsView({ r }: { r: { runs: EvalRunSummary[]; variance: EvalVariance | null } }) {
   if (r.runs.length === 0) return <p className="muted">아직 적재된 평가 런이 없습니다.</p>;
-  const trend = r.runs.filter((x) => TREND_TRIGGER.test(x.trigger) && x.total >= 60);
+  const trend = trendPoints(r.runs);
   return (
     <>
       <section>
         <h2>4축 추이(60문항 런 {trend.length}개)</h2>
-        <p className="muted small">normal 모드 60문항 기준(기준선·주간·재채점). 규정 검색을 끈 모드(rulesUnavailable)는 따로 센다. 관문값·목표는 evals/THRESHOLDS.md.</p>
+        <p className="muted small">normal 모드 60문항 기준(기준선·주간 — 재채점이 있으면 그 원본 대신 최신 재채점 1점, 원본은 아래 표에만). 규정 검색을 끈 모드(rulesUnavailable)는 따로 센다. 관문값·목표는 evals/THRESHOLDS.md.</p>
         {trend.length ? <TrendChart runs={trend} /> : <p className="muted">아직 60문항 런이 없습니다.</p>}
       </section>
       <section>
@@ -299,6 +325,20 @@ function AxesTable({ rows }: { rows: [string, EvalAxes][] }) {
   );
 }
 
+/** 접힌 상태에서도 보이는 실패 요약(빠진 사실·금지어·위반 토큰·거부 사유 — 펼치면 기대·실제 본문). */
+export function failureBrief(c: EvalCase): string {
+  const v = c.violations;
+  const tokens = v ? [...(v.g1Shape ?? []), ...(v.g4Missing ?? []).map((t) => `G4 ${t}`), ...(v.g5Unknown ?? []).map((t) => `G5 ${t}`), ...(v.g6Words ?? []).map((t) => `G6 ${t}`)] : [];
+  const parts = [
+    c.error ? `오류 ${c.error.slice(0, 60)}` : null,
+    c.refused && c.reason ? `거부 ${c.reason}${c.expectRefusal ? ` (기대 ${c.expectReason})` : ""}` : null,
+    c.missingFacts.length ? `빠진 사실 ${c.missingFacts.length}: ${c.missingFacts[0]}${c.missingFacts.length > 1 ? " …" : ""}` : null,
+    c.forbiddenHits.length ? `금지어 ${c.forbiddenHits.join(", ")}` : null,
+    tokens.length ? tokens.slice(0, 3).join(" · ") + (tokens.length > 3 ? " …" : "") : null,
+  ];
+  return parts.filter(Boolean).join(" · ");
+}
+
 function CaseRow({ c }: { c: EvalCase }) {
   const v = c.violations;
   const tokens = v ? [...(v.g1Shape ?? []).map((t) => `G1 ${t}`), ...(v.g4Missing ?? []).map((t) => `G4 ${t}`), ...(v.g5Unknown ?? []).map((t) => `G5 ${t}`), ...(v.g6Words ?? []).map((t) => `G6 ${t}`)] : [];
@@ -310,7 +350,10 @@ function CaseRow({ c }: { c: EvalCase }) {
       </th>
       <td>
         <details>
-          <summary>{c.question ?? c.caseId}</summary>
+          <summary>
+            {c.question ?? c.caseId}
+            {!c.passed && failureBrief(c) && <span className="muted small note-line">{failureBrief(c)}</span>}
+          </summary>
           <dl className="case-detail">
             <dt>기대</dt>
             <dd>
@@ -385,7 +428,10 @@ export function EvalRunView({ d }: { d: EvalRunDetail }) {
             {r.passed}/{r.total}
           </dd>
           <dt>평균 지연</dt>
-          <dd>{r.meanLatencyMs === null ? "—" : `${r.meanLatencyMs.toLocaleString("ko-KR")}ms`}</dd>
+          <dd>
+            {r.meanLatencyMs === null ? "—" : `${r.meanLatencyMs.toLocaleString("ko-KR")}ms`}
+            {r.latencyIncludesWait && <span className="muted small note-line">호출 간격 포함 — 이 런의 하네스는 Groq 호출 사이 30초 대기를 응답 시간에 넣었다(다음 런부터 뺀다)</span>}
+          </dd>
         </dl>
       </section>
       <section>

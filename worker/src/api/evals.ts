@@ -47,6 +47,7 @@ interface Actual {
   citedArticles?: string[];
   violations?: unknown;
   latencyMs?: number;
+  latencyExcludesWait?: boolean;
   score: Score;
 }
 
@@ -120,6 +121,8 @@ function runSummary(r: EvalRunRow, cases: readonly Parsed[]) {
     // eval_run 열이 있는 3축은 그 값, 내용 일치는 열이 없어(§5.1) 케이스 판정에서 센다
     rates: { grounding: r.grounding_pass_rate, refusal: r.refusal_accuracy, tool: r.tool_accuracy, content: a.content.rate },
     meanLatencyMs: r.mean_latency_ms,
+    // 하네스가 Groq 호출 간격·429 대기를 빼기 전(2026-11-14 이전 — 기준선·r1)의 런은 대기 포함(케이스 actual에 표시가 없다)
+    latencyIncludesWait: normal.some((c) => typeof c.actual.latencyMs === "number" && c.actual.latencyExcludesWait !== true),
     rulesUnavailable: { total: cases.length - normal.length, passed: cases.filter((c) => c.mode !== "normal" && c.passed).length },
   };
 }

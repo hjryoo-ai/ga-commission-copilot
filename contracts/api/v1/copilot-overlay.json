@@ -556,6 +556,7 @@
         "passed",
         "rates",
         "meanLatencyMs",
+        "latencyIncludesWait",
         "rulesUnavailable"
       ],
       "description": "eval_run 한 행(설계서 §5.1) + 내용 일치율(케이스 판정에서). 율은 0~1, 4축은 normal 모드만(v0.1.40).",
@@ -652,6 +653,10 @@
               "type": "integer"
             }
           }
+        },
+        "latencyIncludesWait": {
+          "type": "boolean",
+          "description": "true면 평균 지연에 하네스의 Groq 호출 간격·429 대기가 들어 있다(2026-11-14 이전 런 — 기준선·r1). 설계서 v0.1.43 §8-5"
         }
       }
     },

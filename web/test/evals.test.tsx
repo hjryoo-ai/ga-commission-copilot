@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { EvalCase, EvalRunDetail, EvalRunSummary, EvalsReport } from "../src/api";
 import { App } from "../src/App";
 import { match, paths } from "../src/router";
-import { EvalRunView, EvalsView, pct } from "../src/screens/Evals";
+import { EvalRunView, EvalsView, failureBrief, pct, trendPoints } from "../src/screens/Evals";
 
 // PHASES Phase 6 항목 5 — 화면 5(/evals, 공개). 값은 API 그대로 — 화면은 백분율 표기만.
 const run = (runId: string, startedAt: string, trigger: string, rates: EvalRunSummary["rates"], passed: number): EvalRunSummary => ({
@@ -17,6 +17,7 @@ const run = (runId: string, startedAt: string, trigger: string, rates: EvalRunSu
   passed,
   rates,
   meanLatencyMs: 27545,
+  latencyIncludesWait: true,
   rulesUnavailable: { total: 4, passed: 2 },
 });
 const base = run("20261113T225638-baseline", "2026-11-13T22:56:38.000Z", "baseline", { grounding: 0.5, refusal: 0.8333, tool: 0.6486, content: 0.1111 }, 18);
@@ -77,14 +78,21 @@ describe("화면 5 평가 리포트", () => {
     expect(html).toContain("아직 variance 런이 없습니다");
   });
 
-  it("추이는 60문항 런(기준선·주간·재채점)만 — PR 표본·variance·stub 런은 표에만", () => {
+  it("추이는 60문항 런만, 원본과 재채점은 잇지 않고 같은 원본은 최신 재채점 1점(라벨 재채점 r<n>) — 원본·PR 표본은 표에만", () => {
     const pr = { ...run("20261116T001000-pr-7", "2026-11-16T00:10:00.000Z", "pr:7", { grounding: 1, refusal: 1, tool: 1, content: 1 }, 20), total: 20 };
+    const r2 = { ...r1, runId: "20261113T225638-baseline-r2" };
+    const wk = run("20261122T030000-weekly", "2026-11-22T03:00:00.000Z", "weekly", { grounding: 0.6, refusal: 0.85, tool: 0.7, content: 0.3 }, 30);
+    expect(trendPoints([wk, pr, r2, r1, base]).map((x) => x.runId)).toEqual(["20261122T030000-weekly", "20261113T225638-baseline-r2"]);
     const html = renderToStaticMarkup(<EvalsView r={{ runs: [pr, r1, base], variance: null }} />);
     const chart = html.slice(html.indexOf('data-testid="evals-trend"'), html.indexOf('data-testid="evals-runs"'));
-    expect(chart).toContain("재채점");
+    expect(chart).toContain("재채점 r1");
+    expect(chart.match(/<circle/g)).toHaveLength(4); // 1점 × 4축 — 원본 점 없음
+    expect(chart).not.toContain("<polyline");
     expect(chart).not.toContain("11-16");
-    expect(html).toContain("4축 추이(60문항 런 2개)");
-    expect(html.slice(html.indexOf('data-testid="evals-runs"'))).toContain("20261116T001000-pr-7");
+    expect(html).toContain("4축 추이(60문항 런 1개)");
+    const table = html.slice(html.indexOf('data-testid="evals-runs"'));
+    expect(table).toContain("20261116T001000-pr-7");
+    expect(table).toContain('href="/evals/20261113T225638-baseline"');
   });
 
   it("n=3 분산: 케이스별 통과/실패·통과 횟수, n회 중 n-1회 이하는 v4 대상", () => {
@@ -139,5 +147,16 @@ describe("화면 5 평가 리포트", () => {
     expect(html).toContain("47.83% (11/23)");
     expect(html).toContain("Workers AI");
     expect(html.slice(html.indexOf('data-testid="evals-ru"'))).toContain("거부 OUT_OF_SCOPE");
+    // 접힌 상태에서도 실패 요약이 summary 안에 보인다
+    expect(cases).toMatch(/<summary>[^<]*8월 시책[^<]*<span class="muted small note-line">빠진 사실 1: 이연 · 금지어 삭감된<\/span><\/summary>/);
+    expect(html).toContain("호출 간격 포함");
+  });
+
+  it("실패 요약: 오류·거부(기대 사유)·빠진 사실·금지어·위반 토큰(앞 3개)", () => {
+    expect(failureBrief(c({ missingFacts: [], forbiddenHits: [], refused: true, reason: "NOT_GROUNDED", violations: { g4Missing: ["0004"], g5Unknown: ["get_limit.remaining"], g6Words: ["CODE:FY_COMM", "CODE:DEFERRED"] } }))).toBe(
+      "거부 NOT_GROUNDED · G4 0004 · G5 get_limit.remaining · G6 CODE:FY_COMM …",
+    );
+    expect(failureBrief(c({ missingFacts: [], forbiddenHits: [], refused: false, error: "Error: workers-ai: 15000ms 타임아웃", violations: null }))).toBe("오류 Error: workers-ai: 15000ms 타임아웃");
+    expect(failureBrief(c({ caseId: "G-54", missingFacts: [], forbiddenHits: [], refused: true, reason: "OUT_OF_SCOPE", expectRefusal: true, expectReason: "OTHER_AGENT", violations: null }))).toBe("거부 OUT_OF_SCOPE (기대 OTHER_AGENT)");
   });
 });

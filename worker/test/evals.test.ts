@@ -12,7 +12,7 @@ const score = (o: Partial<{ grounding: boolean | null; refusal: boolean; tool: b
   return { ...s, passed: failureKind === null, failureKind, missingFacts: s.content === false ? ["사실"] : [], forbiddenHits: [] };
 };
 
-async function seedRun(runId: string, startedAt: string, trigger: string, rows: { id: string; bucket: string; provider: string; s: ReturnType<typeof score>; mode?: string }[], pv = PV) {
+async function seedRun(runId: string, startedAt: string, trigger: string, rows: { id: string; bucket: string; provider: string; s: ReturnType<typeof score>; mode?: string }[], pv = PV, excludesWait = false) {
   const normal = rows.filter((r) => !r.mode);
   await env.DB.prepare(
     "INSERT INTO eval_run (run_id, started_at, trigger, prompt_versions, stream_hash, model, total, passed, grounding_pass_rate, refusal_accuracy, tool_accuracy, mean_latency_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -21,7 +21,7 @@ async function seedRun(runId: string, startedAt: string, trigger: string, rows: 
     .run();
   for (const r of rows) {
     const caseId = r.mode ? `${r.id}#${r.mode}` : r.id;
-    const actual = { caseId: r.id, mode: r.mode ?? "normal", provider: r.provider, refused: false, reason: null, groundingStatus: r.s.grounding === false ? "FAIL" : "PASS", text: "답".repeat(700), toolCalls: [], latencyMs: 10, score: r.s };
+    const actual = { caseId: r.id, mode: r.mode ?? "normal", provider: r.provider, refused: false, reason: null, groundingStatus: r.s.grounding === false ? "FAIL" : "PASS", text: "답".repeat(700), toolCalls: [], latencyMs: 10, ...(excludesWait ? { latencyExcludesWait: true } : {}), score: r.s };
     const expected = { bucket: r.bucket, expectedTools: [], facts: ["사실"], expectRefusal: false, expectReason: null, misleading: false, tags: [] };
     await env.DB.prepare("INSERT INTO eval_case_result (run_id, case_id, passed, expected, actual, failure_kind) VALUES (?,?,?,?,?,?)")
       .bind(runId, caseId, r.s.passed ? 1 : 0, JSON.stringify(expected), JSON.stringify(actual), r.s.failureKind)
@@ -63,6 +63,15 @@ describe("GET /api/v1/evals", () => {
     expect(runs[1]!.rates).toMatchObject({ content: 0.5, refusal: 0.75 });
     expect(runs[1]!.rulesUnavailable).toEqual({ total: 1, passed: 0 });
     expect(runs[0]!.rates.content).toBe(1);
+    // 2026-11-14 이전 하네스(대기 포함) — 케이스에 latencyExcludesWait가 없다
+    expect((runs[1] as unknown as { latencyIncludesWait: boolean }).latencyIncludesWait).toBe(true);
+  });
+
+  it("평균 지연: 하네스가 대기를 뺀 런(케이스 latencyExcludesWait)은 latencyIncludesWait false", async () => {
+    await seedRun("20261115T001000-variance-2026-11-15", "2026-11-15T00:10:00.000Z", "variance:2026-11-15", [{ id: "A-01", bucket: "line", provider: "groq", s: score({ grounding: true, content: true }) }], PV, true);
+    const { body } = await get("/api/v1/evals");
+    expect((body.runs as { latencyIncludesWait: boolean }[])[0]!.latencyIncludesWait).toBe(false);
+    expect(validate("EvalsResponse", body)).toEqual([]);
   });
 
   it("n=3 분산: 가장 최근 variance 런과 같은 버전의 최근 3런, 케이스별 통과 횟수·분포(오래된 런부터)", async () => {

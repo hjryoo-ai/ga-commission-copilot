@@ -290,6 +290,8 @@ export interface EvalRunSummary {
   passed: number;
   rates: EvalRates;
   meanLatencyMs: number | null;
+  /** 평균 지연에 하네스 대기(Groq 호출 간격)가 들어 있다 — 기준선·r1. */
+  latencyIncludesWait: boolean;
   rulesUnavailable: { total: number; passed: number };
 }
 export interface EvalVariance {

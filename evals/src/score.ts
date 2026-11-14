@@ -44,6 +44,8 @@ export interface CaseRun {
   citedArticles?: string[];
   rulesUnavailable?: boolean;
   latencyMs?: number;
+  /** true면 latencyMs에서 하네스 대기(Groq 호출 간격·429)를 뺐다 — 2026-11-14 이전 런(기준선·r1)은 없음 = 대기 포함. */
+  latencyExcludesWait?: boolean;
 }
 
 /** 축 판정 — null = 이 케이스에는 해당 없음(분모에서 뺀다). */

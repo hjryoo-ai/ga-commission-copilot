@@ -34,6 +34,9 @@ const pick = set === "all" ? allCases.map((c) => c.id) : set === "appendix" ? sa
 const cases = allCases.filter((c) => pick.includes(c.id));
 
 /** 공급자 호출 수를 세고, Groq는 간격을 두며 429면 기다렸다 다시(평가는 공급자를 바꾸지 않는다). 모든 요청에 skipCache. */
+/** 하네스가 일부러 기다린 시간(Groq 호출 간격·429 대기) — 케이스 응답 시간에서 뺀다(운영자 2026-11-14: 평균 지연에 대기를 넣지 않는다). */
+const waited = { ms: 0 };
+
 function evalProvider(p: Provider, used: Record<string, number>): Provider {
   let last = 0;
   return {
@@ -42,7 +45,10 @@ function evalProvider(p: Provider, used: Record<string, number>): Provider {
       for (let attempt = 0; ; attempt++) {
         if (p.name === "groq") {
           const wait = last + GROQ_GAP_MS - Date.now();
-          if (wait > 0) await sleep(wait);
+          if (wait > 0) {
+            await sleep(wait);
+            waited.ms += wait;
+          }
           last = Date.now();
         }
         used[p.name] = (used[p.name] ?? 0) + 1;
@@ -54,6 +60,7 @@ function evalProvider(p: Provider, used: Record<string, number>): Provider {
             // §14.1-2(Groq TPD 창이 자정 리셋인지 이동 창인지) 실측 — 시각·헤더·본문을 남긴다
             console.warn(`[eval] ${new Date().toISOString()} groq 429 — ${s}s 기다림 · ${JSON.stringify(e.rateLimit)}`);
             await sleep(s * 1000);
+            waited.ms += s * 1000;
             continue;
           }
           throw e;
@@ -216,11 +223,13 @@ async function main() {
         const deps = stub ? stubDeps(env, cassette!, c.question) : cloudflareDeps(env, base[name]);
         if (mode === "rulesUnavailable") deps.embed = () => Promise.reject(new Error("rulesUnavailable(eval 모드)"));
         const t0 = Date.now();
+        const w0 = waited.ms;
+        const took = () => Date.now() - t0 - (waited.ms - w0);
         try {
           const r: AnswerResult = await answerQuestion(deps, q, env, c.question);
-          run = { ...run, answerId: r.answerId, at: new Date().toISOString(), provider: r.provider, model: r.model, refused: r.refused, reason: r.reason, groundingStatus: r.groundingStatus, text: r.text, toolCalls: r.toolCalls.map((t) => ({ tool: t.tool, args: t.args as Record<string, string> })), citedArticles: r.citations.filter((x) => x.kind === "rule").map((x) => x.article), violations: r.grounding, rulesUnavailable: r.rulesUnavailable, latencyMs: Date.now() - t0 };
+          run = { ...run, answerId: r.answerId, at: new Date().toISOString(), provider: r.provider, model: r.model, refused: r.refused, reason: r.reason, groundingStatus: r.groundingStatus, text: r.text, toolCalls: r.toolCalls.map((t) => ({ tool: t.tool, args: t.args as Record<string, string> })), citedArticles: r.citations.filter((x) => x.kind === "rule").map((x) => x.article), violations: r.grounding, rulesUnavailable: r.rulesUnavailable, latencyMs: took(), latencyExcludesWait: true };
         } catch (e) {
-          run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 200)}`, latencyMs: Date.now() - t0 };
+          run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 200)}`, latencyMs: took(), latencyExcludesWait: true };
         }
       }
       const score = scoreCase(c, run);

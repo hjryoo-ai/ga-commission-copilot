@@ -41,8 +41,13 @@
 - 화면(`web/src/screens/Evals.tsx`, 경로 `/evals`·`/evals/{runId}`, 설계사 선택에서 링크): 4축 추이 라인(60문항 런만 — 기준선·주간·재채점, PR 표본·variance·stub 런은 표에만), 런 표, n=3 분산 표(n회 중 n−1회 이하 = v4 대상), 런 상세(모델별 4축·유형별 통과·케이스 실패 먼저·규정 검색 끈 모드 따로).
 - 차트(dataviz 절차): 4축 범주 색 = 기본 팔레트 1~4(#2a78d6·#eb6834·#1baf7a·#eda100) — `validate_palette.js --mode light --surface #ffffff` 전 항목 PASS(인접 CVD ΔE 최소 9.1, 정상 시각 22.9), 대비 3:1 미만 2색(#1baf7a 2.82·#eda100 2.17) → 범례 + 끝 직접 라벨 + 런 표 숫자로 보완. 2px 선·8px 점(흰 2px 테두리)·흐린 격자, y축 하나(0~100%), 십자선 + 툴팁(가장자리 고정). 컨테이너 폭을 재서 실제 픽셀로 그린다(휴대폰 폭에서도 11px 글자), x 라벨은 약 90px 간격. 다크 모드는 앱 전체에 없다(라이트만).
 - 렌더 확인(로컬 `wrangler dev --local` + 빌드한 web, Playwright 캡처): 1100px·390px 모두 가로 넘침 0px, 툴팁 표시 확인. 캡처 `docs/evidence/captures/phase-6-evals-local-desktop.png`(호버)·`-phone.png`·`-run.png` — 로컬 D1이라 stub 런이 섞여 있다. **공개 URL 캡처는 배포 뒤**.
+- 운영자 검토 반영(2026-11-14, PR-A 추가 커밋):
+  - 추이: 원본과 재채점을 선으로 잇지 않는다 — 같은 원본은 재채점 번호가 가장 큰 1점만(라벨 "재채점 r1"), 원본은 런 표에만, 제목 런 수도 그 기준("60문항 런 1개"). 캡처 `docs/evidence/captures/phase-6-evals-local-trend.png`.
+  - 390px 런 표: 표 안에서 가로로 밀린다 — `.table-scroll` scrollWidth 540 / clientWidth 358, scrollLeft 끝 182, 터치 스와이프(모바일 에뮬레이션 CDP)로도 182, 페이지 가로 넘침 0. 캡처 `…-phone-table-scrolled.png`(밀어 낸 상태 — 거부·툴·내용·규정 검색 끔 열이 보인다).
+  - 평균 지연: 하네스가 Groq 호출 간격·429 대기를 뺀 응답 시간을 적고 케이스에 `latencyExcludesWait: true`(다음 런부터). API `latencyIncludesWait`(케이스에 표시가 없으면 true) → 기준선·r1 상세에 "호출 간격 포함" 표기. 27,545ms는 Groq 케이스(2호출 사이 30초)가 끌어올린 값이다.
+  - 케이스 표: 접힌 행에도 실패 요약(거부 사유·빠진 사실·금지어·위반 토큰 앞 3개)이 보이고, 펼치면 기대·실제 본문·빠진 사실·검증 위반. 캡처 `…-cases-open.png`(A-01 펼침, A-02·A-03·A-05 접힘).
 - 유형별 재집계(운영자 요청 — cases.jsonl bucket으로): 기준선 라인 0/15 · 한도 0/12 · 분급 0/8 · 규정 5/10 · 거부 13/15 — 운영자의 번호 구간 집계와 같다. 재채점 r1: 라인 2/15 · 한도 1/12 · 분급 1/8 · 규정 9/10 · 거부 13/15.
-- 시험: worker `test/evals.test.ts` 9건(빈 표·최근 순·내용율·RU 따로·n=3 같은 버전 3런·실패 우선·유형별·모델별·404·EXPLAIN), schema 0001~0007. web `test/evals.test.tsx` 6건. 전체 worker 456 · web 69 · evals 33 · grounding 76 · gen 208, lint 0.
+- 시험: worker `test/evals.test.ts` 10건(빈 표·최근 순·내용율·RU 따로·n=3 같은 버전 3런·실패 우선·유형별·모델별·404·EXPLAIN), schema 0001~0007. web `test/evals.test.tsx` 6건. 전체 worker 457 · web 70 · evals 33 · grounding 76 · gen 208, lint 0.
 
 ## PR-A — 검증기 구멍 2건 + 골든 점검 + 재채점(2026-11-14, LLM 호출 0, 브랜치 `pr-a/grounding-golden`)
 
