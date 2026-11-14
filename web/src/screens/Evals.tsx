@@ -348,7 +348,7 @@ function CaseRow({ c }: { c: EvalCase }) {
         {c.caseId}
         <span className="muted small note-line">{BUCKET_LABEL[c.bucket]}</span>
       </th>
-      <td>
+      <td className="question">
         <details>
           <summary>
             {c.question ?? c.caseId}
@@ -383,7 +383,7 @@ function CaseRow({ c }: { c: EvalCase }) {
           </dl>
         </details>
       </td>
-      <td>{c.passed ? "통과" : FAILURE_LABEL[c.failureKind ?? ""] ?? "실패"}</td>
+      <td className="kind">{c.passed ? "통과" : FAILURE_LABEL[c.failureKind ?? ""] ?? "실패"}</td>
       <td>{providerLabel(c.provider)}</td>
     </tr>
   );

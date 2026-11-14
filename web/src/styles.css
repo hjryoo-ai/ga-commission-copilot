@@ -650,6 +650,18 @@ table.budget:not(.usage-table) thead th + th {
 .trend .tooltip span { display: inline-flex; align-items: center; gap: 6px; }
 .evals-cases tr.failed th { color: var(--crit); }
 .evals-cases summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
+/* 머리글·케이스 번호·결과 열(통과·그라운딩·거부·툴·내용·실패)은 한 줄 — 390px에서 짧은 열이 한 글자씩 꺾이던 문제. 줄어드는 건 질문 열 */
+.evals-cases thead th,
+.evals-cases tbody th,
+.evals-cases td.kind { white-space: nowrap; }
+/* 남는 폭은 질문 열이 다 가진다 — 한 줄로 묶은 짧은 열은 글자 폭만(전역 th 40%를 이 표에서만 푼다) */
+.evals-cases th { width: auto; }
+/* 이 표의 칸은 글(숫자 아님) — 머리글도 왼쪽(table.budget 둘째 열부터 오른쪽 정렬을 푼다) */
+table.budget.evals-cases thead th,
+table.budget.evals-cases thead th + th { text-align: left; }
+.evals-cases td.question { width: 100%; }
+/* 질문 열이 긴 토큰(TOOL_ARG_REJECTED:get_limit 등)에 막혀 줄지 않던 것 — 그 열 안에서만 끊는다 */
+.evals-cases td.question details { overflow-wrap: anywhere; }
 .evals-cases summary .note-line { display: block; margin-top: 2px; }
 .case-detail dd { margin: 0 0 6px; }
 .case-detail dt { font-weight: 600; font-size: 0.8125rem; color: var(--muted); }
