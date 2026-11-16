@@ -41,9 +41,10 @@
 
 ## 동결
 
-- 동결 해시(sha256, `evals/cases.jsonl`): `13544b19ce9e6bedafe06a697ae4faf6773a48035f03dedc6e1a8ad3e96fc0b0`
+- 동결 해시(sha256, `evals/cases.jsonl`): `79f65888ca983e01e19480b515e3006207c1b10cf26d3f26cea71e70b37d023b`
 
 ## 동결 뒤 변경
 
 | 일자 | 케이스 | 변경 | 사유 | PR |
 |---|---|---|---|---|
+| 2026-11-16 | A-04 · G-42 | `expectByMode.rulesUnavailable` = 거부 `RULES_UNAVAILABLE`(normal 기대는 그대로), note의 rulesUnavailable 문장을 그에 맞게. 이전 해시 `13544b19…fc0b0` | 운영자 결정 1(2026-11-13) — 규정 검색 불가 상태의 순수 규정 질문은 RULES_UNAVAILABLE로 거부(설계서 v0.1.44 §4.4, 모드별 기대 v0.1.45 §13.2). A-11(OUT_OF_SCOPE)·G-57(NEEDS_ENGINE)은 그대로. 기대값을 답에 맞춘 것이 아니라 새 거부 코드의 정의다 | golden/rules-unavailable-mode |
