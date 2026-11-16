@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api } from "../api";
 import { citedClass, ExplanationBody } from "../explain";
 import { ym as ymText } from "../format";
-import { commTypeLabel, CONTRACT_LABEL, CUT_LABEL, DEFERRAL_LABEL, lineLabel, RECEIVABLE_LABEL } from "../labels";
+import { commTypeLabel, CONTRACT_LABEL, DEFERRAL_LABEL, limitCutLabel, lineLabel, RECEIVABLE_LABEL } from "../labels";
 import { Link, paths } from "../router";
 import { Amount, Badge, Status, useLoad } from "../ui";
 import { Shell } from "./Shell";
@@ -37,7 +37,7 @@ export function LineDetail({ calcId }: { calcId: string }) {
             </p>
             {d.line.limitCutAmt > 0 && (
               <p className={hl("line.limitCutAmt", "derived.requested")}>
-                {CUT_LABEL} <Amount value={d.line.limitCutAmt} label="원장 기준" />
+                {limitCutLabel(d.line.limitCutPolicy)} <Amount value={d.line.limitCutAmt} label="원장 기준" />
               </p>
             )}
             <p>

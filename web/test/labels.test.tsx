@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Line, Month, MonthStatus, NetBasis } from "../src/api";
 import { monthWindow, won } from "../src/format";
-import { grossLabel, MONTH_STATUS_LABEL, netCell } from "../src/labels";
+import { CUT_LABEL, DEFER_LABEL, grossLabel, limitCutLabel, MONTH_STATUS_LABEL, netCell } from "../src/labels";
 import { foldLines, MonthCard } from "../src/screens/Statement";
 import { UsageBar } from "../src/screens/Limits";
 
@@ -64,6 +64,15 @@ describe("월 상태 라벨", () => {
     const html = renderToStaticMarkup(<MonthCard m={month("PAID", "PAYOUT", { adjustment: 25_000, monthDataStatus: "DRIFT" })} />);
     expect(html).toContain(`${won(25_000)}</span> <span class="tag">지급 반영 미정</span>`);
     expect(html).toContain("대사 불일치");
+  });
+});
+
+describe("한도 초과 라벨(DECISIONS 2026-11-16)", () => {
+  it("이연 정책이면 '한도 초과 이연', 삭감 정책·정책 없음은 상위 사본 '한도 초과 삭감'", () => {
+    expect(limitCutLabel("DEFER_AFTER_FY")).toBe(DEFER_LABEL);
+    expect(DEFER_LABEL).toBe("한도 초과 이연");
+    expect(limitCutLabel("CUT")).toBe(CUT_LABEL);
+    expect(limitCutLabel(undefined)).toBe("한도 초과 삭감");
   });
 });
 

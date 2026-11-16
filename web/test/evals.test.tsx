@@ -141,7 +141,9 @@ describe("화면 5 평가 리포트", () => {
     expect(cases).toContain("8월 시책이 100만 원인데");
     expect(cases).toContain("빠진 사실: 이연");
     expect(cases).toContain("금지어: 삭감된");
-    expect(cases).toMatch(/<td>내용<\/td>/);
+    expect(cases).toMatch(/<td class="kind">내용<\/td>/);
+    // 390px: 결과 열은 한 줄(td.kind nowrap), 남는 폭은 질문 열(td.question)
+    expect(cases).toContain('<td class="question"><details>');
     const buckets = html.slice(html.indexOf('data-testid="evals-buckets"'));
     for (const [label, v] of [["라인", "2/15"], ["한도", "1/12"], ["분급", "1/8"], ["규정", "9/10"], ["거부", "13/15"]]) expect(buckets).toMatch(new RegExp(`${label}</th><td class="num">${v}`));
     expect(html).toContain("47.83% (11/23)");

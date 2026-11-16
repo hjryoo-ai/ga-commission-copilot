@@ -2,7 +2,7 @@
 import { type CSSProperties, useState } from "react";
 import { api, type Ledger } from "../api";
 import { won } from "../format";
-import { CONTRACT_LABEL, CUT_LABEL, DEFER_NOTE, FLAG_LABEL, LEDGER_LABEL, STAGE_LABEL } from "../labels";
+import { CONTRACT_LABEL, CUT_LABEL, DEFER_LABEL, DEFER_NOTE, FLAG_LABEL, LEDGER_LABEL, STAGE_LABEL } from "../labels";
 import { citedClass, ExplanationBody } from "../explain";
 import { Link, paths } from "../router";
 import { Amount, Badge, Status, useLoad } from "../ui";
@@ -115,7 +115,7 @@ export function LimitDetail({ ledgerId }: { ledgerId: string }) {
               )}
               {d.ledger.deferredTotal > 0 && (
                 <>
-                  <dt>{CUT_LABEL}</dt>
+                  <dt>{DEFER_LABEL}</dt>
                   <dd className={hl("ledger.deferredTotal")}>
                     <Amount value={d.ledger.deferredTotal} label={LEDGER_LABEL} /> <span className="muted">{DEFER_NOTE}</span>
                   </dd>
