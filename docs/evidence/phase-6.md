@@ -171,6 +171,19 @@
 - **필수 체크 등록 절차(운영자)**: 워크플로가 main에 들어간 뒤 PR 하나에서 한 번 돈 다음 → GitHub 저장소 Settings → Rules → Rulesets(또는 Branches → Branch protection rule) → 대상 `main` → "Require status checks to pass" → 체크 `eval-on-prompt-change`(잡 이름) 추가 → 저장. 같은 일을 CLI로: `gh api -X PATCH repos/hjryoo-ai/ga-commission-copilot/branches/main/protection/required_status_checks -f strict=false -f 'contexts[]=eval-on-prompt-change'`(이미 보호 규칙이 있을 때). 등록 캡처는 항목 6 열화 PR 차단 캡처와 함께.
 - 미실행: 워크플로 실행 자체(푸시 전). n=3 첫날은 푸시 뒤 `gh workflow run eval-on-prompt-change.yml -f set=appendix -f trigger=variance:<날> -f groq_calls=24 -f wai_calls=0 -f load_remote=<운영자>`.
 
+## 부록 A n=3(운영자 2026-11-16 — 이틀로 압축, answer=v3, main f4170ea 코드)
+
+- 실행: `gh workflow run eval-on-prompt-change.yml --ref main -f set=appendix -f trigger=variance:2026-11-16-a|-b -f groq_calls=24 -f wai_calls=0 -f load_remote=false`. **load_remote=false로 돌리고 429 없는 런만 내가 직접 적재**(워크플로 적재 단계에는 429 확인이 없다 — 운영자 수용 2026-11-16): 산출물 `load.sql`(INSERT eval_run 1 + eval_case_result 14 — normal 12 + rulesUnavailable A-04·A-11)을 `wrangler d1 execute copilot --remote --file`.
+- 실행 전 공개 `/budget` 2026-11-16 Groq 사용 0. 호출 수는 하네스 summary, 입력 토큰은 기준선 카세트와 같은 요청이면 그 `prompt_tokens`(다른 요청은 3,400으로 추정) — 출력 토큰은 산출물에 없다(CI 로컬 llm_trace만).
+
+| 런 | 시각(UTC) | Groq 호출 | 입력 토큰(추정) | 429 | 통과 | 그라운딩 · 거부 · 툴 · 내용 | 적재 |
+|---|---|---|---|---|---|---|---|
+| `20261116T104059-variance-2026-11-16-a` (실행 43850851217) | 10:40–10:51 | 22 | ≈ 69,200(카세트 일치 20 + 추정 2) | 없음 | 8/12 | 8/9 · 12/12 · 7/7 · 5/9 | 원격 rows_written 32 |
+| `20261116T105400-variance-2026-11-16-b` (실행 43852799696) | 10:54–11:03 | 20 | ≈ 62,300(카세트 일치 19 + 추정 1) | 없음 | 7/12 | 7/8 · 11/12 · 6/7 · 4/9 | 원격 rows_written 32 |
+
+- 케이스별(a / b / r1): A-01 ✗내용 / ✗내용 / ✗내용 · A-02 ✓ / ✓ / ✗그라운딩 · A-03 ✓ / ✗내용 / ✗내용 · A-04 ✓ / ✓ / ✗거부 · A-05 ✗내용 / ✗내용 / ✗내용 · A-06 ✗그라운딩 / ✗그라운딩 / ✗그라운딩 · A-07 ✗내용 / ✗거부(NEEDS_ENGINE) / ✗거부 · A-08~A-11 ✓ / ✓ / ✓ · A-12 ✓ / ✓ / ✗그라운딩.
+- 3일차: 2026-11-17(UTC) — 실행 전 origin/main에 골든 브랜치(expectByMode 채점기)가 없는지 확인(사흘이 같은 규칙으로).
+
 ## 첫 실런 계획(운영자 2026-11-11)
 
 - 60문항 전체 1회, 주간 방식(Groq 50 + Workers AI 60 호출, 둘 다 gpt-oss-120b) — 기준선. 이 녹화가 `--stub`의 60건 카세트(`evals/vcr/eval.json`)가 된다. 결과를 eval_run에 적재하고 THRESHOLDS.md 초기 임계치를 이 런으로(§13.1 수치는 목표, 초기 임계치는 기준선 − 3%p를 넘지 않게).
