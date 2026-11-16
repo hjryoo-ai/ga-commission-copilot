@@ -91,6 +91,20 @@ describe("POST /api/v1/me/ask", () => {
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope = 'global' AND used > 0").first("n")).toBe(0);
   });
 
+  it("다른 설계사 ID 가드(설계서 v0.1.44 §4.4·§6.2): LLM 없이 OTHER_AGENT 고정 문구, 질문 예산(전역·사용자)은 그대로, stat:refuse:other_agent·분당 제한은 센다", async () => {
+    const res = await ask(await login(app, 1), { question: "A-1009 설계사 8월 수수료 보여줘" });
+    expect(res.status).toBe(200);
+    const b = (await res.json()) as Record<string, unknown>;
+    expect(validate("AskResponse", b)).toEqual([]);
+    expect(b).toMatchObject({ refused: true, reason: "OTHER_AGENT", text: REFUSAL_TEXT.OTHER_AGENT, provider: "none" });
+    const row = await env.DB.prepare("SELECT provider, refuse_reason FROM answer_log WHERE answer_id = ?").bind(b.answerId).first();
+    expect(row).toEqual({ provider: "none", refuse_reason: "OTHER_AGENT" });
+    const user = await userScope(env.SESSION_SECRET, "local", today());
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE (scope = 'global' OR scope = ?) AND used > 0").bind(user).first("n")).toBe(0);
+    expect(await env.DB.prepare("SELECT used FROM budget_counter WHERE scope = 'stat:refuse:other_agent'").first("used")).toBe(1);
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope LIKE 'rl:%'").first("n")).toBe(1);
+  });
+
   it("레이트 리밋(설계서 v0.1.29 §7): 이 IP의 이번 분이 3이면 429 RATE_LIMITED + Retry-After, answer_log·예산은 그대로", async () => {
     const user = await userScope(env.SESSION_SECRET, "local", today());
     const now = Date.now();

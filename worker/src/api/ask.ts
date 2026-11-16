@@ -9,7 +9,7 @@
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
-import { type AnswerResult, answerQuestion, cloudflareDeps, hash16, refuseWithoutLlm, reuseAnswer } from "../llm/answer";
+import { type AnswerResult, answerQuestion, cloudflareDeps, hash16, otherAgentIds, refuseWithoutLlm, reuseAnswer } from "../llm/answer";
 import { anyProviderLeft, budgetCaps, countStat, questionsLeft, reserveProvider, reserveQuestion, reserveRate, usageOn, userScope, utcDay, withKeys } from "../llm/budget";
 import { activePrompt } from "../llm/promptRegistry";
 import { fallbackChain, type GatewayRunner, groq, groq429Stub, openrouter, ProviderError, ProvidersExhausted, ProvidersFailed, traced, workersAi } from "../llm/providers";
@@ -71,6 +71,12 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
     await countStat(c.env.DB, "refuse:BUDGET", day);
     return answerJson(c, { answerId: b.answerId, refused: true, reason: "BUDGET", text: b.text, retryAfterSeconds: secondsToUtcMidnight(now), promptVersion: b.promptVersion, budget: await left() }, 429);
   };
+  // 다른 설계사 ID 가드(설계서 v0.1.44 §4.4·§6.2) — LLM·임베딩 없이 OTHER_AGENT. 질문 예산은 차감하지 않는다(분당 제한은 위에서 이미 셌다)
+  if (otherAgentIds(question, q.agentId).length) {
+    const g = await refuseWithoutLlm(deps, q, c.env, question, "OTHER_AGENT");
+    await countStat(c.env.DB, "refuse:OTHER_AGENT", day);
+    return answerJson(c, { ...answerBody(g, false), budget: await left() });
+  }
   // 답 단위 재사용 — 예산 검사보다 먼저(캐시 히트는 예산 미차감). 소진된 날에도 같은 질문의 원래 답은 돌려준다
   const reused = await reuseAnswer(deps, q, c.env, question);
   if (reused) {
@@ -105,6 +111,8 @@ export async function postAsk(c: Context<AppEnv>): Promise<Response> {
     countStat(c.env.DB, "cache:miss", day),
     ...(r.refused && r.reason ? [countStat(c.env.DB, `refuse:${r.reason}`, day)] : []),
     ...(r.rulesUnavailable ? [countStat(c.env.DB, "degraded:rules", day)] : []),
+    // 툴 결과 v2의 미등록 코드(설계서 v0.1.44 §4.3.2) — 답 하나에 1
+    ...(r.unregisteredLabels ? [countStat(c.env.DB, "label:unregistered", day)] : []),
   ]);
   return answerJson(c, { ...answerBody(r, false), budget: await left() }, 200, r.rulesUnavailable);
 }

@@ -78,7 +78,8 @@ function stubDeps(env: Env, cassette: Cassette, question: string): AnswerDeps {
   const search: string[] = [];
   for (const e of Object.values(cassette.entries)) {
     const c = (e.request as { messages: { role: string; content: string }[] }).messages.at(-1)!.content;
-    if (c.includes("단계: 1단계") && c.includes(`<question>\n${question}\n</question>`)) search.push(...[...c.matchAll(/\[chunkId ([^\]]+)\]/g)].map((m) => m[1]!));
+    // 1단계 요청(v1~v3 "단계: 1단계", v4 구역 "1단계(<data>가 비어 있다)" — 설계서 v0.1.44)
+    if ((c.includes("단계: 1단계") || /^1단계\(/m.test(c)) && c.includes(`<question>\n${question}\n</question>`)) search.push(...[...c.matchAll(/\[chunkId ([^\]]+)\]/g)].map((m) => m[1]!));
   }
   const provider: Provider = {
     name: "groq",

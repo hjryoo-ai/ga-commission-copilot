@@ -4,7 +4,7 @@ import { policyMasked } from "../api/policy";
 import { compact } from "../api/http";
 import { DEMO_TENANT_CONFIG } from "../api/tenant";
 import { DerivedNumbers } from "../domain/DerivedNumbers";
-import { fitList, matchPolicies, type ToolContext, type ToolData } from "./result";
+import { fitIn, matchPolicies, type ToolContext, type ToolData } from "./result";
 
 interface LedgerRow {
   ledger_id: string;
@@ -55,7 +55,7 @@ export async function getLimit(ctx: ToolContext, policyArg: string): Promise<{ d
   );
   if (hits.length !== 1) {
     const candidates = ledgers.filter((l) => hits.includes(l.policy_no)).map((l) => ({ ledgerId: l.ledger_id, policyMasked: policyMasked(l.policy_no), contractDate: l.contract_date }));
-    return fitList((xs) => ({ found: false, ambiguous: hits.length > 1, candidates: xs }), "candidates", candidates);
+    return fitIn(ctx, (xs) => ({ found: false, ambiguous: hits.length > 1, candidates: xs }), "candidates", candidates);
   }
   const l = ledgers.find((x) => x.policy_no === hits[0])!;
   const [history, cuts, deferrals] = await Promise.all([
@@ -95,5 +95,5 @@ export async function getLimit(ctx: ToolContext, policyArg: string): Promise<{ d
       compact({ calcId: c.calc_id, closeYm: c.close_ym, commType: c.comm_type, amount: c.amount, limitCutAmt: c.limit_cut_amt, limitCutPolicy: c.limit_cut_policy, requested: DerivedNumbers.requested(c.amount, c.limit_cut_amt) }),
     ),
   };
-  return fitList((xs) => ({ ...head, deferrals: xs.map((d) => ({ scheduleId: d.schedule_id, dueYm: d.due_ym, amount: d.amount, status: d.status, reason: d.reason })) }), "deferrals", deferrals);
+  return fitIn(ctx, (xs) => ({ ...head, deferrals: xs.map((d) => ({ scheduleId: d.schedule_id, dueYm: d.due_ym, amount: d.amount, status: d.status, reason: d.reason })) }), "deferrals", deferrals);
 }

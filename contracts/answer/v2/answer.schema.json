@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ga.example/copilot/contracts/answer/v2/answer.schema.json",
+  "title": "답변 LLM 출력 v2(설계서 §4.3·§4.4, 부록 B.2 — v0.1.44)",
+  "description": "prompts/answer/v4.md 구조화 출력 — v1과 같은 모양(1·2단계 같은 스키마, 모든 속성 required, 해당 없는 칸은 빈 문자열·null), reason에 RULES_UNAVAILABLE(서버는 rulesUnavailable일 때만 받는다). 긴 설명은 v1 파일과 설계서 부록 B.2 — 이 문구는 공급자 요청에 실리므로 짧게 둔다(v0.1.44 토큰 상한).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["refused", "reason", "text", "numbersUsed", "citations", "toolCalls"],
+  "properties": {
+    "refused": { "type": "boolean" },
+    "reason": { "type": ["string", "null"], "enum": ["OUT_OF_SCOPE", "NOT_GROUNDED", "OTHER_AGENT", "NEEDS_ENGINE", "RULES_UNAVAILABLE", null] },
+    "text": { "type": "string", "maxLength": 800 },
+    "numbersUsed": { "type": "array", "items": { "type": "string" } },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "tool", "field", "article", "chunkId"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["tool", "rule"] },
+          "tool": { "type": "string" },
+          "field": { "type": "string" },
+          "article": { "type": "string" },
+          "chunkId": { "type": "string" }
+        }
+      }
+    },
+    "toolCalls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tool", "args"],
+        "properties": {
+          "tool": { "type": "string", "enum": ["get_statement", "get_limit", "get_deferrals", "get_policy_event_sim"] },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ym", "policyNo", "from", "to"],
+            "properties": {
+              "ym": { "type": ["string", "null"] },
+              "policyNo": { "type": ["string", "null"] },
+              "from": { "type": ["string", "null"] },
+              "to": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

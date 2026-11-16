@@ -77,6 +77,7 @@ export const REFUSE_LABEL: Record<RefuseReason, string> = {
   NOT_GROUNDED: "근거로 확인되지 않음",
   OTHER_AGENT: "다른 설계사 정보",
   NEEDS_ENGINE: "엔진 계산이 필요한 질문",
+  RULES_UNAVAILABLE: "지금 사규 확인 불가",
   BUDGET: "오늘 질문 예산 소진",
   PROVIDER_ERROR: "공급자 일시 장애",
 };

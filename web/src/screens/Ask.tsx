@@ -37,6 +37,12 @@ function Alternatives({ r }: { r: AskResult }) {
           지금 값은 <Link to={paths.limits()}>한도 현황</Link>과 <Link to={paths.statement()}>명세</Link>에서 볼 수 있습니다.
         </p>
       );
+    case "RULES_UNAVAILABLE":
+      return (
+        <p>
+          <Link to={paths.statement()}>명세</Link>·<Link to={paths.limits()}>한도</Link> 데이터 질문은 지금도 답합니다.
+        </p>
+      );
     case "BUDGET":
       return (
         <p>

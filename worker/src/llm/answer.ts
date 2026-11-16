@@ -4,13 +4,17 @@
 // 툴 결과는 <data>, 검색 청크는 <rules>로 감싼다 — 데이터이지 지시가 아니다(§6.5). 방어의 본체는 검증기: 답의 숫자는 툴 결과·청크 본문에 있어야 한다.
 // 예산·폴백·캐시는 Phase 5(여기는 Groq만, fallback_depth 0, cache_hit 0).
 import { contextKeys, contextNumbers, fieldInContext, forbiddenViolations, GroundingVerifier, type Json, normalizeText, withTextTokens } from "@copilot/grounding";
+import forbidden from "@copilot/grounding/forbidden.json";
 import { type RulebookChunkRow, rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
-import { InvalidToolCall, parseToolCall, runTool, serialize, type ToolResult } from "../tools";
+import { InvalidToolCall, parseToolCall, rejectedResult, runTool, serialize, type ToolResult } from "../tools";
 import { activePrompt, render } from "./promptRegistry";
 import type { Provider } from "./providers";
 
-/** 설계서 §4.4. BUDGET·PROVIDER_ERROR(v0.1.34)는 서버만 쓴다 — 모델 출력에서는 받지 않는다. */
-export const REFUSE_REASONS = ["OUT_OF_SCOPE", "NOT_GROUNDED", "OTHER_AGENT", "NEEDS_ENGINE", "BUDGET", "PROVIDER_ERROR"] as const;
+/**
+ * 설계서 §4.4. BUDGET·PROVIDER_ERROR(v0.1.34)는 서버만 쓴다 — 모델 출력에서는 받지 않는다.
+ * RULES_UNAVAILABLE(v0.1.44)은 모델이 내지만 그 요청이 rulesUnavailable일 때만 받는다(아니면 G1 reason — answerQuestion).
+ */
+export const REFUSE_REASONS = ["OUT_OF_SCOPE", "NOT_GROUNDED", "OTHER_AGENT", "NEEDS_ENGINE", "RULES_UNAVAILABLE", "BUDGET", "PROVIDER_ERROR"] as const;
 const SERVER_ONLY_REASONS: readonly string[] = ["BUDGET", "PROVIDER_ERROR"];
 export type RefuseReason = (typeof REFUSE_REASONS)[number];
 
@@ -22,7 +26,14 @@ export const REFUSAL_TEXT: Readonly<Record<RefuseReason, string>> = {
   NEEDS_ENGINE: "이 질문은 정산 엔진의 시뮬레이션이 필요합니다. 데모에서는 준비된 계약만 지원합니다.",
   BUDGET: "오늘의 질문 예산이 소진되었습니다. 사전 생성된 설명은 계속 볼 수 있습니다.",
   PROVIDER_ERROR: "지금은 답변을 만들지 못했습니다. 잠시 후 다시 시도해 주세요. 사전 생성된 설명은 계속 볼 수 있습니다.",
+  RULES_UNAVAILABLE: "지금은 사규를 불러올 수 없어 규정 질문에 답하지 못했습니다. 잠시 후 다시 시도해 주세요. 수수료·한도·분급 데이터 질문은 계속 답합니다.",
 };
+
+/** 설계사 ID 패턴(forbidden.json patterns AGENT_ID — G6와 같은 출처). */
+const AGENT_ID_RE = new RegExp(`\\b${forbidden.patterns.find((p) => p.name === "AGENT_ID")!.regex}\\b`, "g");
+
+/** 다른 설계사 ID 서버 가드(설계서 v0.1.44 §4.4): 질문에 세션 본인이 아닌 설계사 ID가 있으면 그 ID들. 본인 ID만 있으면 빈 목록. */
+export const otherAgentIds = (question: string, ownAgentId: string): string[] => [...new Set([...question.matchAll(AGENT_ID_RE)].map((m) => m[0]).filter((id) => id !== ownAgentId))];
 
 export const EMBED_MODEL = "@cf/baai/bge-m3";
 export const TOP_K = 6;
@@ -82,6 +93,10 @@ export interface AnswerResult {
   rulesUnavailable: boolean;
   /** 폴백 체인 순번(0 = groq, 1 = workers-ai, 2 = openrouter) — 두 번의 LLM 호출 중 깊은 쪽. LLM을 안 불렀으면 0. */
   fallbackDepth: number;
+  /** 툴 결과 v2의 미등록 코드 수(설계서 v0.1.44 — ask.ts가 stat:label:unregistered). v1이면 0. */
+  unregisteredLabels?: number;
+  /** LLM 호출 수(평가 보고 — 가드·재사용이면 0, 1단계에서 끝나면 1). */
+  llmCalls?: number;
 }
 
 /** Cloudflare 바인딩으로 만든 기본 의존성(Workers AI 임베딩 · Vectorize · D1). */
@@ -231,6 +246,8 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   const qText = normalizeText(question).slice(0, QUESTION_MAX);
   const prompt = activePrompt(env, "answer");
   const promptVersion = `${prompt.name}/${prompt.version}`;
+  // 다른 설계사 ID 가드(설계서 v0.1.44 §4.4 — LLM·임베딩 없음). ask.ts는 예산 전에 따로 거르고, 하네스는 여기서 같은 경로를 잰다
+  if (otherAgentIds(qText, q.agentId).length) return refuseWithoutLlm(deps, q, env, question, "OTHER_AGENT");
 
   // 임시(운영자 2026-11-03, Phase 5 전): 임베딩·검색이 실패하면(Workers AI 4006 — 그날 뉴런 소진 등) 규정 없이 툴만으로 답한다.
   // 배치가 뉴런을 다 쓴 날 공개 데모 /ask가 500으로 죽지 않게. <rules>가 비므로 규정 인용은 G5에서 0건만 통과한다. 정식 저하 모드는 Phase 5.
@@ -250,15 +267,20 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   // AI Gateway 캐시 키(설계서 v0.1.29 §6.4): 정규화 질문+agentId+streamHash+promptVersion + 단계. 2단계는 툴 결과 해시도 붙인다 —
   // 1단계 캐시가 먼저 만료돼 툴 호출이 달라졌을 때 옛 2단계 답이 돌아오지 않게.
   const keyBase = await answerCacheKey(normalizeQuestion(qText), q.agentId, q.stream.streamHash, promptVersion);
-  const ask = async (stage: string, data: string) =>
-    deps.provider.structured({
+  // v0.1.44: 단계 구역({{#stage1}}·{{#stage2}} — answer/v4)과 2단계 키(툴 결과가 비어도 1단계 키와 겹치지 않게)
+  let llmCalls = 0;
+  const ask = async (stage: "1단계" | "2단계", data: string) => {
+    llmCalls++;
+    const two = stage === "2단계";
+    return deps.provider.structured({
       model: prompt.modelHint,
-      messages: [{ role: "user", content: render(prompt.body, { stage, session, rules: rulesBlock(rows), data, question: qText }) }],
+      messages: [{ role: "user", content: render(prompt.body, { stage, stage1: two ? "" : "1", stage2: two ? "1" : "", session, rules: rulesBlock(rows), data, question: qText }) }],
       schemaName: "answer",
       schema: prompt.outputSchema,
       maxCompletionTokens: MAX_COMPLETION_TOKENS,
-      cacheKey: data ? `${keyBase}:2:${await hash16(data)}` : `${keyBase}:1`,
+      cacheKey: two ? `${keyBase}:2:${await hash16(data)}` : `${keyBase}:1`,
     });
+  };
 
   let res = await ask("1단계", "");
   let depth = res.fallbackDepth ?? 0;
@@ -273,11 +295,13 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
       // 해당 없는 인자(null)는 빼고 검사한다 — agentId 같은 인자는 스키마에도 없고 parseToolCall이 거부한다
       const args = Object.fromEntries(Object.entries(raw.args ?? {}).filter(([, v]) => v !== null));
       try {
-        results.push(await runTool({ q }, parseToolCall({ tool: raw.tool, args })));
+        results.push(await runTool({ q, version: prompt.toolResults }, parseToolCall({ tool: raw.tool, args })));
       } catch (e) {
         if (!(e instanceof InvalidToolCall)) throw e;
         violations.push(`툴 호출 거부: ${e.message}`);
         rejectedTools.push(`TOOL_ARG_REJECTED:${String(raw.tool)}`);
+        // v0.1.44 §4.3.1: v2면 거부도 결과로(고를 수 있는 값과 함께) — 2단계가 빈 데이터로 짓지 않게
+        if (prompt.toolResults === "v2") results.push(await rejectedResult(q, { tool: raw.tool, args: args as Record<string, string> }, e.message));
       }
     }
     res = await ask("2단계", dataBlock(results));
@@ -292,6 +316,8 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   let text: string;
   let groundingStatus: AnswerResult["groundingStatus"];
   let grounding = NO_VIOLATIONS;
+  // RULES_UNAVAILABLE 서버 조건(설계서 v0.1.44 §4.4): 규정 검색이 됐는데 이 코드면 모양 오류
+  if (violations.length === 0 && out.refused && out.reason === "RULES_UNAVAILABLE" && !rulesUnavailable) violations = ["G1 reason"];
   if (violations.some((v) => v.startsWith("G1"))) {
     [refused, reason, text, groundingStatus] = [true, "NOT_GROUNDED", REFUSAL_TEXT.NOT_GROUNDED, "FAIL"];
     grounding = { ...NO_VIOLATIONS, g1Shape: [...violations.filter((v) => v.startsWith("G1 ")).map((v) => `SHAPE:${v.slice(3)}`), ...rejectedTools] };
@@ -332,6 +358,8 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     grounding,
     latencyMs: deps.now().getTime() - started,
     fallbackDepth: depth,
+    unregisteredLabels: results.reduce((n, x) => n + (x.unregistered ?? 0), 0),
+    llmCalls,
   };
   await logAnswer(deps, q, qText, result);
   return result;
@@ -416,7 +444,7 @@ async function logAnswer(deps: Pick<AnswerDeps, "now">, q: ScopedQuery, question
 }
 
 /**
- * 모델 답 없이 끝난 거부(§4.4·§6.2) — 고정 문구로 answer_log에 남긴다. 예산 소진 BUDGET은 provider·model "none",
+ * 모델 답 없이 끝난 거부(§4.4·§6.2) — 고정 문구로 answer_log에 남긴다. 예산 소진 BUDGET·다른 설계사 ID 가드 OTHER_AGENT(v0.1.44)는 provider·model "none",
  * 공급자 실패 PROVIDER_ERROR(v0.1.34)는 마지막으로 시도한 공급자·모델·체인 순번(from).
  */
 export async function refuseWithoutLlm(
@@ -424,7 +452,7 @@ export async function refuseWithoutLlm(
   q: ScopedQuery,
   env: { PROMPT_VERSIONS?: string },
   question: string,
-  reason: "BUDGET" | "PROVIDER_ERROR",
+  reason: "BUDGET" | "PROVIDER_ERROR" | "OTHER_AGENT",
   from?: { provider: string; model: string; fallbackDepth: number },
 ): Promise<AnswerResult> {
   const qText = normalizeText(question).slice(0, QUESTION_MAX);

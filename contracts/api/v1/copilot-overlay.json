@@ -468,6 +468,7 @@
                 "NOT_GROUNDED",
                 "OTHER_AGENT",
                 "NEEDS_ENGINE",
+                "RULES_UNAVAILABLE",
                 "BUDGET"
               ]
             }

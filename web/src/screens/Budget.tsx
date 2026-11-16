@@ -14,6 +14,7 @@ const REFUSE_LABEL: Record<string, string> = {
   NOT_GROUNDED: "근거로 확인되지 않음",
   OTHER_AGENT: "다른 설계사",
   NEEDS_ENGINE: "엔진 계산 필요",
+  RULES_UNAVAILABLE: "사규 확인 불가",
   BUDGET: "예산 소진",
   PROVIDER_ERROR: "공급자 실패(503)",
 };

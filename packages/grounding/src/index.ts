@@ -1,5 +1,6 @@
 // @copilot/grounding — gen·worker 공유(설계서 v0.1.14 §6.1). 의존은 gen·worker → packages 한 방향(ESLint).
-export { type ContextNumbers, contextKeys, contextNumbers, fieldInContext, type Json, normalizeField, withTextTokens } from "./context.ts";
+export { type ContextNumbers, contextKeys, contextNumbers, fieldInContext, type Json, normalizeField, STABLE_KEYS, withTextTokens } from "./context.ts";
+export { DIFFERS_FROM_WEB, LABEL_FIELDS, type LabelField, type Labeled, labeledCodes, labelOf, labelTable, NOT_EXPORTED, UNREGISTERED_LABEL } from "./labels.ts";
 export { DerivedNumbers, type LimitStage, type LineAmount, type MonthSums } from "./DerivedNumbers.ts";
 export { canonical, extractTokens, koreanAmount, normalizeText, type NumberToken, type TokenKind } from "./numbers.ts";
 export {
