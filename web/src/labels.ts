@@ -65,6 +65,10 @@ export const commTypeLabel = (t: string) => COMM_TYPE_LABEL[t] ?? t;
 
 /** 한도 삭감 문구(상위 §6.3 v1.7): 정책 이름이 아니라 사실대로. */
 export const CUT_LABEL = "한도 초과 삭감";
+/** 이연 정책(DEFER_AFTER_FY)의 한도 초과분 — 상위 사본과 다르다(DECISIONS 2026-11-16: 원장 deferred_total 145,000 · cut_total 0인데 "삭감"이면 설명과 화면이 모순). */
+export const DEFER_LABEL = "한도 초과 이연";
+/** 한도 초과 금액 라벨 — 라인의 정책을 따른다. 정책이 없거나 CUT이면 상위 사본 그대로. */
+export const limitCutLabel = (policy?: string | null) => (policy === "DEFER_AFTER_FY" ? DEFER_LABEL : CUT_LABEL);
 export const DEFER_NOTE = "(사규: 초년도 후 이연 — 현재 이연 스케줄 없음)";
 
 /** 답변 거부 사유(설계서 §4.4) — 화면에 영문 코드를 쓰지 않는다. 본문은 서버의 고정 문구. */

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { allLines, api, type Explanation, type Line, type Month, type MonthStatus } from "../api";
 import { kstDate, monthWindow, won, ym as ymText } from "../format";
-import { ADJUSTMENT_LABEL, commTypeLabel, CUT_LABEL, grossLabel, lineLabel, MONTH_STATUS_LABEL, netCell } from "../labels";
+import { ADJUSTMENT_LABEL, commTypeLabel, grossLabel, limitCutLabel, lineLabel, MONTH_STATUS_LABEL, netCell } from "../labels";
 import { Link, navigate, paths } from "../router";
 import { ExplanationBody } from "../explain";
 import { Amount, Badge, Status, useLoad } from "../ui";
@@ -126,7 +126,7 @@ function LineRow({ l, ym, status }: { l: Line; ym: string; status: MonthStatus }
         <Amount value={l.amount} label={lineLabel(l.commType, status)} />
       </Link>
       <span className="badges">
-        {l.limitCutAmt > 0 && <Badge tone="warn">{`${CUT_LABEL} ${won(l.limitCutAmt)}`}</Badge>}
+        {l.limitCutAmt > 0 && <Badge tone="warn">{`${limitCutLabel(l.limitCutPolicy)} ${won(l.limitCutAmt)}`}</Badge>}
         {l.reversedBy && l.reversedByYm !== ym && (
           <Badge tone="muted">{l.reversedByYm ? <Link to={paths.statement(l.reversedByYm)}>{`취소됨 → ${ymText(l.reversedByYm)}`}</Link> : "다른 달의 짝"}</Badge>
         )}
