@@ -102,6 +102,14 @@ describe("적재 → 전환", () => {
     expect(activeHash(db)).toBe("X");
   });
 
+  it("라벨 표 밖 comm_type(v0.1.45 — 열린 값)이 있으면 재검사에서 멈추고 전환하지 않는다", () => {
+    loadSlot(db, info("X"), views("x", 3), opts);
+    const v = views("y", 2);
+    v.earnings_line = v.earnings_line!.map((l, i) => (i === 0 ? { ...l, comm_type: "NEW_BONUS" } : l));
+    expect(() => loadSlot(db, info("Y"), v, opts)).toThrow(/earnings_line\.comm_type 라벨 표 밖 코드 NEW_BONUS/);
+    expect(activeHash(db)).toBe("X");
+  });
+
   it("비활성 슬롯이 비어 있지 않으면(이전 스트림) 적재를 거부한다 — 먼저 --purge-inactive", () => {
     loadSlot(db, info("X"), views("x", 3), opts);
     loadSlot(db, info("Y"), views("y", 5), opts);
