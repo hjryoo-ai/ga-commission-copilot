@@ -2,7 +2,8 @@
 #   pull_request: prompts/**가 바뀐 PR만 실호출 — 20문항 표본(pr-sample.json, Groq 단독 40호출 상한) → 채점 → PR 코멘트 → 관문 미달이면 실패.
 #     prompts/**가 안 바뀐 PR도 이 잡은 돌고 곧바로 통과한다(필수 체크가 대기에 걸리지 않게 — paths 필터를 쓰지 않는 이유).
 #     새 프롬프트 버전은 같은 PR에서 worker/wrangler.jsonc PROMPT_VERSIONS도 바꿔야 그 버전이 평가된다(하네스는 PR 머리의 PROMPT_VERSIONS를 쓴다).
-#     직전 활성 버전 = 기준 브랜치의 PROMPT_VERSIONS로 원격 eval_run을 찾은 가장 최근 60문항 런(baseline·weekly — variance·pr 런 제외, 원격 읽기만).
+#     기준 = 기준 브랜치의 PROMPT_VERSIONS로 원격 eval_run을 찾아 케이스마다 최근 3회 과반, 모자라면 최신 60문항 런(설계서 v0.1.46 — 원격 읽기만).
+#     PR 표본 런은 자동 적재하지 않는다 — 산출물 load.sql을 운영자가 승인해 적재한 런만 기준 자료가 된다(디스패치 런은 load_remote).
 #   workflow_dispatch: set(appendix·pr·all)·상한·trigger를 골라 돌린다. 관문은 표만 남기고 실패시키지 않는다.
 #     원격 eval_run 적재는 load_remote=true일 때만 — 디스패치하는 운영자가 그 행을 승인하는 것(행 수·컬럼은 요약에 찍는다).
 # 순서: 로컬 D1 마이그레이션 → 스트림·사규집 청크 적재 → 하네스(getPlatformProxy env.record — D1 로컬, AI·Vectorize 원격).
@@ -160,7 +161,7 @@ jobs:
           NODE_NO_WARNINGS=1 pnpm run eval -- --live --set "$SET" --groq-calls "$GROQ" --wai-calls "$WAI" --trigger "$TRIGGER" 2>&1 | tee out/run.log
           echo "dir=$(ls -td out/*/ | head -1 | sed 's:/$::')" >> "$GITHUB_OUTPUT"
 
-      - name: 직전 활성 버전 런(원격 읽기 — 없으면 임계치만)
+      - name: 기준 행(원격 읽기 — 같은 버전의 60문항·재채점·variance·pr 런, 없으면 기준 없음)
         if: steps.plan.outputs.run == 'true' && github.event_name == 'pull_request'
         working-directory: worker
         env:
@@ -169,13 +170,13 @@ jobs:
           BASE_PV: ${{ steps.plan.outputs.base_pv }}
           DIR: ${{ steps.run.outputs.dir }}
         run: |
-          # 60문항 런(baseline·weekly)만 기준 — variance(12건)·pr 런은 표본 20건을 다 덮지 않는다. SQL·형식 검사는 gate.ts(시험 있음)
+          # 설계서 v0.1.46 §6.3: 케이스마다 최근 3회 과반(재채점 우선), 모자라면 최신 60문항 런 — 고르는 일은 gate.ts buildReference(시험 있음). 행은 점수·오류 칸만(본문 없음)
           q=$(node ../evals/src/gate.ts --ref-sql "$BASE_PV")
           pnpm exec wrangler d1 execute copilot --remote --json --command "$q" > /tmp/ref-raw.json
-          node -e 'const r=JSON.parse(require("fs").readFileSync("/tmp/ref-raw.json","utf8"))[0].results;console.log(JSON.stringify({runId:r[0]?.run_id??null,rows:r.map(({case_id,actual})=>({case_id,actual}))}))' > "../evals/$DIR/ref.json"
-          node -e 'const d=require(process.argv[1]);console.log(`기준 런 ${d.runId??"없음"} — ${d.rows.length}행`)' "$PWD/../evals/$DIR/ref.json"
+          node -e 'const r=JSON.parse(require("fs").readFileSync("/tmp/ref-raw.json","utf8"))[0].results;console.log(JSON.stringify({rows:r}))' > "../evals/$DIR/ref.json"
+          node -e 'const d=require(process.argv[1]);console.log(`기준 행 ${d.rows.length} — 런 ${new Set(d.rows.map((r)=>r.run_id)).size}개`)' "$PWD/../evals/$DIR/ref.json"
 
-      - name: 관문(THRESHOLDS.md + 직전 활성 대비)
+      - name: 관문(R1 축별 2건 · R2 안정 케이스 2건 · R3 오류 — 관문값은 60문항 런에 표시만)
         id: gate
         if: steps.plan.outputs.run == 'true'
         env:
