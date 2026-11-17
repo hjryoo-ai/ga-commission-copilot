@@ -152,19 +152,14 @@ export interface Thresholds {
   refusal: number;
   tool: number;
   content: number;
-  maxDropPp: number;
 }
 
-/** evals/THRESHOLDS.md "축과 초기값" 표에서 임계치(%)와 "직전 활성 대비 n%p" 를 읽는다. */
+/** evals/THRESHOLDS.md "축과 관문값" 표에서 관문값(%)을 읽는다 — 60문항 런에만 쓴다(설계서 v0.1.46 §13.1). PR 표본의 건수 허용은 gate.ts 상수. */
 export function readThresholds(md: string): Thresholds {
   const pick = (label: string) => {
-    const m = md.match(new RegExp(`\\| ${label} \\|[^\\n]*?\\| ≥ ([0-9.]+)% \\| ([0-9.]+)%p`));
+    const m = md.match(new RegExp(`\\| ${label} \\|[^\\n]*?\\| ≥ ([0-9.]+)% \\|`));
     if (!m) throw new Error(`THRESHOLDS.md: ${label} 행 없음`);
-    return { min: Number(m[1]), drop: Number(m[2]) };
+    return Number(m[1]);
   };
-  const g = pick("그라운딩 통과율");
-  const r = pick("거부 정확도");
-  const t = pick("툴 정확도");
-  const c = pick("내용 일치");
-  return { grounding: g.min, refusal: r.min, tool: t.min, content: c.min, maxDropPp: Math.max(g.drop, r.drop, t.drop, c.drop) };
+  return { grounding: pick("그라운딩 통과율"), refusal: pick("거부 정확도"), tool: pick("툴 정확도"), content: pick("내용 일치") };
 }

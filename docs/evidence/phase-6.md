@@ -43,6 +43,8 @@
 - 렌더 확인(로컬 `wrangler dev --local` + 빌드한 web, Playwright 캡처): 1100px·390px 모두 가로 넘침 0px, 툴팁 표시 확인. 캡처 `docs/evidence/captures/phase-6-evals-local-desktop.png`(호버)·`-phone.png`·`-run.png` — 로컬 D1이라 stub 런이 섞여 있다.
 - PR #6 머지: 2026-11-14 10:38 UTC, Claude Code 에이전트가 운영자의 "다 merge해줘" 지시로 `gh pr merge 6 --merge`(merge commit f4170ea). 규칙(운영자 11-14): 머지는 푸시와 같은 범주 — 원격 main을 바꾸고 배포를 일으키는 일(push·gh pr merge·브랜치 삭제)은 운영자가 하거나 운영자가 그 건을 명시적으로 시켰을 때만.
 - PR #7 머지(화면 전용 — /evals 390px 결과 열 8b752cb, DEFER_AFTER_FY 한도 초과 라벨 9c175ca): 2026-11-16 11:07 UTC, Claude Code 에이전트가 운영자의 "ui/evals-result-col 푸시 → PR → 머지" 지시로 브랜치 푸시 · `gh pr create` · 체크 3개(test ×2 · eval-on-prompt-change — prompts 변경 없음, 실호출 0) 통과 뒤 `gh pr merge 7 --merge`(merge commit 76a18eb). deploy 43854987148 성공, 배포 번들에 `한도 초과 이연`·`DEFER_AFTER_FY` 분기 확인. 원격 브랜치는 지우지 않았다(지시 밖).
+- PR #8 머지(골든 동결 뒤 변경 — A-04·G-42 rulesUnavailable 기대 + 설계서 v0.1.44·v0.1.45): 2026-11-17 12:12 UTC, Claude Code 에이전트가 운영자의 "golden/rules-unavailable-mode 푸시 → PR → 머지 (n=3이 끝났으니 지금 가능)" 지시로 main 푸시(76a18eb..86c7393, 같은 지시의 1번 "main 푸시") · 브랜치를 새 main 위로 다시 올리고 시험 전체 통과(worker 457 · gen 208 · packages 76 · evals 34 · web 71, lint) · 브랜치 푸시 · `gh pr create` · 체크 3개 통과(test 2 · eval-on-prompt-change — prompts/** 변경 없음 → 평가 없이 통과) · `gh pr merge 8 --merge` → main `bff8306`. 원격 브랜치는 지우지 않았다.
+- 필수 체크 등록: 2026-11-17 12:14 UTC, 같은 지시의 3번 "eval-on-prompt-change 필수 체크 등록"으로 에이전트가 `gh api -X PUT repos/…/branches/main/protection` — required_status_checks = `eval-on-prompt-change`(GitHub Actions app 15368), strict false, 관리자 강제 없음, 리뷰 요구 없음. 등록 전 main 보호·룰셋 없음 확인.
 - 공개 URL 캡처(2026-11-14, PR #6 머지·배포 뒤, Playwright): 목록에 런 2개뿐 — `20261113T225638-baseline-r1`(rescore:baseline, 26/60)·`20261113T225638-baseline`(18/60), stub 런 없음(원격 eval_run 2행). 추이는 재채점 r1 1점(그라운딩 55.26·거부 83.33·툴 66.67·내용 28.89%). 페이지 가로 넘침 1100px·390px 모두 0. 390px 런 상세의 모델별 4축 표는 표 안 가로 스크롤(scrollWidth 587 / clientWidth 358). 캡처 `docs/evidence/captures/phase-6-evals-public-desktop.png`·`-phone.png`(목록)·`-run-desktop.png`·`-run-phone.png`(전체 페이지)·`-run-phone-top.png`(390px 첫 화면). 390px 케이스 표의 결과 열이 좁아 "내용"·"그라운딩"이 한 글자씩 줄바꿈된다 — UI만 고치는 작은 PR로 따로(PR-B에 섞지 않는다 — 운영자 11-14).
   - 고침(브랜치 `ui/evals-result-col`, UI만): 전역 `th { width: 40% }`가 케이스 열을 넓히고 질문 열은 긴 토큰(`TOOL_ARG_REJECTED:get_limit`)에 막혀 줄지 않아 결과 열이 꺾였다 → 이 표에서 th 폭 해제, 머리글·케이스 번호·결과 열 한 줄, 질문 열 `width: 100%`·그 안에서만 `overflow-wrap: anywhere`, 머리글 왼쪽 정렬. 로컬 빌드(wrangler dev --local, r1 런)에서 60행 결과 칸 모두 한 줄, 케이스 표 scrollWidth = clientWidth(390px 358, 1100px 688), 페이지 넘침 0. 캡처 `docs/evidence/captures/phase-6-evals-local-cases-390-kind.png`·`-cases-1100-kind.png`.
 - 관문 기준 조회(main f4170ea, 원격 D1, 읽기만): `gate.ts --ref-sql` → `20261113T225638-baseline-r1` 64행(normal 60 + rulesUnavailable 4 — 관문은 표본 normal만 다시 센다). 머지 전 main(2ee51c3)은 같은 조회가 원본 `-baseline`을 골랐다(rescore 트리거가 없어서).
@@ -82,6 +84,8 @@
 
 - 검증기는 **근거에 있는 숫자를 틀린 자리에 쓴 것**(G-20: 채권 상계 `receivableOffset` 1,566원인데 "0원" — 0은 같은 결과의 `clawbackOffset` 칸 값이라 G4 통과)과 **숫자 없이 지어낸 사유**(G-15: "정산 엔진이 아직 확정하지 않았기 때문" — 이번엔 금지 표현 "확정"으로 G6에 걸렸을 뿐)를 잡지 못한다. 내용 일치 축이 맡는다.
 - 같은 툴을 여러 번 부르면(예: 8월이 있는 해마다 `get_statement`) 인용이 **어느 호출의 결과인지 G5가 구분하지 못한다** — v0.1.43부터 그 툴의 모든 결과와 대조하고, 호출 구분 접두(`get_statement@202801.…`)는 두지 않았다(운영자 2026-11-16). 숫자는 G4가 보지만 다른 호출의 같은 경로 값을 쓴 것은 G-20과 같은 종류라 내용 일치 축이 맡는다.
+- **PR 관문이 가려내는 열화의 크기**(운영자 2026-11-17 — 설계서 v0.1.46): 20문항 한 번 실행으로 가려낼 수 있는 열화는 **한 축 2건 이상 또는 안정 케이스 2건 이상**이다. 두 축에 1건씩(안정 케이스 아님) 같은 더 작은 차이는 통과한다 — 60문항 런이 쌓여야 보인다.
+- **PR-B(answer/v4)의 기준 중 층화 8건은 r1 한 번**(부록 A 12건에서는 네 런 중 가장 낮았던 런 — 5/12 · 8 · 7 · 6)이라 v4에게 느슨할 수 있다. PR-B 보고에 명시한다.
 
 ## 기준선 그라운딩 실패 원인(2026-11-14 — LLM 호출 없음)
 
@@ -165,13 +169,13 @@
 ## 항목 4 — `.github/workflows/eval-on-prompt-change.yml`·관문 `evals/src/gate.ts`
 
 - `pull_request`(모든 PR): prompts/**가 바뀐 PR만 실호출 — 20문항 표본(`--set pr`, Groq 단독 상한 40, Workers AI 0), trigger `pr:<번호>`. 안 바뀐 PR은 같은 잡이 곧바로 통과(필수 체크가 대기에 걸리지 않게 paths 필터를 쓰지 않는다). 하네스는 PR 머리의 `PROMPT_VERSIONS`를 쓰므로 새 버전 PR은 wrangler.jsonc도 같이 바꾼다.
-- 관문(`node evals/src/gate.ts <summary.json> --ref <ref.json> --comment <md> --enforce`): 4축 각각 THRESHOLDS.md 관문값 이상 · 직전 활성 버전 대비 어느 축도 3%p 이상 하락 없음 · 그라운딩·거부는 직전 이상(§6.3) · 공급자 오류·미실행이 있으면 판정 불가 = 실패. 직전 활성 = 기준 브랜치 `PROMPT_VERSIONS`로 원격 eval_run에서 찾은 가장 최근 런(pr: 런 제외, 원격 읽기만) — 그 런의 표본 20건(normal)만 다시 집계해 비교. 기준 런이 없으면 관문값만.
+- 관문(`node evals/src/gate.ts <summary.json> --ref <ref.json> --comment <md> --enforce`) — **v0.1.46(2026-11-17)부터** 케이스별 기준(최근 3회 과반, 모자라면 60문항 런) · R1 축별 Δ ≥ 2 · R2 안정 케이스 실패 ≥ 2 · R3 오류 = 실패, 관문값은 60문항 런에 표시만. 아래 "관문 v0.1.46". (그 전: 4축 관문값 이상 · 직전 활성 60문항 런 대비 3%p · 그라운딩·거부 직전 이상 · R3.)
 - PR 코멘트: 4축 표(이번·관문값·직전 활성·차이) + 실패 사유 + 실행 링크(`gh pr comment`, `pull-requests: write`). 산출물 `eval-out`(runs.jsonl·summary.json·load.sql·gate.md).
 - `workflow_dispatch`: set(appendix·pr·all)·trigger(`variance:YYYY-MM-DD`·`weekly`·`manual`)·groq_calls·wai_calls·load_remote. 관문은 표만(실패시키지 않음). 원격 적재는 `load_remote=true`일 때만 — 디스패치하는 운영자가 그 행을 승인하는 것(요약에 행 수 출력). n=3 분산: `set=appendix, trigger=variance:<날>, groq_calls=24, wai_calls=0`. Phase 7 주간 60문항: `set=all, trigger=weekly, groq_calls=50, wai_calls=60`(그날 배포 BUDGET_WORKERS_AI 0 — v0.1.39).
 - 순서: 로컬 D1 마이그레이션 → 스트림·사규집 청크·시뮬레이션 스텁 적재(load:d1 --local) → `.dev.vars.record`(무작위 세션·policyKey 비밀) → 하네스 → (PR) 직전 활성 런 조회 → 관문 → 코멘트 → (디스패치) 원격 적재 → 계정 ID 가리기 → 산출물. concurrency `eval-live`(Groq TPD를 두 런이 나눠 쓰지 않게).
 - 시크릿: GROQ_API_KEY · CLOUDFLARE_BATCH_API_TOKEN(Workers AI·Vectorize 읽기·D1 편집 — getPlatformProxy 원격 바인딩) · CLOUDFLARE_ACCOUNT_ID. `pull_request` 이벤트라 포크 PR에는 시크릿이 없다(이 저장소 브랜치만 평가).
-- 시험: `evals/test/gate.test.ts` 6건(임계치·직전 대비 3%p·그라운딩·거부 직전 이상·판정 불가·기준 런 재집계). 로컬에서 11-11 stub 런 요약으로 CLI 확인(관문값 이전 §13.1 값으로 실패 3축·exit 1).
-- **필수 체크 등록 절차(운영자)**: 워크플로가 main에 들어간 뒤 PR 하나에서 한 번 돈 다음 → GitHub 저장소 Settings → Rules → Rulesets(또는 Branches → Branch protection rule) → 대상 `main` → "Require status checks to pass" → 체크 `eval-on-prompt-change`(잡 이름) 추가 → 저장. 같은 일을 CLI로: `gh api -X PATCH repos/hjryoo-ai/ga-commission-copilot/branches/main/protection/required_status_checks -f strict=false -f 'contexts[]=eval-on-prompt-change'`(이미 보호 규칙이 있을 때). 등록 캡처는 항목 6 열화 PR 차단 캡처와 함께.
+- 시험: `evals/test/gate.test.ts` — v0.1.46에서 16건(기준 5 · 같은 버전 거짓 실패 3 · 가상 열화 6 · refQuery 2, 고정 자료 `evals/test/fixtures/appendix-a-n3.json` = 부록 A 네 런 점수 칸만). 그 전 6건.
+- **필수 체크 등록 — 2026-11-17 완료**(위 머지 기록). 원래 적어 둔 절차: 워크플로가 main에 들어간 뒤 PR 하나에서 한 번 돈 다음 → GitHub 저장소 Settings → Rules → Rulesets(또는 Branches → Branch protection rule) → 대상 `main` → "Require status checks to pass" → 체크 `eval-on-prompt-change`(잡 이름) 추가 → 저장. 같은 일을 CLI로: `gh api -X PATCH repos/hjryoo-ai/ga-commission-copilot/branches/main/protection/required_status_checks -f strict=false -f 'contexts[]=eval-on-prompt-change'`(이미 보호 규칙이 있을 때). 등록 캡처는 항목 6 열화 PR 차단 캡처와 함께.
 - 미실행: 워크플로 실행 자체(푸시 전). n=3 첫날은 푸시 뒤 `gh workflow run eval-on-prompt-change.yml -f set=appendix -f trigger=variance:<날> -f groq_calls=24 -f wai_calls=0 -f load_remote=<운영자>`.
 
 ## 부록 A n=3(운영자 2026-11-16 — 이틀로 압축, answer=v3, main f4170ea 코드)
@@ -188,9 +192,28 @@
 - 정정(운영자 2026-11-17): 처음 적은 케이스별 줄의 A-04 r1 "✗거부"는 `A-04#rulesUnavailable` 행이 normal 행을 덮은 것(보고 스크립트가 caseId만 키로 썼다). r1 normal 12건 통과는 **5/12**(A-04 · A-08~A-11). 스크립트는 키를 `caseId#mode`로 고쳐 `evals/scripts/variance-report.ts`로 저장소에 두었다.
 - 12건 × 4런(r1 · 11-16-a · 11-16-b · 11-17): A-01 ✗내용 ×4 · A-02 ✗그라운딩 / ✓ / ✓ / ✗그라운딩 · A-03 ✗내용 / ✓ / ✗내용 / ✗내용 · A-04 ✓ ×4 · A-05 ✗내용 ×4 · A-06 ✗그라운딩 ×4 · A-07 ✗거부 / ✗내용 / ✗거부 / ✗내용 · A-08~A-11 ✓ ×4 · A-12 ✗그라운딩 / ✓ / ✓ / ✓. rulesUnavailable(따로): A-04 ✗거부 ×4, A-11 ✓ ×4.
 - n=3 분포(variance 세 런, normal): 3/3 A-04 · A-08 · A-09 · A-10 · A-11 · A-12 / 2/3 A-02 / 1/3 A-03 / 0/3 A-01 · A-05 · A-06 · A-07. 축별 흔들림: 그라운딩 A-02(2/3), 거부·툴 A-07(2/3), 내용 A-02(2/3)·A-03(1/3). 12건 통과 수 r1 5 · 8 · 7 · 6.
-- 같은 버전 런끼리 지금 관문 규칙(evals/src/gate.ts — 임계치 + 3%p + 그라운딩·거부 직전 이상)을 돌리면 거짓 실패 4런 7/12쌍, variance끼리 4/6쌍. 전부 "그라운딩·거부 직전 이상"만으로도 같은 수가 나온다. 건수 허용 1건 3/6 · 2건 1/6, 케이스별 과반 기준이면 0건 2/3 · 1건 1/3 · 2건 0/3. 전체 출력 `docs/evidence/logs/phase-6-variance-n3.log`.
+- 같은 버전 런끼리 지금 관문 규칙(evals/src/gate.ts — 임계치 + 3%p + 그라운딩·거부 직전 이상)을 돌리면 거짓 실패 4런 7/12쌍, variance끼리 4/6쌍. 전부 "그라운딩·거부 직전 이상"만으로도 같은 수가 나온다. 건수 허용 1건 3/6 · 2건 1/6, 케이스별 과반 기준이면 0건 2/3 · 1건 1/3 · 2건 0/3. → 정정(2026-11-17, 운영자 확인 요청): 이 "건수 허용" 변형은 율 차이를 "100 / 이번 분모"와 비교해 반올림에 걸렸다 — 과반 대 2일차 툴 7/7 → 6/7은 1건인데 85.71%의 차이 14.29%p > 14.2857%p로 실패. 건수로 다시 센 값은 아래 "관문 v0.1.46". 전체 출력 `docs/evidence/logs/phase-6-variance-n3.log`.
 - 공개 /evals n=3 분산 표가 세 런(…-16-a · …-16-b · …-17)을 잡는다 — 캡처 `docs/evidence/captures/phase-6-evals-variance-{desktop,phone}.png`(1100·390px, 페이지 넘침 0).
 - 3일차: 2026-11-17(UTC) 실행 전 공개 /budget Groq 0, origin/main 76a18eb에 골든 브랜치 커밋·`expectByMode` 없음 확인(사흘이 같은 규칙으로).
+
+## 관문 v0.1.46(운영자 결정 2026-11-17 — 브랜치 `gate/case-tolerance`, LLM 호출 0)
+
+- 결정: 설계서 v0.1.46 §6.3·§13.1, `evals/THRESHOLDS.md` "PR 표본 판정"·조정 이력. 구현 `evals/src/gate.ts`(`buildReference` · `gate` · `refQuery`), 워크플로 기준 행 단계, `evals/scripts/variance-report.ts` §4. 전체 출력 `docs/evidence/logs/phase-6-gate-v0146.log`.
+- "1건분" 정의: 축 k마다 **D_k = 기준 값이 있는 표본 케이스**, Δ_k = 기준 통과 수 − 이번 통과 수(이번이 해당 없음이면 미통과). 분모를 이번 런 쪽에서 잡지 않으므로 런마다 분모가 달라도(2일차 그라운딩 7/8 — A-07을 거부) 같은 D_k로 센다.
+- 과반 기준(n=3 세 런) 대 각 런, 축별 기준 → 이번 / D_k(Δ):
+
+| 후보 | 그라운딩 | 거부 | 툴 | 내용 | 안정 케이스 실패 | 판정 |
+|---|---|---|---|---|---|---|
+| 11-16-a | 8 → 8 / 9 (0) | 12 → 12 / 12 (0) | 7 → 7 / 7 (0) | 4 → 5 / 9 (−1) | 없음 | 통과 |
+| 11-16-b | 8 → 7 / 9 (1) | 12 → 11 / 12 (1) | 7 → 6 / 7 (1) | 4 → 4 / 9 (0) | 없음 | 통과 |
+| 11-17 | 8 → 7 / 9 (1) | 12 → 12 / 12 (0) | 7 → 7 / 7 (0) | 4 → 3 / 9 (1) | 없음 | 통과 |
+| r1(참고) | 8 → 5 / 9 (3) | 12 → 11 / 12 (1) | 7 → 5 / 7 (2) | 4 → 2 / 9 (2) | A-12 | 실패(R1 세 축) |
+
+- 같은 버전 네 런을 서로 60문항 기준으로 놓은 12쌍: **실패 4쌍** — 11-16-a → r1, 11-16-b → r1, 11-17 → r1(낮게 뽑힌 r1이 후보), 11-16-a → 11-17(내용 5 → 3, Δ 2). n=3끼리 1/6. 옛 규칙은 7/12 · 4/6.
+- 가상 열화 런(과반 기준 값을 그대로 낸 런에서 칸만 바꿈 — 시험 고정): ① 안정 케이스 2건 실패(A-08 내용 · A-10 거부, 서로 다른 축 1건씩) → **R2 실패** ② 한 축 2건 하락(A-01 · A-03 그라운딩, 안정 케이스 아님) → **R1 실패** ③ 두 축에 1건씩(A-01 그라운딩 · A-03 툴, 안정 케이스 아님) → **통과**(알려진 한계).
+- 원격 확인(읽기만, 2026-11-17): v3 `PROMPT_VERSIONS`로 `refQuery` → 156행·5런(variance 3 · r1 · 원본 기준선) → `buildReference`가 부록 A 12건 = 과반(안정 A-04 · A-08~A-12), 층화 8건 = r1, 원본 기준선은 재채점으로 대체.
+- PR 표본 런은 자동 적재되지 않는다(워크플로 적재는 디스패치 + load_remote만). 그래서 "PR 표본 런이 쌓여 3회"는 운영자가 그 런의 load.sql 적재를 승인할 때만 일어난다.
+- /evals 화면에는 관문 규칙 문구가 없다("관문값·목표는 evals/THRESHOLDS.md"만) — 바꾸지 않았다.
 
 ## 첫 실런 계획(운영자 2026-11-11)
 

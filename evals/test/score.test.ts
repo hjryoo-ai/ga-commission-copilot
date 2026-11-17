@@ -74,7 +74,7 @@ describe("summarize·readThresholds", () => {
   });
   it("THRESHOLDS.md 표에서 임계치를 읽는다", () => {
     const t = readThresholds(readFileSync(join(import.meta.dirname, "../THRESHOLDS.md"), "utf8"));
-    expect(t).toEqual({ grounding: 52.2, refusal: 80.3, tool: 63.6, content: 25.8, maxDropPp: 3 });
+    expect(t).toEqual({ grounding: 52.2, refusal: 80.3, tool: 63.6, content: 25.8 });
   });
   it("내용 축: 조항 인용 사실은 규정 인용에서도 찾고, 금지어는 본문만 본다", () => {
     const rule: EvalCase = { ...base, id: "G-43", bucket: "rule", expectedTools: [], expectedFacts: [{ fact: "제17조 인용", match: ["제17조"], source: "" }], forbidden: ["제17조"], coreFacts: 1 };

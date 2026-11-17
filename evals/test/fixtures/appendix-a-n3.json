@@ -1,0 +1,421 @@
+{
+ "$comment": "부록 A 12건 normal 점수(점수 칸만 — 본문 없음): r1(20261113T225638-baseline-r1, 60문항 재채점)과 n=3 세 런. evals/test/gate.test.ts 고정 자료(운영자 2026-11-17 관문 결정).",
+ "runs": [
+  {
+   "runId": "20261113T225638-baseline-r1",
+   "trigger": "rescore:baseline",
+   "startedAt": "2026-11-13T22:56:38.000Z",
+   "total": 60,
+   "cases": {
+    "A-01": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-02": {
+     "grounding": false,
+     "refusal": true,
+     "tool": false,
+     "content": false,
+     "passed": false,
+     "failureKind": "GROUNDING"
+    },
+    "A-03": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-04": {
+     "grounding": true,
+     "refusal": true,
+     "tool": null,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-05": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-06": {
+     "grounding": false,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "GROUNDING"
+    },
+    "A-07": {
+     "grounding": null,
+     "refusal": false,
+     "tool": false,
+     "content": false,
+     "passed": false,
+     "failureKind": "REFUSAL"
+    },
+    "A-08": {
+     "grounding": true,
+     "refusal": true,
+     "tool": null,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-09": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-10": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-11": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-12": {
+     "grounding": false,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "GROUNDING"
+    }
+   }
+  },
+  {
+   "runId": "20261116T104059-variance-2026-11-16-a",
+   "trigger": "variance:2026-11-16-a",
+   "startedAt": "2026-11-16T10:40:59.627Z",
+   "total": 12,
+   "cases": {
+    "A-01": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-02": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-03": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-04": {
+     "grounding": true,
+     "refusal": true,
+     "tool": null,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-05": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-06": {
+     "grounding": false,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "GROUNDING"
+    },
+    "A-07": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-08": {
+     "grounding": true,
+     "refusal": true,
+     "tool": null,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-09": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-10": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-11": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-12": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    }
+   }
+  },
+  {
+   "runId": "20261116T105400-variance-2026-11-16-b",
+   "trigger": "variance:2026-11-16-b",
+   "startedAt": "2026-11-16T10:54:00.146Z",
+   "total": 12,
+   "cases": {
+    "A-01": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-02": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-03": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-04": {
+     "grounding": true,
+     "refusal": true,
+     "tool": null,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-05": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-06": {
+     "grounding": false,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "GROUNDING"
+    },
+    "A-07": {
+     "grounding": null,
+     "refusal": false,
+     "tool": false,
+     "content": false,
+     "passed": false,
+     "failureKind": "REFUSAL"
+    },
+    "A-08": {
+     "grounding": true,
+     "refusal": true,
+     "tool": null,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-09": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-10": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-11": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-12": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    }
+   }
+  },
+  {
+   "runId": "20261117T115020-variance-2026-11-17",
+   "trigger": "variance:2026-11-17",
+   "startedAt": "2026-11-17T11:50:20.409Z",
+   "total": 12,
+   "cases": {
+    "A-01": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-02": {
+     "grounding": false,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "GROUNDING"
+    },
+    "A-03": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-04": {
+     "grounding": true,
+     "refusal": true,
+     "tool": null,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-05": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-06": {
+     "grounding": false,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "GROUNDING"
+    },
+    "A-07": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": false,
+     "passed": false,
+     "failureKind": "CONTENT"
+    },
+    "A-08": {
+     "grounding": true,
+     "refusal": true,
+     "tool": null,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-09": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-10": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-11": {
+     "grounding": null,
+     "refusal": true,
+     "tool": null,
+     "content": null,
+     "passed": true,
+     "failureKind": null
+    },
+    "A-12": {
+     "grounding": true,
+     "refusal": true,
+     "tool": true,
+     "content": true,
+     "passed": true,
+     "failureKind": null
+    }
+   }
+  }
+ ]
+}

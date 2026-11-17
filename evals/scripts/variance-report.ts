@@ -2,13 +2,13 @@
 //   node evals/scripts/variance-report.ts --ref <r1 런 디렉터리> <variance 런 디렉터리 또는 eval-out 산출물 폴더> …
 //   각 인자는 summary.json·runs.jsonl이 있는 런 디렉터리이거나, 그것을 하나 담은 산출물 폴더(gh run download — run.log도 거기서 읽는다).
 // 출력: 런마다 호출 수·토큰·429·축별·케이스별(기준 런 대비) → 케이스 × 런 표(normal만, rulesUnavailable은 따로) → n/N 분포(전체·축별)
-//       → 같은 버전 런끼리 관문(evals/src/gate.ts 규칙)을 돌렸을 때 거짓 실패 쌍 수, 케이스별 과반 기준과의 비교.
+//       → 같은 버전 런끼리 관문(evals/src/gate.ts 규칙 — 설계서 v0.1.46)을 돌렸을 때 거짓 실패 쌍 수, 케이스별 과반 기준과의 비교.
 // 토큰: summary.json tokens(하네스 usage 기록 — 2026-11-16 PR-B 이후 런)가 있으면 그 값, 없으면 기준선 카세트(evals/vcr/eval.json)에서
 //       같은 요청의 prompt_tokens(다른 요청은 3,400으로 추정 — 출력 토큰은 모름).
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { gate } from "../src/gate.ts";
-import { type CaseRun, type CaseScore, type EvalCase, readThresholds, type RunSummary, summarize } from "../src/score.ts";
+import { buildReference, gate, type RefCaseRow } from "../src/gate.ts";
+import { type CaseRun, type CaseScore, type EvalCase, readThresholds, type RunSummary } from "../src/score.ts";
 
 const ROOT = join(import.meta.dirname, "../..");
 const STAGE2_GUESS = 3400;
@@ -146,68 +146,34 @@ console.log(`\n## n=${N} 분포(normal)`);
 console.log(`- 통과: ${dist((s) => s.passed)}`);
 for (const [ax, label] of [["grounding", "그라운딩"], ["refusal", "거부"], ["tool", "툴"], ["content", "내용"]] as const) console.log(`- ${label}: ${dist((s) => s[ax])}`);
 
-// ── 4. 같은 버전끼리 관문을 돌리면(거짓 실패)
+// ── 4. 같은 버전끼리 관문을 돌리면(거짓 실패) — evals/src/gate.ts 규칙 그대로(설계서 v0.1.46: R1 축별 Δ ≥ 2 · R2 안정 케이스 실패 ≥ 2 · R3 오류)
 const t = readThresholds(readFileSync(join(ROOT, "evals/THRESHOLDS.md"), "utf8"));
-// 같은 케이스 집합으로만(기준 런이 60문항 런이어도 variance 런의 normal 케이스만 떼어 센다)
-const sumOf = (r: Loaded) => summarize(r.rows.filter((x) => x.run.mode === "normal" && normalIds.includes(x.run.caseId)));
-console.log(`\n## 같은 버전 런끼리 관문(gate.ts 규칙 — 임계치 ${JSON.stringify(t)}, 표본 = 이 ${normalIds.length}건)`);
+const refRows = (r: Loaded, as60: boolean): RefCaseRow[] =>
+  r.rows
+    .filter((x) => x.run.mode === "normal" && normalIds.includes(x.run.caseId))
+    .map((x) => ({ run_id: r.summary.runId, trigger: as60 ? "weekly" : r.summary.trigger, started_at: r.summary.startedAt, total: as60 ? 60 : r.rows.length, case_id: x.run.caseId, score: JSON.stringify(x.score), error: x.run.error ?? null }));
+const candOf = (r: Loaded) => r.rows.filter((x) => x.run.mode === "normal" && normalIds.includes(x.run.caseId)).map((x) => ({ caseId: x.run.caseId, score: x.score, ...(x.run.error ? { error: x.run.error } : {}) }));
+const name = (r: Loaded) => r.summary.trigger.replace("variance:", "");
+const axesLine = (g: ReturnType<typeof gate>) => g.axes.map((a) => `${a.label.split(" ")[0]} ${a.ref}→${a.cur}/${a.d}`).join(" · ");
+console.log(`\n## 같은 버전 런끼리 관문(gate.ts — 한 런을 60문항 기준으로 놓고, 표본 = 이 ${normalIds.length}건)`);
 const all = [ref, ...runs];
 let fails = 0;
-let pairs = 0;
+let vfails = 0;
 for (const a of all)
   for (const b of all) {
     if (a === b) continue;
-    pairs++;
-    const g = gate(sumOf(b), t, sumOf(a), { runId: b.summary.runId, promptVersions: "", refRunId: a.summary.runId });
-    if (!g.ok) fails++;
-    console.log(`- 기준 ${a.summary.trigger} → 후보 ${b.summary.trigger}: ${g.ok ? "통과" : `실패 — ${g.reasons.join("; ")}`}`);
+    const g = gate(candOf(b), buildReference(refRows(a, true), normalIds), t, { runId: b.summary.runId, promptVersions: "" });
+    if (!g.ok) {
+      fails++;
+      if (a !== ref && b !== ref) vfails++;
+    }
+    console.log(`- 기준 ${name(a)} → 후보 ${name(b)}: ${g.ok ? "통과" : `실패 — ${g.reasons.join("; ")}`} (${axesLine(g)})`);
   }
-console.log(`- 거짓 실패 ${fails}/${pairs}쌍(같은 프롬프트·같은 데이터)`);
-// 케이스별 과반(variance 런들) 기준
-const majority = normalIds.map((id) => {
-  const ss = runs.map((r) => byKey(r).get(id)!.score);
-  const maj = (f: (s: CaseScore) => boolean | null) => {
-    const v = ss.map(f).filter((x): x is boolean => x !== null);
-    return v.length ? v.filter(Boolean).length * 2 > v.length : null;
-  };
-  const score = { grounding: maj((s) => s.grounding), refusal: maj((s) => s.refusal) ?? false, tool: maj((s) => s.tool), content: maj((s) => s.content), passed: maj((s) => s.passed) ?? false, failureKind: null, missingFacts: [], forbiddenHits: [] } as CaseScore;
-  return { run: { caseId: id, mode: "normal" } as CaseRun, score };
-});
-const majSum = summarize(majority);
-console.log(`- 케이스별 과반 기준(${N}런): 통과 ${majSum.passed}/${majSum.total} · ${axisLine(majSum)}`);
-let mfails = 0;
-for (const b of runs) {
-  const g = gate(sumOf(b), t, majSum, { runId: b.summary.runId, promptVersions: "", refRunId: "majority" });
-  if (!g.ok) mfails++;
-  console.log(`  - 과반 기준 → 후보 ${b.summary.trigger}: ${g.ok ? "통과" : `실패 — ${g.reasons.join("; ")}`}`);
+console.log(`- 거짓 실패 ${fails}/${all.length * (all.length - 1)}쌍 · variance끼리 ${vfails}/${runs.length * (runs.length - 1)}쌍`);
+const maj = buildReference(runs.flatMap((r) => refRows(r, false)), normalIds);
+console.log(`\n## 케이스별 최근 ${runs.length}회 과반 기준 — 안정 케이스: ${[...maj.values()].filter((x) => x.stable).map((x) => x.caseId).join(" ") || "없음"}`);
+for (const b of all) {
+  const g = gate(candOf(b), maj, t, { runId: b.summary.runId, promptVersions: "" });
+  console.log(`- 과반 → 후보 ${name(b)}: ${g.ok ? "통과" : `실패 — ${g.reasons.join("; ")}`} (${axesLine(g)}; 안정 케이스 실패 ${g.stableFailed.join(" ") || "없음"})`);
 }
-console.log(`  - 과반 기준 거짓 실패 ${mfails}/${runs.length}`);
-
-// ── 5. 허용 폭 변형(운영자 2026-11-16 — 제안용, 관문 코드는 바꾸지 않는다): 같은 쌍들을 규칙만 바꿔 다시 센다.
-//    건수 허용 k: 축마다 (기준 율 − 후보 율) > k × 100 / 후보 분모 면 실패(그라운딩·거부의 "직전 이상"도 k건까지 허용). 임계치 검사는 그대로.
-type Pair = { a: RunSummary; b: RunSummary };
-const pairsOf = (xs: RunSummary[]): Pair[] => xs.flatMap((a, i) => xs.filter((_, j) => j !== i).map((b) => ({ a, b })));
-const AX = ["grounding", "refusal", "tool", "content"] as const;
-const below = (s: RunSummary) => AX.some((k) => s[k].rate !== null && s[k].rate! < t[k]);
-function failsWith(p: Pair, rule: "now" | "grRefOnly" | number): boolean {
-  if (below(p.b)) return true;
-  return AX.some((k) => {
-    const ra = p.a[k].rate;
-    const rb = p.b[k].rate;
-    if (ra === null || rb === null) return false;
-    const d = rb - ra;
-    if (rule === "now") return -d >= t.maxDropPp || ((k === "grounding" || k === "refusal") && d < 0);
-    if (rule === "grRefOnly") return (k === "grounding" || k === "refusal") && d < 0;
-    return -d > (rule * 100) / p.b[k].n + 1e-9;
-  });
-}
-const summaries = [ref, ...runs].map(sumOf);
-const varOnly = runs.map(sumOf);
-console.log(`\n## 허용 폭 변형 — 거짓 실패 쌍(같은 버전, 기준 런 포함 ${summaries.length}런 ${pairsOf(summaries).length}쌍 / variance ${varOnly.length}런 ${pairsOf(varOnly).length}쌍)`);
-for (const [label, rule] of [["지금(3%p · 그라운딩·거부 직전 이상)", "now"], ["그라운딩·거부 직전 이상만", "grRefOnly"], ["건수 허용 0건(율이 조금이라도 내려가면)", 0], ["건수 허용 1건", 1], ["건수 허용 2건", 2]] as const) {
-  const all2 = pairsOf(summaries).filter((p) => failsWith(p, rule)).length;
-  const v2 = pairsOf(varOnly).filter((p) => failsWith(p, rule)).length;
-  console.log(`- ${label}: ${all2}/${pairsOf(summaries).length} · variance끼리 ${v2}/${pairsOf(varOnly).length}`);
-}
-console.log(`- 과반 기준 → 각 variance 런: ${[0, 1, 2].map((k) => `${k}건 허용 ${varOnly.filter((b) => failsWith({ a: majSum, b }, k)).length}/${varOnly.length}`).join(" · ")}`);
-console.log(`- 런별 통과 수: 기준 ${sumOf(ref).passed} · ${runs.map((r) => `${r.summary.trigger.replace("variance:", "")} ${sumOf(r).passed}`).join(" · ")} (12건)`);
+console.log(`- 런별 통과 수(${normalIds.length}건): 기준 ${candOf(ref).filter((x) => x.score.passed).length} · ${runs.map((r) => `${name(r)} ${candOf(r).filter((x) => x.score.passed).length}`).join(" · ")}`);
