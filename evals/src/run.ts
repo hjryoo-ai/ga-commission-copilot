@@ -13,7 +13,7 @@ import { type AnswerDeps, type AnswerResult, answerQuestion, cloudflareDeps } fr
 import { activePrompt } from "../../worker/src/llm/promptRegistry";
 import { groq, type Provider, ProviderError, type ProviderName, requestHash, type StructuredRequest, type StructuredResponse, traced, workersAi } from "../../worker/src/llm/providers";
 import { assignProviders, weekParity } from "./assign";
-import { type CaseRun, type EvalCase, expectFor, scoreCase, summarize } from "./score";
+import { type CallUsage, type CaseRun, type EvalCase, expectFor, scoreCase, summarize, type TokenTotals, tokenTotals } from "./score";
 
 const ROOT = join(import.meta.dirname, "../..");
 const args = process.argv.slice(2);
@@ -36,6 +36,8 @@ const cases = allCases.filter((c) => pick.includes(c.id));
 /** 공급자 호출 수를 세고, Groq는 간격을 두며 429면 기다렸다 다시(평가는 공급자를 바꾸지 않는다). 모든 요청에 skipCache. */
 /** 하네스가 일부러 기다린 시간(Groq 호출 간격·429 대기) — 케이스 응답 시간에서 뺀다(운영자 2026-11-14: 평균 지연에 대기를 넣지 않는다). */
 const waited = { ms: 0 };
+/** 호출마다 응답의 토큰 수(운영자 2026-11-16 — 본문 없이 숫자만, LLM_TRACE 없이도). 케이스는 시작 위치로 자른다. */
+const usageLog: CallUsage[] = [];
 
 function evalProvider(p: Provider, used: Record<string, number>): Provider {
   let last = 0;
@@ -53,7 +55,9 @@ function evalProvider(p: Provider, used: Record<string, number>): Provider {
         }
         used[p.name] = (used[p.name] ?? 0) + 1;
         try {
-          return { ...(await p.structured({ ...req, skipCache: true })), fallbackDepth: p.name === "groq" ? 0 : 1 };
+          const res = await p.structured({ ...req, skipCache: true });
+          usageLog.push({ provider: p.name, promptTokens: res.usage?.prompt_tokens ?? null, completionTokens: res.usage?.completion_tokens ?? null });
+          return { ...res, fallbackDepth: p.name === "groq" ? 0 : 1 };
         } catch (e) {
           if (e instanceof ProviderError && e.status === 429 && p.name === "groq" && attempt < 4) {
             const s = e.retryAfterS ?? 60;
@@ -118,6 +122,8 @@ interface RunMeta {
   rescoredFrom?: string;
   /** --reverify — 녹화한 모델 출력을 지금 검증기로 다시 판정했다. */
   reverified?: boolean;
+  /** 공급자별 토큰 합(응답 usage — 운영자 2026-11-16). usage가 없는 응답은 missing에 센다. 2026-11-16 이전 런에는 없다. */
+  tokens?: TokenTotals;
 }
 
 /** summary.json·runs.jsonl·load.sql + 로컬 D1(같은 run_id 행은 지우고 다시). 4축 기준선은 normal 모드만, rulesUnavailable은 따로. */
@@ -225,6 +231,7 @@ async function main() {
         if (mode === "rulesUnavailable") deps.embed = () => Promise.reject(new Error("rulesUnavailable(eval 모드)"));
         const t0 = Date.now();
         const w0 = waited.ms;
+        const u0 = usageLog.length;
         const took = () => Date.now() - t0 - (waited.ms - w0);
         try {
           const r: AnswerResult = await answerQuestion(deps, q, env, c.question);
@@ -232,12 +239,13 @@ async function main() {
         } catch (e) {
           run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 200)}`, latencyMs: took(), latencyExcludesWait: true };
         }
+        run = { ...run, usage: usageLog.slice(u0) };
       }
       const score = scoreCase(c, run);
       runs.push({ run, score, c });
       console.log(`[eval] ${new Date().toISOString()} ${c.id}${mode === "normal" ? "" : ` (${mode})`} ${run.provider ?? "-"} ${score.passed ? "PASS" : `✗ ${score.failureKind}`}${run.error ? ` ${run.error}` : ""} ${run.latencyMs ?? 0}ms — 호출 ${JSON.stringify(used)}`);
     }
-    await writeOutputs(env, out, { runId, trigger, set, live, startedAt, finishedAt: new Date().toISOString(), promptVersions: env.PROMPT_VERSIONS ?? "", streamHash: stream.streamHash, calls: used, assignOffset }, runs);
+    await writeOutputs(env, out, { runId, trigger, set, live, startedAt, finishedAt: new Date().toISOString(), promptVersions: env.PROMPT_VERSIONS ?? "", streamHash: stream.streamHash, calls: used, tokens: tokenTotals(usageLog), assignOffset }, runs);
   } finally {
     await proxy.dispose();
   }
