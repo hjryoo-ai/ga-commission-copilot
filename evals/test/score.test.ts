@@ -47,6 +47,14 @@ describe("scoreCase", () => {
     expect(scoreCase(base, { ...ok, mode: "rulesUnavailable", text: "" }).content).toBeNull();
     expect(scoreCase(base, { caseId: "A-01", mode: "normal", error: "예산" })).toMatchObject({ passed: false, failureKind: "ERROR", tool: false, content: false });
   });
+  it("expectByMode(v0.1.45): rulesUnavailable 모드만 RULES_UNAVAILABLE 거부가 정답, normal은 기본 기대 그대로", () => {
+    const c: EvalCase = { ...base, id: "A-04", bucket: "limit", expectedTools: [], modes: ["normal", "rulesUnavailable"], expectByMode: { rulesUnavailable: { expectRefusal: true, expectReason: "RULES_UNAVAILABLE" } } };
+    const refusedRu: CaseRun = { ...ok, mode: "rulesUnavailable", refused: true, reason: "RULES_UNAVAILABLE", groundingStatus: "NONE", toolCalls: [], text: "" };
+    expect(scoreCase(c, refusedRu)).toMatchObject({ refusal: true, content: null, passed: true });
+    expect(scoreCase(c, { ...ok, mode: "rulesUnavailable", toolCalls: [] }).failureKind).toBe("REFUSAL");
+    // normal 모드에서 RULES_UNAVAILABLE로 거부하면 과잉 거부
+    expect(scoreCase(c, { ...refusedRu, mode: "normal" }).failureKind).toBe("REFUSAL");
+  });
   it("toolsMatch: 증권번호는 끝 4자리(0001·***0001·POL-2026-0001), 월은 그대로", () => {
     const want = [{ tool: "get_limit", args: { policyNo: "0001" } }];
     for (const p of ["0001", "***0001", "POL-2026-0001"]) expect(toolsMatch(want, [{ tool: "get_limit", args: { policyNo: p } }]), p).toBe(true);

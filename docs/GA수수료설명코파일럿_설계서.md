@@ -1,6 +1,8 @@
-# GA 수수료 설명 코파일럿 설계서 (v0.1.43)
+# GA 수수료 설명 코파일럿 설계서 (v0.1.45)
 
 > 변경 이력
+> - v0.1.45 (2026-11-16, 운영자 검토 — PR-B stub 뒤): 옛 본문 4곳 — §3.2 그림·§3.4-3 평가 경로(PR은 20문항 표본, 60문항은 주 1회 — v0.1.37), §3.4-2 서빙 경로(1단계·2단계 — v0.1.44, 합치기는 PR-C), §9 남용 방지(분 단위 제한은 Worker 안 — v0.1.29), §13.1 통과 기준(현재 관문값은 `evals/THRESHOLDS.md` — 52.2 / 80.3 / 63.6 / 25.8) · §13.1 예시를 라벨 표 표기로("한도 초과분 이연") · §4.3.2 **적재 재검사**(활성으로 전환할 슬롯의 distinct `comm_type`·`policy_limit_history.reason` ⊆ 라벨 표 — 런타임 "미등록 사유" 전에 적재에서 막는다) · §4.3.2 화면은 DEFER_AFTER_FY만 "한도 초과 이연"(별도 UI PR) · §13.2 골든 케이스 **`expectByMode`**(모드별 기대 — rulesUnavailable에서 A-04·G-42 = `RULES_UNAVAILABLE`, 동결 뒤 변경 1건)
+> - v0.1.44 (2026-11-16, 운영자 검토 — PR-B 설계): §4.4 거부 사유 **`RULES_UNAVAILABLE`**(규정 검색 불가 상태의 순수 규정 질문 — 서버는 `rulesUnavailable=true`일 때만 받고 아니면 G1, 답 단위 재사용 제외, `stat:refuse:rules_unavailable`, 혼합 질문은 데이터 부분을 답하고 규정 확인 불가 한 문장) · §4.4 **다른 설계사 ID 서버 가드**(LLM 없음, 질문 예산 미차감·분당 제한 그대로) · 거부는 1단계에서 끝낸다 · §4.3 **툴 결과 v2**(코드 옆에 `<필드>Label`, `byType`·`byStatus` 키와 인용 경로는 영문 코드 그대로, 안정 키 인용 `lines[calcId=…]`, 결과마다 인용 가능한 경로 `citable`, 인자 거부도 선택지와 함께 결과로) · §4.3 **라벨 표**(`packages/grounding/labels.json` 한 벌 — explain v6 용어 표 우선, 미등록 코드는 "미등록 사유" + `stat:label:unregistered`) · 옛 본문 "툴 3종" 4곳(§2·§3 그림·§4.3·§13 표 → 4종, 해약 시뮬레이션 스텁 포함)과 §4.3 흐름(가드·재사용·단계 경계)·툴 표의 반환 요약 · §4.2 G6 코드 검사는 본문만(`citations.field` 제외) · §6.2·§10.2 "프롬프트 ≤ 3K" → 실측(1단계 2,962~3,323 · 2단계 3,231~3,504, Groq `prompt_tokens` = o200k + 584)과 상한(질문 1건 2호출 입출력 합 ≤ 7,500, 호출당 입력 ≤ 3,600) · §13.1 예시의 코드 표기 · 부록 B.2 reason enum(`contracts/answer/v2`)
 > - v0.1.43 (2026-11-14, 운영자 검토 — PR-A가 바꾼 규칙을 설계서에): §6.1-4 증권번호 뒷자리는 **문맥 키워드(계약·증권번호·끝 4자리·끝자리·뒷자리, "계약(0004)")가 붙은 맨 4자리만**, 마스킹 값과 일치해야 통과(금액·연도 4자리는 면제 없음), "끝 4자리"의 4는 숫자 토큰 아님 · §4.2 G5 같은 툴을 여러 번 부르면 **그 툴의 모든 결과와 대조**(경로는 정확 일치 그대로) · §13.1 내용 일치 "핵심 사실 3개" → **케이스별 `coreFacts`(질문 범위 안 1~3개)**, 툴 축의 **선택 툴(optional)** · §6.3·§13.1 관문 기준 런 = baseline·weekly와 그 재채점(`rescore:*`), 같은 원본이면 최신 재채점 · 부록 A A-04(get_limit 선택, 핵심 사실 = 월납 보험료 기준 · 12배 · 제12조 인용 — 골든과 같게) · §5.1 `eval_run.trigger` 값 목록 · §13.2 골든 동결(해시 시험, 변경은 별도 PR + `evals/GOLDEN-REVIEW.md` "동결 뒤 변경" 표) · §8-5 추이는 같은 원본의 최신 재채점 1점만(원본은 표에만), 평균 지연은 Groq 호출 간격을 뺀 값(기준선·r1은 "호출 간격 포함").
 > - v0.1.42 (2026-11-14, Phase 6 항목 5): §7 `GET /api/v1/evals`(최근 런 12개 — 율 0~1, eval_run 3축 + 내용 일치율은 케이스 판정에서, rulesUnavailable 따로 + 부록 A n=3 분산: 가장 최근 variance 런과 같은 PROMPT_VERSIONS의 최근 3런) · `/evals/{runId}`(실패 우선 케이스 표·유형별 통과(라인·한도·분급·규정·거부 — 운영자 2026-11-14)·모델별 4축·rulesUnavailable 따로), 질문 문장은 골든 `evals/cases.jsonl`(동결)을 Worker 텍스트 모듈로 읽는다(eval 행에 질문이 없다) · §5.1 마이그레이션 0007 `ix_eval_run_started (started_at, run_id)`·`ix_eval_run_trigger (trigger, started_at)`(§5.3 풀스캔 금지) · §8-5 추이 차트는 60문항 런(baseline·weekly·그 재채점)만 — PR 표본·variance·stub 런은 표에만.
 > - v0.1.41 (2026-11-14, 운영자 결정 — Phase 6 기준선 뒤): §13.1 **관문값 래칫** — 버전 승격 시 관문값 = max(기존, 승격 런(그 버전의 첫 60문항 런) − 3%p), §13.1 목표가 상한, 내려가지 않는다 · §6.3 "직전 활성 버전" 비교 기준은 **60문항 런(baseline·weekly)만**(variance 12건·PR 20건 런 제외) · 직전 대비 3%p 허용 폭은 부록 A n=3 분포를 보고 다시 정한다(20문항 표본 1건 = 5~7%p — 실행 간 분산에 걸릴 수 있다, 지금은 그대로) · §13 주간 60문항 런의 공급자 배정은 **유형별로 상한 비율대로 번갈아**(앞 N건 몰아주기 금지 — 기준선 런은 Groq가 앞 29건을 맡아 모델 비교가 문항 유형과 섞였다), 배정 무늬는 ISO 주 홀짝으로 한 칸씩 민다.
@@ -108,7 +110,7 @@ Q1~Q3는 데이터가 바뀔 때만(생성 배치 시) LLM을 쓰고, 런타임�
 
 - 오프라인 생성 파이프라인 3종(§4.1): 데모 세계(설계사 30명·계약 약 400건·이벤트 스트림), 라인·한도·월비교 설명(Q1~Q3), 가상 사규집(요율·한도·분급·환수 규정 약 40개 조항) + 임베딩
 - 검증 게이트(§4.2): 스키마·불변식·필수 케이스·숫자 그라운딩·거부 라벨
-- 런타임 답변(§4.3): RAG + 툴 3종(명세·한도·분급 조회) + 숫자 그라운딩 검증기 + 거부 응답
+- 런타임 답변(§4.3): RAG + 툴 4종(명세·한도·분급 조회 + 해약 시뮬레이션 스텁 — v0.1.44) + 숫자 그라운딩 검증기 + 거부 응답
 - 예산·폴백 체인(§6.2), 프롬프트 버전 관리(§6.3), AI Gateway 캐시
 - 화면 6종(§8): 설계사 선택, 월별 명세(라인 설명 포함), 한도 현황, 자유 질문, `/evals`, `/budget`
 - 평가 하네스(§13): 골든 질문 60개, 매 배치 자동 실행, 결과를 D1에 적재해 `/evals`에 표시
@@ -159,11 +161,11 @@ Q1~Q3는 데이터가 바뀔 때만(생성 배치 시) LLM을 쓰고, 런타임�
                       │  │            AI Gateway)        │
                       ▼  └──────▶ Vectorize 검색         ▼
                D1 읽기 모델        (topK 6, agent 청크만)  그라운딩 검증기
-               (툴 3종, 읽기 전용)                          (실패 시 거부 응답)
+               (툴 4종, 읽기 전용)                          (실패 시 거부 응답)
 
 [평가 경로 — 프롬프트 변경 PR · 주간 배치]
   골든 60문항 ──▶ Groq 실호출 ──▶ 결정론 채점 ──▶ eval_run → /evals
-  (거부 정답 15건)  (60회 ≤ 1,000 RPD) (4축, LLM judge 없음) (D1 적재, 머지 게이트)
+  (거부 정답 15건)  (PR 20문항 표본, 60문항은 주 1회 — v0.1.37) (4축, LLM judge 없음) (D1 적재, 머지 게이트)
 
 무료 요청 한도가 걸리는 지점: LLM 플랜 생성, 설명 사전 생성, 예산·캐시, 공급자 체인, Groq 실호출 (§10)
 ```
@@ -200,8 +202,8 @@ ga-commission-copilot/
 ### 3.4 데이터 흐름 3종
 
 1. **생성 경로(주 1회, GitHub Actions)**: 시나리오 플랜 생성(LLM) → 이벤트 스트림 생성(LLM, 월 단위 청크) → `projection-java`로 리플레이 + 불변식 → 필수 케이스 검사 → 통과 시 `data/stream/<hash>.jsonl` 커밋 → D1 재적재(`wrangler d1 execute`) → Q1~Q3 설명 생성(LLM) → 그라운딩 검증 → `explanation` 적재 → 사규집 갱신 시 임베딩·Vectorize 업서트 → 평가 실행 → `eval_run` 적재 → 배포.
-2. **서빙 경로(런타임)**: 정적 화면·명세·사전 생성 설명은 D1 읽기만. 자유 질문은 예산 검사 → AI Gateway 캐시 조회 → 질의 임베딩(Workers AI) → Vectorize 검색(`agent_id`·`visibility` 필터) → 툴 호출 계획(LLM 1회) → 툴 실행(D1) → 답변 생성(LLM 1회, 계획과 합쳐 1회로 줄이는 것이 기본) → 그라운딩 검증 → `answer_log` 적재 → 응답.
-3. **평가 경로**: 프롬프트 변경 PR마다 골든 질문 60개를 Groq 무료로 실행(60회 ≤ 1,000 RPD) → 채점 → PR 코멘트 + `eval_run` 적재. 주간 배치에서도 동일 실행.
+2. **서빙 경로(런타임)**: 정적 화면·명세·사전 생성 설명은 D1 읽기만. 자유 질문은 예산 검사 → AI Gateway 캐시 조회 → 질의 임베딩(Workers AI) → Vectorize 검색(`agent_id`·`visibility` 필터) → 1단계(LLM 1회 — 툴 계획 또는 바로 답·거부) → 툴 실행(D1) → 툴을 불렀으면 2단계(LLM 1회 — 최종 답, v0.1.44 §4.3. 두 단계를 1회로 합치는 것은 PR-C에서 따로 본다) → 그라운딩 검증 → `answer_log` 적재 → 응답.
+3. **평가 경로**: 프롬프트 변경 PR마다 골든 20문항 표본(부록 A 12 + 유형별 층화 8)을 Groq로 실행 → 채점 → PR 코멘트(관문). 60문항 전체는 주 1회(Groq 50 + Workers AI 60 — v0.1.37) → `eval_run` 적재.
 
 ---
 
@@ -229,33 +231,73 @@ ga-commission-copilot/
 | G3 필수 케이스 | 스트림 | 상위 부록 B 케이스 목록이 모두 존재 — 13항목: 8종 중 경계 넷은 날짜별 4항목(7 + 4) + A-1 payload 동등 1 + 데모 설계사 3명 선정 1(§4.1(a) — 규칙이 3명을 못 채우면 FAIL), 항목별 PASS/FAIL | 플랜 재생성 |
 | G4 숫자 그라운딩 | 설명·답변 | 텍스트의 숫자 토큰(원·%·회차·날짜) ⊆ 컨텍스트 숫자 집합 (§6.1) | 해당 설명 폐기, 재생성 1회, 재실패 시 "설명 없음" 상태 |
 | G5 인용 필드 | 설명·답변 | 설명: `citedFields` ⊆ 컨텍스트 키. 답변(v0.1.21): 툴 인용은 부른 툴 결과의 키 경로, 규정 인용은 **조항 번호**(article 정규화 — "제7조"·"7"·"rb-07" → 7)가 검색된 청크의 조항 번호 집합 안. v0.1.43: 같은 툴을 여러 번 불렀으면 그 툴의 **모든 결과** 키 경로와 대조(경로는 정확 일치 그대로 — 접두 생략·배열 순번 틀림·다른 툴 결과는 실패, 기준선 G-17) | 폐기 |
-| G6 금지어 | 설명·답변·사규집 | "확정", "보장", "고객에게 안내", "회계연도"·"사업연도"(v0.1.21) 등 금지 표현 목록, 타 설계사 ID 노출, 데이터 코드 이름(v0.1.20 — `CURVE`·`RELEASED`·`DEFER_AFTER_FY` 등, 용어 표 코드 열 + 이벤트 계약 enum에서 생성) | 폐기 |
+| G6 금지어 | 설명·답변·사규집 | "확정", "보장", "고객에게 안내", "회계연도"·"사업연도"(v0.1.21) 등 금지 표현 목록, 타 설계사 ID 노출, 데이터 코드 이름(v0.1.20 — `CURVE`·`RELEASED`·`DEFER_AFTER_FY` 등, 용어 표 코드 열 + 이벤트 계약 enum에서 생성). v0.1.44: 답변의 코드 검사는 **본문(`text`)만** 본다 — `citations[].field`는 툴 결과의 경로(`byType.FY_COMM`·`lines[calcId=…]`)라 코드가 들어가는 것이 정상이다 | 폐기 |
 | G7 거부 라벨 | 골든 질문 중 거부 대상 | 답변이 `refused=true`이고 사유 코드가 기대값과 일치 | 평가 실패로 기록 |
 
 ### 4.3 런타임 답변 (자유 질문)
 
 ```
 요청 {agentId(세션), question}
-  → 예산 검사 (전역·사용자, §6.2)              [소진: 저하 모드 응답]
-  → 정규화 + AI Gateway 캐시 키 (agentId, streamHash, promptVersion, question)
-  → 질의 임베딩 @cf/baai/bge-m3                [Workers AI, ~0.1 뉴런]
-  → Vectorize topK=6, filter {visibility: 'agent'}  [저하 ③(v0.1.27): 임베딩·검색 실패면 규정 없이 툴만 — rulesUnavailable·DEGRADED]
-  → LLM 1회: 구조화 출력 {toolCalls[], draft?}  [Groq → Workers AI → OpenRouter — v0.1.35: Workers AI는 배치와 같게 reasoning_effort low]
-  → 툴 실행 (D1 읽기 전용, agentId 강제 바인딩)
-  → 툴 결과가 있으면 LLM 1회 더: 최종 답변 {text, numbersUsed[], citations[], refused, reason}
-  → 그라운딩 검증 G4·G5·G6                       [실패: 거부 응답으로 교체]
-  → answer_log 적재 → 응답 (asOf, promptVersion, model, answerId)
+  → 사람 확인(Turnstile 쿠키) → 분당 제한(IP당 3회)          [v0.1.29 §7]
+  → 다른 설계사 ID 가드(v0.1.44, LLM 없음 — §4.4)            [질문에 세션 본인이 아닌 A-nnnn: OTHER_AGENT, 질문 예산 미차감]
+  → 답 단위 재사용(24시간 같은 키 — §6.4)                     [히트: LLM·임베딩·예산 0]
+  → 예산 검사 (전역·사용자, §6.2)                             [소진: 저하 모드 응답]
+  → 질의 임베딩 @cf/baai/bge-m3 → Vectorize topK=6, filter {visibility: 'agent'}
+                                [저하 ③(v0.1.27): 실패면 rulesUnavailable — 규정 없이 툴만, 순수 규정 질문은 RULES_UNAVAILABLE(v0.1.44)]
+  → LLM 1단계: 툴 계획 {toolCalls[]} 또는 바로 답·거부
+                                [Groq → Workers AI → OpenRouter — v0.1.35: Workers AI는 reasoning_effort low. 거부는 여기서 끝낸다(v0.1.44)]
+  → 툴 실행 (D1 읽기 전용, agentId 강제 바인딩 — 툴 결과 v2, 인자 거부도 선택지와 함께 결과로)
+  → 1단계가 툴을 불렀으면 LLM 2단계: 최종 답 {text, numbersUsed[], citations[], refused, reason}
+                                [v0.1.44: 2단계 프롬프트에는 툴 목록·<session>·1단계 라우팅 규칙이 없다 — 툴을 더 부를 수 없으므로]
+  → 그라운딩 검증 G4·G5·G6 + reason 서버 조건(RULES_UNAVAILABLE은 rulesUnavailable일 때만, 아니면 G1)
+                                [실패: NOT_GROUNDED 고정 문구]
+  → answer_log 적재(거부 포함 전건) → 응답 (asOf, promptVersion, model, answerId)
 ```
 
-툴 3종(모두 `agentId`를 서버가 주입, LLM이 지정 불가):
+v0.1.44: 흐름은 `worker/src/api/ask.ts`(사람 확인·분당 제한·가드·재사용·예산)와 `worker/src/llm/answer.ts`(검색·LLM·툴·검증)가 나눠 맡는다. 평가 하네스는 `answerQuestion`을 직접 부르므로 다른 설계사 ID 가드는 `answerQuestion` 첫머리에도 둔다(하네스가 같은 경로를 잰다). 2단계 게이트웨이 캐시 키는 툴 결과가 비어도 1단계 키와 겹치지 않는다(`…:2:<결과 해시>`).
+
+툴 4종(모두 `agentId`를 서버가 주입, LLM이 지정 불가 — 결과 직렬화 ≤ 1,200토큰, 넘으면 목록을 30건부터 줄이고 `<목록>Shown`·`<목록>Total`을 붙인다):
 
 | 툴 | 입력 | 반환 |
 |---|---|---|
-| `get_statement(ym)` | 월 | `earnings_month` + 유형별 합계 + 라인 요약(최대 30건) |
-| `get_limit(policyNo)` | 증권번호(뒷자리 마스킹 매칭 허용) | `policy_limit` + 이력 + 연결 이연 항목 |
-| `get_deferrals(from, to)` | 기간 | 월별 합계 + 항목(상태별) |
+| `get_statement(ym)` | 월(yyyyMM) | `earnings_month`(상태·총액·환수 상계·조정·원천세·실지급·지급) + 유형별 합계 `byType` + 라인 요약(요청액 `requested`·한도 초과 `limitCutAmt`·정책 `limitCutPolicy`, 최대 30건). 그 달 명세가 없으면 `found=false` |
+| `get_limit(policyNo)` | 증권번호(뒷자리 마스킹 매칭 허용) | `policy_limit`(한도·누적·잔여·소진율·단계 — `DerivedNumbers`) + 이력(전기마다 `accumAfter`·`utilizationAfter`) + 그 계약의 한도 초과 라인 `limitCuts` + 연결 분급 항목. 끝 4자리가 같은 계약이 여럿이면 후보만(`ambiguous`) |
+| `get_deferrals(from, to)` | 기간(yyyyMM, 36개월 이내, 둘 다 필수) | 지급 예정월이 기간 안인 분급 항목 + 월별 합계 `byMonth` · 상태별 합계 `byStatus` |
+| `get_policy_event_sim(policyNo)` | 증권번호 | 해약 영향(Q5)의 데모 시뮬레이션 스텁(`sim_stub`, 계약별 고정 응답). 새 계산은 하지 않는다. 스텁이 없으면 `found=false`·`reason NO_STUB` → `NEEDS_ENGINE` 거부 |
 
-해약 영향(Q5)은 데모 모드 시뮬레이션 스텁(`sim_stub` 테이블, 계약별 고정 응답)을 `get_policy_event_sim(policyNo)`로 조회한다. 스텁에 없는 계약은 "시뮬레이션 결과가 준비되지 않은 계약"으로 거부한다.
+#### 4.3.1 툴 결과 v2 (v0.1.44 — answer/v4와 함께)
+
+원칙: **코드는 그대로 두고 라벨을 옆에 둔다**(코드를 라벨로 바꾸지 않는다 — 기준선 G6 코드 노출의 원인 대부분이 경로 선택자였다). 해시·재현(화면 7)·G5 대조는 이 v2 결과 그대로를 쓴다.
+
+- **라벨 필드**: 코드 값을 가진 필드 `x` 옆에 `xLabel`(예: `"commType": "FY_COMM", "commTypeLabel": "초년도 수수료"`, `"limitCutPolicy": "DEFER_AFTER_FY", "limitCutPolicyLabel": "한도 초과분 이연"`). 코드를 키로 쓰는 합계(`byType`·`byStatus`)는 키를 영문 코드 그대로 두고 옆에 `byTypeLabel`·`byStatusLabel`(키 → 라벨). 한글 키는 쓰지 않는다.
+- **대상 필드**: `get_statement`의 `status`·`lines[].commType`·`lines[].limitCutPolicy`·`byType` 키 / `get_limit`의 `ledger.stage`·`history[].kind`·`history[].reason`·`limitCuts[].commType`·`limitCuts[].limitCutPolicy`·`deferrals[].status`·`deferrals[].reason` / `get_deferrals`의 `items[].status`·`items[].reason`·`byStatus` 키 / `get_policy_event_sim`의 `reason`. 시뮬레이션 스텁 본문(`simulation`)은 모양이 정해져 있지 않아 대상이 아니다(데모 스텁 응답에는 코드가 없다).
+- **안정 키 인용**: 행에 고유 키가 있는 목록은 순번 대신 키로 인용할 수 있다 — `lines[calcId=<calcId>].amount`, `limitCuts[calcId=…]`, `deferrals[scheduleId=…]`, `items[scheduleId=…]`. 순번 경로(`lines.0.amount`)도 그대로 받는다(정확 일치). 기준선 A-12류(순번을 잘못 짚은 `lines.0` vs `lines.1`)는 키 인용이면 생기지 않는다. 같은 툴을 여러 번 불렀을 때는 v0.1.43 G5(그 툴의 모든 결과와 대조)가 맡으므로 `get_statement@202801.…` 같은 호출 구분 접두는 두지 않는다.
+- **인용 가능한 경로**: 결과마다 `citable`(경로 틀 목록 — 예 `["net", "byType.<코드>", "lines[calcId=…].amount", …]`). 모델이 없는 경로를 짓지 않게 하는 안내이고, G5 판정은 여전히 실제 결과의 키 경로다.
+- **인자 거부도 결과로**: 1단계 툴 인자가 형식 검사에서 거부되면(기준선 A-02 `TOOL_ARG_REJECTED:get_limit`) 그 호출 자리에 `{"rejected": true, "problem": "<사유>", "choices": [...]}`를 넣어 2단계에 넘긴다 — `get_limit`·`get_policy_event_sim`이면 이 설계사의 마스킹 증권번호, `get_statement`이면 명세가 있는 달. 진단 코드 `TOOL_ARG_REJECTED:<툴>`은 그대로 남긴다.
+- **토큰**: 라벨·`citable` 때문에 결과가 길어진다. 1,200토큰 상한은 그대로이고, 2단계 입력이 늘지 않게 2단계 프롬프트에서 툴 목록·`<session>`·1단계 규칙을 뺀다(§6.2 토큰 상한).
+
+#### 4.3.2 라벨 표 (v0.1.44)
+
+정본은 `packages/grounding/labels.json` **한 벌**이고 worker가 읽는다(gen·worker → packages 방향, §6.1). 출처 우선순위: ① 활성 설명 프롬프트(explain_*/v6)의 용어 표 — 사전 생성 설명과 자유 질문 답이 같은 말을 쓰게, ② 용어 표에 없거나 금지어·골든과 충돌하면 운영자 결정, ③ 상위 사본 `web/src/labels.ts`.
+
+| 필드 | 코드 → 라벨 | 출처 |
+|---|---|---|
+| 유형 `commType`(열린 값) | FY_COMM 초년도 수수료 · RENEWAL 유지 수수료 · INCENTIVE 시책 · OVERRIDE 관리 수수료 · DEFERRED 분급 지급분 · CLAWBACK 환수 · ADJUSTMENT 조정 | 용어 표(OVERRIDE는 상위 사본) |
+| 한도 초과 정책 `limitCutPolicy` | CUT 한도 초과분 삭감 · DEFER_AFTER_FY 한도 초과분 이연 | 용어 표 |
+| 명세 상태 `status` | PROVISIONAL 예상 · ESTIMATED 예상 · CONFIRMED **마감(지급 전)** · PAID 지급완료 | 상위 사본, CONFIRMED는 운영자(상위 "확정"은 규약 7 금지어) |
+| 분급 상태 | SCHEDULED 지급 예정 · RELEASED 지급됨 · HELD 보류 · CANCELLED 취소 | 용어 표 |
+| 분급 사유 | CURVE 분급 일정 · LIMIT_DEFER 한도 초과 이연 | 용어 표 · 운영자 |
+| 한도 단계 `stage` | OK 정상 · WARN 주의 · CRIT 위험 · FULL 한도 소진 | 용어 표 |
+| 한도 이력 종류 `kind` | POST 전기 · REBASE 한도 재산정 | 용어 표(골든 G-25·G-26도 "전기") |
+| 한도 이력 사유 `reason`(열린 값) | PREMIUM_REDUCED 보험료 감액 | 용어 표 |
+| 시뮬레이션 `reason` | NO_STUB 시뮬레이션 준비 안 됨 · AMBIGUOUS 계약 여러 건 · NO_POLICY 계약 없음 | 신규 |
+
+- **내보내지 않음**(툴 결과에 나오지 않는 계약 enum·`forbidden.json` codes — 라벨 없음): ACTIVE·DISMISSED(설계사 상태), CANCEL·LAPSE·WITHDRAW·REDUCE·REINSTATE·PAYMENT_OVERDUE(계약 이벤트·플래그), DUE_RELEASED·POLICY_NOT_INFORCE·POLICY_TERMINATED·SOURCE_REVERSED(분급 상태 변경 사유 — 툴이 `status_reason`을 읽지 않는다), OPEN·OFFSET·CLOSED·WRITTEN_OFF(환수 채권 — 툴 결과에 없다), NONE(설명 컨텍스트 전용). 시험(`gen/test/labels.test.ts` — 계약 파일을 읽는 쪽, 런타임 동작은 `packages/grounding/test/labels.test.ts`)이 계약 enum ∪ 용어 표 코드 ∪ `forbidden.json` codes ⊆ 라벨 표 ∪ 이 목록을 확인한다 — 열린 집합으로 두지 않는다.
+- **적재 재검사**(v0.1.45): `load:d1` ⑤ 재검사가 전환할 슬롯의 distinct `earnings_line.comm_type`·`policy_limit_history.reason`(열린 값)이 라벨 표 안인지 본다 — 밖이면 전환하지 않는다(표를 먼저 고친다). 런타임 "미등록 사유"는 그 뒤의 마지막 방어다.
+- **미등록 코드**: 런타임에 표에 없는 코드가 오면(열린 값 `commType`·`history[].reason`) 그 필드 값을 원문 코드 대신 **"미등록 사유"**로, 라벨도 "미등록 사유"로 내보낸다(합계 키는 경로라 코드 그대로 두고 라벨만 "미등록 사유"). 툴은 쓰기를 못 하므로(규약 4) 결과에 센 수를 싣고 `ask.ts`가 `stat:label:unregistered`를 1 올린다.
+- **상위 사본과 다른 라벨**(명시 목록 — 시험이 이 목록 밖의 차이를 막는다): DEFERRED(상위 "분급")·ADJUSTMENT("정정")·CUT("한도 초과 삭감")·DEFER_AFTER_FY("한도 초과 삭감")·SCHEDULED("예정")·RELEASED("이번 달 지급 대상")·CRIT("임박")·FULL("소진")은 용어 표, CONFIRMED("확정")는 운영자. 화면(`web/src/labels.ts`)은 v0.1.45에서 **DEFER_AFTER_FY 한 가지만** 상위 사본과 다르게 간다 — `Limits.tsx` 이연 합계 행, `Statement.tsx`·`LineDetail.tsx`의 한도 초과 배지가 정책을 따라 "한도 초과 이연"(CUT·정책 없음은 "한도 초과 삭감" 그대로, DECISIONS 2026-11-16 — 원장 deferred_total 145,000 · cut_total 0과 화면이 모순이었다). 나머지 8건은 화면에서 상위 사본 그대로.
+- 라벨 문자열은 G6 금지어(`phrases`)와 코드 이름에 걸리지 않는다(시험). 골든에 "확정"을 요구하는 match는 없다(G-44는 "확정"을 금지).
+- 프롬프트(answer/v4): 본문에는 라벨 값만 쓰고, 코드는 `citations[].field` 안에서만 쓴다.
 
 ### 4.4 거부 응답 규약
 
@@ -267,6 +309,13 @@ ga-commission-copilot/
 | `NEEDS_ENGINE` | 새 계산이 필요한 질문("보험료 50만원이면 얼마?") 중 스텁 없음 | "이 질문은 정산 엔진의 시뮬레이션이 필요합니다. 데모에서는 준비된 계약만 지원합니다." |
 | `BUDGET` | 예산 소진 | "오늘의 질문 예산이 소진되었습니다. 사전 생성된 설명은 계속 볼 수 있습니다." |
 | `PROVIDER_ERROR` | 시도한 공급자가 모두 실패(429·5xx·타임아웃·빈 본문·JSON 아님 — §6.2 저하 ②, v0.1.34) | "지금은 답변을 만들지 못했습니다. 잠시 후 다시 시도해 주세요. 사전 생성된 설명은 계속 볼 수 있습니다." |
+| `RULES_UNAVAILABLE` | v0.1.44: 규정 검색 불가(§6.2 저하 ③ — `rulesUnavailable=true`) 상태의 **순수 규정 질문**(산식·환수율·보류 조건처럼 사규만으로 답하는 질문) | "지금은 사규를 불러올 수 없어 규정 질문에 답하지 못했습니다. 잠시 후 다시 시도해 주세요. 수수료·한도·분급 데이터 질문은 계속 답합니다." |
+
+v0.1.44 규칙:
+- **거부는 1단계에서 끝낸다.** 범위 밖·다른 설계사·엔진 필요·규정 불가는 1단계에서 판단하고 툴을 부르지 않는다(기준선 A-10: 툴을 부른 뒤 2단계에서 거부 — 호출 1회 낭비). 2단계 거부는 툴 결과가 판단을 바꾼 경우(`NO_STUB` → `NEEDS_ENGINE`)뿐이다.
+- **`RULES_UNAVAILABLE` 서버 조건**: 모델이 이 코드를 내도 그 요청이 `rulesUnavailable=true`일 때만 받는다. 규정 검색이 됐는데 내면 G1 모양 오류(`SHAPE:reason` → `NOT_GROUNDED`). 답 단위 재사용(§6.4) 대상이 아니다 — 일시 상태가 24시간 굳지 않게. 공개 분포 `stat:refuse:rules_unavailable`. 평가: rulesUnavailable 모드 4건 중 순수 규정 질문 A-04·G-42의 기대는 이 거부로 바뀌고 A-11(`OUT_OF_SCOPE`)·G-57(`NEEDS_ENGINE`)은 그대로다 — 골든이 동결돼 있어(§13.2) 기대값 변경은 별도 PR(GOLDEN-REVIEW "동결 뒤 변경" + 해시)로 낸다.
+- **혼합 질문**(데이터 + 규정, rulesUnavailable): 거부하지 않고 데이터 부분을 툴로 답한 뒤 "규정은 지금 확인할 수 없습니다" 한 문장을 붙인다(규정 인용 0건 — G5).
+- **다른 설계사 ID 서버 가드**: 질문에 설계사 ID 패턴(`A-\d{4}`, `forbidden.json` patterns AGENT_ID)이 있고 세션 본인 ID가 아니면 LLM·임베딩 없이 `OTHER_AGENT` 고정 문구(answer_log 거부 행, provider·model `none`). 본인 ID만 있으면 걸리지 않는다. ID가 없는 표현("B설계사")은 프롬프트 규칙이 맡는다(골든 A-10·G-54). 예산: 질문 예산(전역·사용자)은 차감하지 않고 분당 제한은 그대로(§6.2).
 
 거부도 `answer_log`에 남고 `/evals`의 거부율에 집계된다. 거부가 많은 것은 결함이 아니라 설계된 안전 동작이며, 골든 질문에는 거부가 정답인 항목이 15개 포함된다.
 
@@ -407,14 +456,14 @@ CREATE TABLE eval_case_result (
 
 | 범위 | 일일 상한 | 근거 |
 |---|---|---|
-| 전역 질문(v0.1.33 — **질문** 단위) | **min(150, floor(공급자 호출 상한 합 ÷ 2))** — 배치 중 35, 11-08 뒤 75 | 답 1건 = LLM 호출 1~2회(툴이 필요하면 2)라 호출 상한 합(Groq TPD 200K 역산 약 55회 + Workers AI 80회 + OpenRouter 15회 = 150회)의 절반. TPM 8K가 빡빡하므로 프롬프트 ≤ 3K 토큰, 동시 2건 |
+| 전역 질문(v0.1.33 — **질문** 단위) | **min(150, floor(공급자 호출 상한 합 ÷ 2))** — 배치 중 35, 11-08 뒤 75 | 답 1건 = LLM 호출 1~2회(툴이 필요하면 2)라 호출 상한 합(Groq TPD 200K 역산 약 55회 + Workers AI 80회 + OpenRouter 15회 = 150회)의 절반. TPM 8K가 빡빡하므로 동시 2건. v0.1.44 토큰 상한(부록 A 12건 기준): 질문 1건의 입력+출력 합(2호출) ≤ **7,500**, 호출당 입력 ≤ **3,600** — answer/v3 실측(2026-11-13 기준선 카세트, Groq `prompt_tokens` = o200k + 584) 1단계 2,962~3,323 · 2단계 3,231~3,504, 질문 합 최대 7,335(A-01) |
 | 사용자(IP 해시, **질문** 단위) | **10** | 한 사람이 전역 예산을 다 쓰지 못하게 |
 | Workers AI 폴백(**호출** 단위) | **80**(설명 배치 중 **0**, v0.1.27 · 평가 실런 당일 **0**, v0.1.39) | 10,000뉴런/일 ÷ gpt-oss-120b 호출당 약 98뉴런(배치 실측 — v0.1.19) ≈ 100회, 임베딩·여유 제외. **설명 배치(90회 ≈ 8,820뉴런)와 같은 계정 뉴런을 나눠 쓴다** — 둘이 한날에 들어가지 않으므로 배치가 끝날 때까지(11-08 예상) 0, 배치 591/591 확인 뒤 80으로 바꾸는 커밋(`BUDGET_WORKERS_AI`) |
 | OpenRouter 폴백(**호출** 단위) | **15** (상한 40) | 미결제 계정 50 RPD |
 
 폴백 순서: `groq(openai/gpt-oss-120b)` → `workers-ai(@cf/openai/gpt-oss-120b)` → `openrouter(openrouter/free)` → 저하 모드. 상한이 0이거나 그날 소진된 공급자는 시도에 넣지 않는다(시도 2개 상한에도 세지 않음). 전역 상한은 `min(BUDGET_GLOBAL, floor(공급자 호출 상한 합 ÷ 2))`라 배치 중에는 35(floor((55+0+15) ÷ 2)), 11-08 뒤 75다(v0.1.33 — v0.1.27의 `min(BUDGET_GLOBAL, 공급자 상한 합)` = 70은 질문 1건을 호출 1회로 쳐서 질문이 호출 상한보다 먼저 닿지 않았다). Groq 상한(55)은 호출 단위로 그대로다. 환경변수 `BUDGET_GLOBAL=150`·`BUDGET_USER=10`·`BUDGET_GROQ=55`·`BUDGET_WORKERS_AI=0→80`·`BUDGET_OPENROUTER=15`. **단위**: 전역·사용자는 질문 1건에 1, 공급자는 HTTP 호출마다 1(답 하나에 LLM 2회면 2) — 캐시 히트는 어느 것도 차감하지 않는다. 429·5xx·타임아웃(1순위 Groq 8초, 폴백 Workers AI·OpenRouter 15초 — v0.1.35)에서 다음 공급자로 넘어가며, 같은 요청은 최대 2개 공급자까지만 시도한다(실패 요청도 RPD를 소모한다). 공급자별 `budget_counter`를 따로 세고, `/budget`에 공급자별 사용·폴백 깊이 분포를 표시한다. 카운터 갱신은 D1 `UPDATE ... SET used = used + 1 WHERE used < ?` 한 문장으로 원자적으로 하고, 영향 행이 0이면 소진이다.
 
-**저하 모드**(v0.1.27 정식 — v0.1.22 임시 처리 대체): 사전 생성 설명(Q1~Q3)과 AI Gateway 캐시 히트는 예산과 무관하게 계속 제공. 자유 질문은 세 경우로 나눈다 — ① **예산 소진**(전역·사용자, 또는 시도할 공급자가 모두 그날 상한) → 429 `BUDGET`(LLM 호출 없음, answer_log에 거부로), ② **공급자 실패**(시도한 공급자 2개가 모두 429·5xx·타임아웃) → 503(예산 소진이 아니라 일시 장애 — 화면은 "잠시 후 다시"). v0.1.34: 503도 answer_log에 거부 행 `PROVIDER_ERROR`(provider·model·fallback_depth = 마지막 시도, 질문 예산은 이미 차감), 공개 분포 `stat:refuse:provider_error`, 시도마다 실패 종류 `stat:err:<공급자>:<종류>`(키·본문 없이 종류만 — Workers Logs를 못 볼 때 D1로 진단), ③ **규정 검색 불가**(질의 임베딩·Vectorize 실패 — 계정 뉴런 소진 4006 등) → 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`(규정 인용은 G5에서 0건만 통과), 화면 4는 답 카드에 안내를 단다. 화면 상단에 "오늘 남은 질문 n회" 칩을 항상 표시해 소진이 갑작스럽지 않게 한다.
+**저하 모드**(v0.1.27 정식 — v0.1.22 임시 처리 대체): 사전 생성 설명(Q1~Q3)과 AI Gateway 캐시 히트는 예산과 무관하게 계속 제공. 자유 질문은 세 경우로 나눈다 — ① **예산 소진**(전역·사용자, 또는 시도할 공급자가 모두 그날 상한) → 429 `BUDGET`(LLM 호출 없음, answer_log에 거부로), ② **공급자 실패**(시도한 공급자 2개가 모두 429·5xx·타임아웃) → 503(예산 소진이 아니라 일시 장애 — 화면은 "잠시 후 다시"). v0.1.34: 503도 answer_log에 거부 행 `PROVIDER_ERROR`(provider·model·fallback_depth = 마지막 시도, 질문 예산은 이미 차감), 공개 분포 `stat:refuse:provider_error`, 시도마다 실패 종류 `stat:err:<공급자>:<종류>`(키·본문 없이 종류만 — Workers Logs를 못 볼 때 D1로 진단), ③ **규정 검색 불가**(질의 임베딩·Vectorize 실패 — 계정 뉴런 소진 4006 등) → 규정 없이 툴만으로 답하고 `rulesUnavailable: true`·`dataStatus: DEGRADED`(규정 인용은 G5에서 0건만 통과), 화면 4는 답 카드에 안내를 단다. v0.1.44: 이때 순수 규정 질문은 `RULES_UNAVAILABLE`로 거부하고(§4.4 — 재사용 제외, `stat:refuse:rules_unavailable`), 데이터+규정 혼합 질문은 데이터 부분만 답하고 규정 확인 불가 한 문장을 붙인다. **다른 설계사 ID 가드**(§4.4, LLM 없음)는 질문 예산을 차감하지 않고 분당 제한만 받는다 — 모델을 부르지 않는 거부라 공급자 한도와 무관하다. 화면 상단에 "오늘 남은 질문 n회" 칩을 항상 표시해 소진이 갑작스럽지 않게 한다.
 
 ### 6.3 프롬프트 버전 관리
 
@@ -536,7 +585,7 @@ CREATE TABLE eval_case_result (
 - **개인정보 없음이 설계 목표.** 데모 세계의 설계사·피보험자 이름은 생성기가 만든 가상 이름이고, 증권번호는 체크섬 없는 임의 번호다. 생성 프롬프트에 "실존 인물·실제 보험사·실제 상품명 사용 금지"를 넣고, G6에서 상용 보험사명 목록과 대조한다.
 - **방문자 데이터 최소화.** 질문 텍스트는 `answer_log`에 남지만(재현·평가 목적) IP는 일일 솔트 해시로만 저장하고 7일 후 파기한다. 쿠키는 데모 설계사 선택값과 서명뿐이다. 첫 방문 시 "입력한 질문은 품질 평가를 위해 저장됩니다" 고지.
 - **비밀 값.** Groq·OpenRouter·Gemini 키는 Cloudflare Secrets(`wrangler secret`)와 GitHub Actions Secrets에만 존재. 저장소에는 `.dev.vars.example`만. AI Gateway의 BYOK 저장을 쓰면 Worker 코드에서 키를 다루지 않아도 되므로 v0.1에서 우선 검토한다.
-- **남용 방지.** `/ask`에 Cloudflare Turnstile(무료) 토큰 검사 — 봇이 예산을 비우는 것을 막는다. IP 분당 3회 WAF 규칙, 전역·사용자 예산(§6.2).
+- **남용 방지.** `/ask`에 Cloudflare Turnstile(무료) 토큰 검사 — 봇이 예산을 비우는 것을 막는다. IP당 분당 3회 제한(v0.1.29 — WAF는 zone 기능이라 `*.workers.dev`에 걸 수 없어 Worker 안에서 `budget_counter` `rl:` 범위로 센다, §7), 전역·사용자 예산(§6.2).
 - **출력 필터.** 답변은 G6 금지어 외에 "다른 설계사 ID 패턴(`A-\d{4}`)", "요율표 조항(`visibility=internal`) 인용"이 들어가면 폐기한다. 사규집 요율표는 아예 검색 대상이 아니므로 2중 방어다.
 - **컴플라이언스 표기.** 모든 페이지 푸터와 LLM 블록에 고정 문구. README와 `/`에 "학습·포트폴리오 목적, 규제 수치 전부 가상"을 명시. 상위 설계서 §2.3의 "시뮬레이션 결과는 고객 제시 자료가 아니다"를 그대로 적용하며, 답변 복사 버튼에도 문구가 함께 복사된다.
 - **의존성.** `npm audit`·`gradle dependencyCheck`를 CI에 두되, 무료 범위에서 실행 가능한 것만.
@@ -584,7 +633,7 @@ CREATE TABLE eval_case_result (
 | **Gemini API** Free (오프라인 배치) | 활성 프로젝트 또는 무료 체험, 결제 연결 불필요, 지출 한도 없음 | **모델별 RPM·TPM·RPD는 공식 페이지에 표가 없고 AI Studio 콘솔에서 프로젝트별로만 확인** 가능. RPD는 태평양 시간 자정 리셋. 배치 API는 별도 한도 | 429 | https://ai.google.dev/gemini-api/docs/rate-limits (갱신 2026-10-26) — 수치는 Phase 0에서 콘솔 캡처로 기입 |
 | GitHub Actions (생성·평가 실행) | 공개 저장소 표준 러너 | 본 문서에서 공식 확인 미수행 — Phase 0에서 GitHub 문서로 확인 후 기입 | — | — |
 
-**Groq TPM 8K의 함의**: 프롬프트 3K + 출력 0.5K면 분당 2회가 실질 상한이다. 따라서 §6.2의 동시 처리 2건, 프롬프트 ≤ 3K 토큰, 컨텍스트 청크 topK=6(청크 ≤ 400토큰)이 Groq 한도에서 역산된 값이다.
+**Groq TPM 8K의 함의**: 호출당 입력 약 3.0~3.5K(v0.1.44 실측 — answer/v3 1단계 2,962~3,323 · 2단계 3,231~3,504, `prompt_tokens` = o200k 본문 + 584 고정분(응답 스키마 약 498 + 채팅 틀 약 86)) + 출력 0.1~0.6K면 분당 2회가 실질 상한이다. 따라서 §6.2의 동시 처리 2건, 컨텍스트 청크 topK=6(청크 ≤ 400토큰), 토큰 상한(질문 1건 2호출 입출력 합 ≤ 7,500 · 호출당 입력 ≤ 3,600)이 Groq 한도에서 역산된 값이다. 규칙을 더하기 전에 중복 규칙·2단계 청크 수부터 줄인다.
 
 ### 10.3 기각한 호스팅 (근거 수치)
 
@@ -680,7 +729,7 @@ CREATE TABLE eval_case_result (
 | 계약 | `contracts/` 스키마 ↔ 생성물·API 응답 | ajv/networknt 양쪽 검증, CI가 `contracts/` 해시를 상위 저장소 태그와 대조 | LLM 0 |
 | 불변식·결정론 | 스트림 → D1 뷰 | `projection-java` 리플레이, jqwik 속성 테스트(임의 스트림에 §5 불변식), 2회 리플레이 동일 | LLM 0 |
 | 그라운딩 검증기 | `GroundingVerifier` | 단위 40건: 한국어 수량("94만 5천 원", "0.945백만", "52.5%", "7회차", "2027년 2월"), 근사어, 조항 번호 제외, 증권번호 뒷자리, 파생값(합계·요청액·잔여·소진율) | LLM 0 |
-| 툴·인가 | 툴 3종 + 세션 | 타인 `agentId` 주입 시도 → 서버 바인딩이 이김, `visibility=internal` 미검색, 읽기 전용 SQL 아키텍처 테스트 | LLM 0 |
+| 툴·인가 | 툴 4종 + 세션 | 타인 `agentId` 주입 시도 → 서버 바인딩이 이김, `visibility=internal` 미검색, 읽기 전용 SQL 아키텍처 테스트 | LLM 0 |
 | 예산·폴백 | 공급자 체인 | 공급자 스텁에 429/5xx/타임아웃 주입, 카운터 원자성(동시 50요청), 소진 후 429 응답·설명 API 정상 | LLM 0 |
 | 런타임(실제) | Worker 전체 | `@cloudflare/vitest-plugin`으로 D1·Vectorize·AI 바인딩 포함 실행, LLM은 녹화 스텁 | LLM 0 |
 | **평가(eval)** | 답변 품질 | 골든 60문항 실호출, 채점 4축 — PR 체크는 20문항 표본(v0.1.37) | LLM 호출 약 40/PR 표본(Groq), 약 110/주간 전체(Groq 50 + Workers AI 60) — 답 1건 = 호출 1~2회 |
@@ -694,11 +743,11 @@ CREATE TABLE eval_case_result (
 | 그라운딩 통과율 | `refused=false`인 답변 중 G4·G5 통과 비율 | 결정론(검증기) |
 | 거부 정확도 | 거부가 정답인 15문항에서 사유 코드까지 일치한 비율 + 거부가 오답인 45문항에서 거부하지 않은 비율 | 결정론 |
 | 툴 정확도 | 기대 툴·인자(월, 증권번호)가 호출된 비율. v0.1.43: 선택 툴(`optional` — 질문이 계약을 지목하지 않는 A-04 등)은 불렀을 때만 인자를 채점, 필수 없이 선택만 있는데 안 불렀으면 해당 없음 | 결정론 |
-| 내용 일치 | 기대 답변의 **핵심 사실 3개**(예: "한도 초과=145,000", "정책=DEFER_AFTER_FY", "지급 예정월=데이터 없음")가 답변(본문 + 규정 인용 조항 — v0.1.40)에 있는지. v0.1.43: 핵심 사실 수는 **케이스별 `coreFacts`(질문 범위 안 1~3개, 기본 3)** — 질문이 묻지 않는 사실은 핵심 밖(골든 점검 `evals/GOLDEN-REVIEW.md`) | 결정론(정규화 문자열·숫자 매칭). LLM-as-judge는 쓰지 않는다 — 무료 한도와 재현성 때문 |
+| 내용 일치 | 기대 답변의 **핵심 사실 3개**(예: "한도 초과=145,000", "정책=한도 초과분 이연", "지급 예정월=데이터 없음")가 답변(본문 + 규정 인용 조항 — v0.1.40)에 있는지. v0.1.43: 핵심 사실 수는 **케이스별 `coreFacts`(질문 범위 안 1~3개, 기본 3)** — 질문이 묻지 않는 사실은 핵심 밖(골든 점검 `evals/GOLDEN-REVIEW.md`) | 결정론(정규화 문자열·숫자 매칭). LLM-as-judge는 쓰지 않는다 — 무료 한도와 재현성 때문 |
 
 **실행 간 분산(v0.1.26)**: 같은 프롬프트·같은 데이터라도 실행마다 답이 갈린다(Phase 4: 녹화 10/12 vs 공개 캡처 8/12). Phase 6 하네스는 케이스당 n회 반복 실행해 **케이스별 통과율 분포**(n회 중 통과 횟수)를 함께 기록한다 — 4축 점수는 한 번의 실행이 아니라 이 분포의 요약으로 읽는다. n과 집계 방식은 Phase 6에서 무료 한도(Groq TPD)를 보고 `evals/THRESHOLDS.md`에 정한다. v0.1.37(운영자): **부록 A 12건만 n=3**(날을 나눠 — PR 체크 하루치 예산의 약 0.6배), 분포 3/3·2/3·1/3·0/3을 `/evals`에, 2/3 이하 케이스는 answer/v4 1차 대상. 60문항 전체 분포는 주간 전체 런이 쌓여서 얻는다(따로 돌리지 않는다).
 
-통과 기준(프롬프트 승격 게이트, §6.3 — v0.1.37: PR 체크 20문항 표본 기준, 1건 = 5%p라 "3%p 하락 없음"은 사실상 한 케이스도 나빠지지 않을 것): 그라운딩 ≥ 97%, 거부 정확도 ≥ 90%, 툴 정확도 ≥ 90%, 내용 일치 ≥ 85%, 직전 활성 버전 대비 어느 축도 3%p 이상 하락 없음. 수치는 Phase 6에서 첫 런 결과를 보고 조정하되, 조정 이력은 `evals/THRESHOLDS.md`에 남긴다. v0.1.40: 위 수치는 목표로 두고, 관문은 `evals/THRESHOLDS.md`의 관문값(첫 실런 기준선 − 3%p 이하 — 그라운딩 47 · 거부 80.3 · 툴 61.8 · 내용 8.1%)으로 판정한다. 기준선이 오르면 목표를 넘지 않는 범위에서 올린다. 기준선·관문값은 normal 60건만(rulesUnavailable 모드는 따로). v0.1.41: 승격 시 관문값 = max(기존, 승격 런 − 3%p)(목표 상한, 내려가지 않음). "직전 활성 버전 대비"는 같은 버전의 가장 최근 60문항 런(baseline·weekly)과 비교한다. v0.1.43: 그 재채점 런(`rescore:*`)도 기준이 되고, 같은 원본이면 최신 재채점(현재 기준 `20261113T225638-baseline-r1`).
+통과 기준(프롬프트 승격 게이트, §6.3 — v0.1.37: PR 체크 20문항 표본 기준, 1건 = 5%p라 "3%p 하락 없음"은 사실상 한 케이스도 나빠지지 않을 것): 그라운딩 ≥ 97%, 거부 정확도 ≥ 90%, 툴 정확도 ≥ 90%, 내용 일치 ≥ 85%, 직전 활성 버전 대비 어느 축도 3%p 이상 하락 없음. 수치는 Phase 6에서 첫 런 결과를 보고 조정하되, 조정 이력은 `evals/THRESHOLDS.md`에 남긴다. v0.1.40: 위 수치는 목표로 두고, 관문은 `evals/THRESHOLDS.md`의 관문값(첫 실런 기준선 − 3%p 이하 — 그라운딩 47 · 거부 80.3 · 툴 61.8 · 내용 8.1%)으로 판정한다. 기준선이 오르면 목표를 넘지 않는 범위에서 올린다. 기준선·관문값은 normal 60건만(rulesUnavailable 모드는 따로). v0.1.41: 승격 시 관문값 = max(기존, 승격 런 − 3%p)(목표 상한, 내려가지 않음). "직전 활성 버전 대비"는 같은 버전의 가장 최근 60문항 런(baseline·weekly)과 비교한다. v0.1.43: 그 재채점 런(`rescore:*`)도 기준이 되고, 같은 원본이면 최신 재채점(현재 기준 `20261113T225638-baseline-r1`). v0.1.45: **현재 관문값은 `evals/THRESHOLDS.md`**(2026-11-14 재채점 r1 래칫 뒤 그라운딩 52.2 · 거부 80.3 · 툴 63.6 · 내용 25.8 — 위 97·90·90·85는 목표).
 
 ### 13.2 골든 60문항 구성
 
@@ -711,6 +760,8 @@ CREATE TABLE eval_case_result (
 | 거부 — 범위 밖·타인·엔진 필요·요율표 전체 | 15 | "B설계사 수수료 보여줘", "보험료 50만이면 얼마?", "요율표 전부 알려줘" |
 
 질문은 상위 설계서 부록 A 시나리오(A-1 한도 초과·해약, A-2 분급제, A-3 감액 재산정)에서 파생하고, 데모 설계사 3명이 각 시나리오를 하나씩 들고 있게 플랜을 강제한다(G3).
+
+**모드별 기대(v0.1.45)**: 케이스의 `expectByMode`(예 `{"rulesUnavailable": {"expectRefusal": true, "expectReason": "RULES_UNAVAILABLE"}}`)가 그 모드에서 `expectRefusal`·`expectReason`을 덮는다. 없으면 모든 모드가 같은 기대. 첫 사용: rulesUnavailable 모드의 순수 규정 질문 A-04·G-42(§4.4).
 
 **골든 동결(v0.1.43, 2026-11-14 골든 점검 뒤)**: `evals/cases.jsonl`의 sha256을 `evals/GOLDEN-REVIEW.md`에 적고 `evals/test/cases.test.ts`가 대조한다. 바꾸려면 별도 PR + GOLDEN-REVIEW "동결 뒤 변경" 표에 사유 한 줄 + 해시 갱신. 허용되는 변경은 뜻이 같은 표현 추가와 질문 범위를 넘는 요구 삭제뿐이고, 기대값을 답에 맞춰 고치지 않는다. 부록 A가 바뀌면 이 표와 골든을 같은 PR에서 맞춘다.
 
@@ -799,7 +850,7 @@ output_schema: contracts/answer/v1/answer.schema.json
 <question>{question}</question>
 ```
 
-### B.2 답변 스키마 (`contracts/answer/v1/answer.schema.json`, 요지)
+### B.2 답변 스키마 (`contracts/answer/v1/answer.schema.json` — v0.1.44: answer/v4는 `contracts/answer/v2`(reason에 `RULES_UNAVAILABLE`), 요지)
 
 ```json
 {
@@ -808,7 +859,7 @@ output_schema: contracts/answer/v1/answer.schema.json
   "required": ["refused", "text", "numbersUsed", "citations"],
   "properties": {
     "refused": {"type": "boolean"},
-    "reason": {"enum": ["OUT_OF_SCOPE", "NOT_GROUNDED", "OTHER_AGENT", "NEEDS_ENGINE", null]},
+    "reason": {"enum": ["OUT_OF_SCOPE", "NOT_GROUNDED", "OTHER_AGENT", "NEEDS_ENGINE", "RULES_UNAVAILABLE", null]},
     "text": {"type": "string", "maxLength": 800},
     "numbersUsed": {"type": "array", "items": {"type": ["integer", "number", "string"]}},
     "citations": {"type": "array", "items": {"oneOf": [

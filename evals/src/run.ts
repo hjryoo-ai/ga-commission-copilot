@@ -13,7 +13,7 @@ import { type AnswerDeps, type AnswerResult, answerQuestion, cloudflareDeps } fr
 import { activePrompt } from "../../worker/src/llm/promptRegistry";
 import { groq, type Provider, ProviderError, type ProviderName, requestHash, type StructuredRequest, type StructuredResponse, traced, workersAi } from "../../worker/src/llm/providers";
 import { assignProviders, weekParity } from "./assign";
-import { type CaseRun, type EvalCase, scoreCase, summarize } from "./score";
+import { type CaseRun, type EvalCase, expectFor, scoreCase, summarize } from "./score";
 
 const ROOT = join(import.meta.dirname, "../..");
 const args = process.argv.slice(2);
@@ -136,7 +136,7 @@ async function writeOutputs(env: Env, out: string, meta: RunMeta, runs: Scored[]
     { sql: "INSERT INTO eval_run (run_id, started_at, trigger, prompt_versions, stream_hash, model, total, passed, grounding_pass_rate, refusal_accuracy, tool_accuracy, mean_latency_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", binds: [meta.runId, meta.startedAt, meta.trigger, pv, meta.streamHash, model, s.total, s.passed, rate(s.grounding), rate(s.refusal), rate(s.tool), s.meanLatencyMs] },
     ...runs.map((x) => ({
       sql: "INSERT INTO eval_case_result (run_id, case_id, passed, expected, actual, failure_kind) VALUES (?,?,?,?,?,?)",
-      binds: [meta.runId, x.run.mode === "normal" ? x.c.id : `${x.c.id}#${x.run.mode}`, x.score.passed ? 1 : 0, JSON.stringify({ bucket: x.c.bucket, expectedTools: x.c.expectedTools, facts: x.c.expectedFacts.slice(0, x.c.coreFacts ?? 3).map((f) => f.fact), expectRefusal: x.c.expectRefusal, expectReason: x.c.expectReason, misleading: x.c.misleading, tags: x.c.tags }), JSON.stringify({ ...x.run, score: x.score }), x.score.failureKind],
+      binds: [meta.runId, x.run.mode === "normal" ? x.c.id : `${x.c.id}#${x.run.mode}`, x.score.passed ? 1 : 0, JSON.stringify({ bucket: x.c.bucket, expectedTools: x.c.expectedTools, facts: x.c.expectedFacts.slice(0, x.c.coreFacts ?? 3).map((f) => f.fact), ...expectFor(x.c, x.run.mode), misleading: x.c.misleading, tags: x.c.tags }), JSON.stringify({ ...x.run, score: x.score }), x.score.failureKind],
     })),
   ];
   await env.DB.batch([env.DB.prepare("DELETE FROM eval_case_result WHERE run_id = ?").bind(meta.runId), env.DB.prepare("DELETE FROM eval_run WHERE run_id = ?").bind(meta.runId), ...stmts.map((x) => env.DB.prepare(x.sql).bind(...x.binds))]);

@@ -18,7 +18,12 @@ export interface EvalCase {
   note: string;
   /** 핵심 사실 수(기본 3, §13.1) — 부록 A가 더 적게 정한 케이스(A-12 정정 1개). */
   coreFacts?: number;
+  /** 모드별 기대(설계서 v0.1.45 §13.2) — 그 모드에서 expectRefusal·expectReason을 덮는다(A-04·G-42 rulesUnavailable = RULES_UNAVAILABLE). */
+  expectByMode?: Partial<Record<"normal" | "rulesUnavailable", { expectRefusal: boolean; expectReason: string | null }>>;
 }
+
+/** 그 모드의 기대(expectByMode가 있으면 그것, 없으면 케이스 기본). */
+export const expectFor = (c: EvalCase, mode: CaseRun["mode"]): { expectRefusal: boolean; expectReason: string | null } => c.expectByMode?.[mode] ?? { expectRefusal: c.expectRefusal, expectReason: c.expectReason };
 
 /** 하네스가 남기는 한 번의 실행 결과(worker AnswerResult에서 채점에 쓰는 칸 + 공급자). */
 export interface CaseRun {
@@ -60,7 +65,7 @@ export interface CaseScore {
   forbiddenHits: string[];
 }
 
-const MODEL_REFUSALS = new Set(["OUT_OF_SCOPE", "OTHER_AGENT", "NEEDS_ENGINE"]);
+const MODEL_REFUSALS = new Set(["OUT_OF_SCOPE", "OTHER_AGENT", "NEEDS_ENGINE", "RULES_UNAVAILABLE"]);
 
 /** 비교용 정규화: 공백 제거(“14만 5천” = “14만5천”), 전각 숫자·쉼표는 그대로(매칭 목록이 표기별로 있다). */
 export const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, "");
@@ -84,17 +89,18 @@ export const toolAxisApplies = (expected: EvalCase["expectedTools"], called: Non
   expected.some((e) => !e.optional) || expected.some((e) => e.optional && called.some((c) => c.tool === e.tool));
 
 export function scoreCase(c: EvalCase, r: CaseRun): CaseScore {
-  if (r.error) return { grounding: null, refusal: false, tool: c.expectedTools.some((e) => !e.optional) ? false : null, content: c.expectRefusal ? null : false, passed: false, failureKind: "ERROR", missingFacts: [], forbiddenHits: [] };
+  const { expectRefusal, expectReason } = expectFor(c, r.mode);
+  if (r.error) return { grounding: null, refusal: false, tool: c.expectedTools.some((e) => !e.optional) ? false : null, content: expectRefusal ? null : false, passed: false, failureKind: "ERROR", missingFacts: [], forbiddenHits: [] };
   // 모델 거부 = 검증기를 거치지 않은 거부(groundingStatus NONE). 검증기가 막은 NOT_GROUNDED(FAIL)는 그라운딩 축에서 센다.
   const modelRefused = Boolean(r.refused) && r.groundingStatus === "NONE";
   const grounding = r.groundingStatus === "PASS" ? true : r.groundingStatus === "FAIL" ? false : null;
-  const refusal = c.expectRefusal ? modelRefused && r.reason === c.expectReason : !(modelRefused && MODEL_REFUSALS.has(r.reason ?? ""));
+  const refusal = expectRefusal ? modelRefused && r.reason === expectReason : !(modelRefused && MODEL_REFUSALS.has(r.reason ?? ""));
   const tool = toolAxisApplies(c.expectedTools, r.toolCalls ?? []) ? toolsMatch(c.expectedTools, r.toolCalls ?? []) : null;
   let content: boolean | null = null;
   const missingFacts: string[] = [];
   const forbiddenHits: string[] = [];
   // 내용 일치(§13.1 핵심 사실 = expectedFacts 앞 coreFacts개, 기본 3). 거부 정답 케이스·rulesUnavailable 모드는 채점하지 않는다(THRESHOLDS.md)
-  if (!c.expectRefusal && r.mode === "normal") {
+  if (!expectRefusal && r.mode === "normal") {
     const text = norm(r.refused ? "" : (r.text ?? ""));
     // 사실은 본문 + 규정 인용 조항에서 찾는다(답 화면이 둘을 같이 보여 준다 — 기준선 런 검토 2026-11-13). 금지어는 본문만.
     const shown = r.refused ? text : `${text}|${norm((r.citedArticles ?? []).join("|"))}`;

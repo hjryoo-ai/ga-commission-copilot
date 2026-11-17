@@ -163,6 +163,26 @@
       "minimum": 1,
       "maximum": 3,
       "description": "핵심 사실 수(기본 3 — 부록 A가 그보다 적게 정한 케이스, 예: A-12 정정 1개)"
+    },
+    "expectByMode": {
+      "type": "object",
+      "description": "모드별 기대(설계서 v0.1.45 §13.2) — 그 모드에서 expectRefusal·expectReason을 덮는다. 없으면 모든 모드가 같은 기대.",
+      "additionalProperties": false,
+      "properties": {
+        "rulesUnavailable": { "$ref": "#/$defs/modeExpect" },
+        "normal": { "$ref": "#/$defs/modeExpect" }
+      }
+    }
+  },
+  "$defs": {
+    "modeExpect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expectRefusal", "expectReason"],
+      "properties": {
+        "expectRefusal": { "type": "boolean" },
+        "expectReason": { "type": ["string", "null"], "enum": ["OUT_OF_SCOPE", "OTHER_AGENT", "NEEDS_ENGINE", "RULES_UNAVAILABLE", null] }
+      }
     }
   }
 }
