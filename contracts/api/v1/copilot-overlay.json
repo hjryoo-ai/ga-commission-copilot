@@ -657,6 +657,45 @@
         "latencyIncludesWait": {
           "type": "boolean",
           "description": "true면 평균 지연에 하네스의 Groq 호출 간격·429 대기가 들어 있다(2026-11-14 이전 런 — 기준선·r1). 설계서 v0.1.43 §8-5"
+        },
+        "belowGate": {
+          "description": "설계서 v0.1.47 — 목록에서만: 유효 60문항 런이면 관문값 미달 축(없으면 빈 배열), 아니면 null(variance·pr·재채점된 원본).",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "axis",
+                  "rate",
+                  "value"
+                ],
+                "properties": {
+                  "axis": {
+                    "type": "string",
+                    "enum": [
+                      "grounding",
+                      "refusal",
+                      "tool",
+                      "content"
+                    ]
+                  },
+                  "rate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -940,6 +979,8 @@
       "additionalProperties": false,
       "required": [
         "runs",
+        "gate",
+        "gateRevert",
         "variance",
         "disclaimer"
       ],
@@ -1048,6 +1089,63 @@
         },
         "disclaimer": {
           "type": "string"
+        },
+        "gate": {
+          "description": "관문값(%) — evals/THRESHOLDS.md, 60문항 런에만(설계서 v0.1.46).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grounding",
+            "refusal",
+            "tool",
+            "content"
+          ],
+          "properties": {
+            "grounding": {
+              "type": "number"
+            },
+            "refusal": {
+              "type": "number"
+            },
+            "tool": {
+              "type": "number"
+            },
+            "content": {
+              "type": "number"
+            }
+          }
+        },
+        "gateRevert": {
+          "description": "같은 PROMPT_VERSIONS의 최근 유효 60문항 런 2개가 모두 미달이면 그 두 런(되돌리는 PR 대상), 아니면 null.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "promptVersions",
+                "runIds"
+              ],
+              "properties": {
+                "promptVersions": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "runIds": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
         }
       }
     },

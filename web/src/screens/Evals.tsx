@@ -2,7 +2,7 @@
 // 런 상세(실패 우선 케이스 표·유형별 통과·모델별 4축·rulesUnavailable 따로 — v0.1.40). 값은 GET /api/v1/evals 그대로 — 화면은 백분율 표기만 한다.
 // 색: 4축 범주 색은 dataviz 기본 팔레트 1~4번(검증기 통과 — 흰 바탕 대비 3:1 미만 2색은 범례·끝 라벨·표 숫자로 보완, 색만으로 읽지 않게).
 import { type MouseEvent, useEffect, useRef, useState } from "react";
-import { api, type EvalAxes, type EvalBucket, type EvalCase, type EvalRates, type EvalRunDetail, type EvalRunSummary, type EvalVariance } from "../api";
+import { api, type EvalAxes, type EvalBucket, type EvalCase, type EvalGate, type EvalGateRevert, type EvalRates, type EvalRunDetail, type EvalRunSummary, type EvalVariance } from "../api";
 import { Link, paths } from "../router";
 import { Footer, Status, useLoad } from "../ui";
 import { PROVIDER_LABEL } from "./Budget";
@@ -150,6 +150,12 @@ function RunsTable({ runs }: { runs: readonly EvalRunSummary[] }) {
               <span className="muted small note-line">
                 {r.trigger} · {versions(r.promptVersions)} · {r.model}
               </span>
+              {r.belowGate && r.belowGate.length > 0 && (
+                <span className="note-line small" data-testid="below-gate">
+                  <span className="badge warn">관문값 미달</span>
+                  {r.belowGate.map((b) => `${AXES.find((a) => a.key === b.axis)!.label} ${pct(b.rate)} < ${b.value}%`).join(" · ")}
+                </span>
+              )}
             </th>
             <td className="num">
               {r.passed}/{r.total}
@@ -247,14 +253,22 @@ export function trendPoints(runs: readonly EvalRunSummary[]): EvalRunSummary[] {
   return runs.filter((x) => keep.has(x));
 }
 
-export function EvalsView({ r }: { r: { runs: EvalRunSummary[]; variance: EvalVariance | null } }) {
+export function EvalsView({ r }: { r: { runs: EvalRunSummary[]; variance: EvalVariance | null; gate?: EvalGate; gateRevert?: EvalGateRevert | null } }) {
   if (r.runs.length === 0) return <p className="muted">아직 적재된 평가 런이 없습니다.</p>;
   const trend = trendPoints(r.runs);
   return (
     <>
       <section>
         <h2>4축 추이(60문항 런 {trend.length}개)</h2>
-        <p className="muted small">normal 모드 60문항 기준(기준선·주간 — 재채점이 있으면 그 원본 대신 최신 재채점 1점, 원본은 아래 표에만). 규정 검색을 끈 모드(rulesUnavailable)는 따로 센다. 관문값·목표는 evals/THRESHOLDS.md.</p>
+        <p className="muted small">normal 모드 60문항 기준(기준선·주간 — 재채점이 있으면 그 원본 대신 최신 재채점 1점, 원본은 아래 표에만). 규정 검색을 끈 모드(rulesUnavailable)는 따로 센다.{" "}
+          {r.gate ? `관문값(60문항 런에만 — PR 표본은 케이스별 기준 대비 건수로 판정): ${AXES.map((a) => `${a.label} ${r.gate![a.key]}%`).join(" · ")}. ` : ""}목표·조정 이력은 evals/THRESHOLDS.md.
+        </p>
+        {r.gateRevert && (
+          <p role="status" data-testid="gate-revert">
+            <span className="badge warn">연속 미달</span>
+            {versions(r.gateRevert.promptVersions)} 60문항 런 2회 연속 관문값 미달({r.gateRevert.runIds.join(", ")}) — 그 버전을 되돌리는 PR 대상(설계서 v0.1.46).
+          </p>
+        )}
         {trend.length ? <TrendChart runs={trend} /> : <p className="muted">아직 60문항 런이 없습니다.</p>}
       </section>
       <section>

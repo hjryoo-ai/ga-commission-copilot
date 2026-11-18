@@ -109,6 +109,52 @@ describe("GET /api/v1/evals", () => {
   });
 });
 
+describe("GET /api/v1/evals — 관문값 미달 표시(설계서 v0.1.46·v0.1.47)", () => {
+  /** 60문항 런 한 행 + 케이스 한 줄(내용 축은 케이스에서 — 율은 0~1). */
+  const seedFull = async (runId: string, at: string, trigger: string, pv: string, g: number, r: number, t: number, contentOk: boolean, total = 60) => {
+    await env.DB.prepare(
+      "INSERT INTO eval_run (run_id, started_at, trigger, prompt_versions, stream_hash, model, total, passed, grounding_pass_rate, refusal_accuracy, tool_accuracy, mean_latency_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+    )
+      .bind(runId, at, trigger, pv, "h".repeat(64), "groq+workers-ai", total, 20, g, r, t, 1000)
+      .run();
+    const s = score({ grounding: true, content: contentOk });
+    await env.DB.prepare("INSERT INTO eval_case_result (run_id, case_id, passed, expected, actual, failure_kind) VALUES (?,?,?,?,?,?)")
+      .bind(runId, "A-01", s.passed ? 1 : 0, JSON.stringify({ bucket: "line", expectedTools: [], facts: [], expectRefusal: false, expectReason: null }), JSON.stringify({ caseId: "A-01", mode: "normal", latencyMs: 10, latencyExcludesWait: true, score: s }), s.failureKind)
+      .run();
+  };
+  const V4 = JSON.stringify({ answer: "v4", schema_hint: "v1" });
+
+  it("관문값은 THRESHOLDS.md에서, 재채점된 원본·variance는 null, 유효 60문항 런은 미달 축 목록", async () => {
+    await seedFull("20261113T225638-baseline", "2026-11-13T22:56:38.000Z", "baseline", PV, 0.5, 0.8333, 0.6486, false);
+    await seedFull("20261113T225638-baseline-r1", "2026-11-13T22:56:38.000Z", "rescore:baseline", PV, 0.5526, 0.8333, 0.6667, true);
+    await seedFull("20261116T104059-variance-2026-11-16-a", "2026-11-16T10:40:59.000Z", "variance:2026-11-16-a", PV, 0.4, 0.5, 0.5, false, 12);
+    const { body } = await get("/api/v1/evals");
+    expect(validate("EvalsResponse", body)).toEqual([]);
+    expect(body.gate).toEqual({ grounding: 52.2, refusal: 80.3, tool: 63.6, content: 25.8 });
+    const below = Object.fromEntries((body.runs as { runId: string; belowGate: unknown }[]).map((r) => [r.runId, r.belowGate]));
+    expect(below).toEqual({ "20261116T104059-variance-2026-11-16-a": null, "20261113T225638-baseline-r1": [], "20261113T225638-baseline": null });
+    expect(body.gateRevert).toBeNull();
+  });
+
+  it("같은 버전 60문항 런 2회 연속 미달이면 gateRevert(되돌리는 PR 대상) — 한 번이면 표시만", async () => {
+    await seedFull("20261113T225638-baseline-r1", "2026-11-13T22:56:38.000Z", "rescore:baseline", PV, 0.5526, 0.8333, 0.6667, true);
+    await seedFull("20261119T030000-baseline", "2026-11-19T03:00:00.000Z", "baseline", V4, 0.5, 0.9, 0.7, true);
+    let { body } = await get("/api/v1/evals");
+    const latest = (body.runs as { runId: string; belowGate: unknown }[])[0]!;
+    expect(latest).toMatchObject({ runId: "20261119T030000-baseline", belowGate: [{ axis: "grounding", rate: 0.5, value: 52.2 }] });
+    expect(body.gateRevert).toBeNull();
+    await seedFull("20261122T030000-weekly", "2026-11-22T03:00:00.000Z", "weekly", V4, 0.6, 0.9, 0.7, false);
+    ({ body } = await get("/api/v1/evals"));
+    expect(validate("EvalsResponse", body)).toEqual([]);
+    expect(body.gateRevert).toEqual({ promptVersions: { answer: "v4", schema_hint: "v1" }, runIds: ["20261122T030000-weekly", "20261119T030000-baseline"] });
+  });
+
+  it("관문값 표를 못 읽으면 시작에서 실패한다(조용히 0으로 두지 않는다)", async () => {
+    const { parseGate } = await import("../src/api/evals");
+    expect(() => parseGate("| 축 | 정의 |")).toThrow("THRESHOLDS.md");
+  });
+});
+
 describe("GET /api/v1/evals/{runId}", () => {
   it("실패 우선 표·유형별 통과·모델별 4축·rulesUnavailable 따로, 질문은 골든에서, 본문 600자", async () => {
     await seedRun("20261113T225638-baseline", "2026-11-13T22:56:38.000Z", "baseline", [
