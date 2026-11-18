@@ -1,0 +1,41 @@
+{
+  "$comment": "툴 결과 v2 라벨 표(설계서 v0.1.44 §4.3.2) — 한 벌. worker 툴이 코드 옆 <필드>Label로 싣는다. 출처 우선순위: explain_*/v6 용어 표 → 운영자 결정 → 상위 사본 web/src/labels.ts. notExported는 툴 결과에 나오지 않는 계약 enum·forbidden.json codes(라벨 없음). differsFromWeb은 web/src/labels.ts와 일부러 다른 라벨과 그 출처(시험이 이 목록 밖의 차이를 막는다).",
+  "unregistered": "미등록 사유",
+  "fields": {
+    "commType": {
+      "FY_COMM": "초년도 수수료",
+      "RENEWAL": "유지 수수료",
+      "INCENTIVE": "시책",
+      "OVERRIDE": "관리 수수료",
+      "DEFERRED": "분급 지급분",
+      "CLAWBACK": "환수",
+      "ADJUSTMENT": "조정"
+    },
+    "limitCutPolicy": { "CUT": "한도 초과분 삭감", "DEFER_AFTER_FY": "한도 초과분 이연" },
+    "monthStatus": { "PROVISIONAL": "예상", "ESTIMATED": "예상", "CONFIRMED": "마감(지급 전)", "PAID": "지급완료" },
+    "deferralStatus": { "SCHEDULED": "지급 예정", "RELEASED": "지급됨", "HELD": "보류", "CANCELLED": "취소" },
+    "deferralReason": { "CURVE": "분급 일정", "LIMIT_DEFER": "한도 초과 이연" },
+    "limitStage": { "OK": "정상", "WARN": "주의", "CRIT": "위험", "FULL": "한도 소진" },
+    "historyKind": { "POST": "전기", "REBASE": "한도 재산정" },
+    "historyReason": { "PREMIUM_REDUCED": "보험료 감액" },
+    "simReason": { "NO_STUB": "시뮬레이션 준비 안 됨", "AMBIGUOUS": "계약 여러 건", "NO_POLICY": "계약 없음" }
+  },
+  "notExported": [
+    "ACTIVE", "DISMISSED",
+    "CANCEL", "LAPSE", "WITHDRAW", "REDUCE", "REINSTATE", "PAYMENT_OVERDUE",
+    "DUE_RELEASED", "POLICY_NOT_INFORCE", "POLICY_TERMINATED", "SOURCE_REVERSED",
+    "OPEN", "OFFSET", "CLOSED", "WRITTEN_OFF",
+    "NONE"
+  ],
+  "differsFromWeb": {
+    "DEFERRED": "용어 표(explain v6)",
+    "ADJUSTMENT": "용어 표(explain v6)",
+    "CUT": "용어 표(explain v6)",
+    "DEFER_AFTER_FY": "용어 표(explain v6)",
+    "SCHEDULED": "용어 표(explain v6)",
+    "RELEASED": "용어 표(explain v6)",
+    "CRIT": "용어 표(explain v6)",
+    "FULL": "용어 표(explain v6)",
+    "CONFIRMED": "운영자(상위 \"확정\"은 규약 7 금지어)"
+  }
+}

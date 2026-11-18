@@ -2,7 +2,7 @@
 import { policyMasked } from "../api/policy";
 import { compact } from "../api/http";
 import { DerivedNumbers } from "../domain/DerivedNumbers";
-import { fitList, type ToolContext, type ToolData } from "./result";
+import { fitIn, type ToolContext, type ToolData } from "./result";
 
 interface MonthRow {
   close_ym: string;
@@ -51,7 +51,7 @@ export async function getStatement(ctx: ToolContext, ym: string): Promise<{ data
     ctx.q.first<MonthRow>("earnings_month", { columns: MONTH_COLUMNS, where: { close_ym: ym } }),
     ctx.q.all<LineRow>("earnings_line", { columns: LINE_COLUMNS, where: { close_ym: ym }, orderBy: "source_seq, calc_id" }),
   ]);
-  if (!month) return fitList(() => ({ found: false, closeYm: ym }), "lines", []);
+  if (!month) return fitIn(ctx, () => ({ found: false, closeYm: ym }), "lines", []);
   const head = compact({
     found: true,
     closeYm: month.close_ym,
@@ -68,5 +68,5 @@ export async function getStatement(ctx: ToolContext, ym: string): Promise<{ data
     byType: DerivedNumbers.byType(lines),
     lineCount: lines.length,
   });
-  return fitList((xs) => ({ ...head, lines: xs.map(lineSummary) }), "lines", lines);
+  return fitIn(ctx, (xs) => ({ ...head, lines: xs.map(lineSummary) }), "lines", lines);
 }

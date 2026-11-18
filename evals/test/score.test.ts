@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { type CaseRun, type EvalCase, readThresholds, scoreCase, summarize, toolsMatch } from "../src/score";
+import { type CaseRun, type EvalCase, readThresholds, scoreCase, summarize, tokenTotals, toolsMatch } from "../src/score";
 
 const base: EvalCase = {
   id: "A-01",
@@ -60,6 +60,18 @@ describe("scoreCase", () => {
     for (const p of ["0001", "***0001", "POL-2026-0001"]) expect(toolsMatch(want, [{ tool: "get_limit", args: { policyNo: p } }]), p).toBe(true);
     expect(toolsMatch(want, [{ tool: "get_limit", args: { policyNo: "0002" } }])).toBe(false);
     expect(toolsMatch([{ tool: "get_statement", args: { ym: "202608" } }], [{ tool: "get_statement", args: { ym: "202708" } }])).toBe(false);
+  });
+});
+
+describe("tokenTotals(운영자 2026-11-16 — 응답 usage 숫자만)", () => {
+  it("공급자별 호출·입력·출력 합, usage 없는 호출은 missing", () => {
+    expect(
+      tokenTotals([
+        { provider: "groq", promptTokens: 3000, completionTokens: 100 },
+        { provider: "groq", promptTokens: 3200, completionTokens: 400 },
+        { provider: "workers-ai", promptTokens: null, completionTokens: null },
+      ]),
+    ).toEqual({ groq: { calls: 2, promptTokens: 6200, completionTokens: 500, missing: 0 }, "workers-ai": { calls: 1, promptTokens: 0, completionTokens: 0, missing: 1 } });
   });
 });
 

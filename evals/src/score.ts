@@ -25,6 +25,28 @@ export interface EvalCase {
 /** 그 모드의 기대(expectByMode가 있으면 그것, 없으면 케이스 기본). */
 export const expectFor = (c: EvalCase, mode: CaseRun["mode"]): { expectRefusal: boolean; expectReason: string | null } => c.expectByMode?.[mode] ?? { expectRefusal: c.expectRefusal, expectReason: c.expectReason };
 
+/** 호출 한 번의 토큰 수(응답 usage — 본문 없이 숫자만). 공급자가 usage를 안 주면 null. */
+export interface CallUsage {
+  provider: string;
+  promptTokens: number | null;
+  completionTokens: number | null;
+}
+
+export type TokenTotals = Record<string, { calls: number; promptTokens: number; completionTokens: number; missing: number }>;
+
+/** 호출별 토큰 → 공급자별 합(summary.json tokens). usage가 없는 호출은 calls와 missing에만 센다. */
+export function tokenTotals(log: readonly CallUsage[]): TokenTotals {
+  const out: TokenTotals = {};
+  for (const u of log) {
+    const t = (out[u.provider] ??= { calls: 0, promptTokens: 0, completionTokens: 0, missing: 0 });
+    t.calls++;
+    if (u.promptTokens === null || u.completionTokens === null) t.missing++;
+    t.promptTokens += u.promptTokens ?? 0;
+    t.completionTokens += u.completionTokens ?? 0;
+  }
+  return out;
+}
+
 /** 하네스가 남기는 한 번의 실행 결과(worker AnswerResult에서 채점에 쓰는 칸 + 공급자). */
 export interface CaseRun {
   caseId: string;
@@ -51,6 +73,8 @@ export interface CaseRun {
   latencyMs?: number;
   /** true면 latencyMs에서 하네스 대기(Groq 호출 간격·429)를 뺐다 — 2026-11-14 이전 런(기준선·r1)은 없음 = 대기 포함. */
   latencyExcludesWait?: boolean;
+  /** 이 케이스의 LLM 호출마다 토큰 수(운영자 2026-11-16 — 2026-11-16 이전 런에는 없다). */
+  usage?: CallUsage[];
 }
 
 /** 축 판정 — null = 이 케이스에는 해당 없음(분모에서 뺀다). */

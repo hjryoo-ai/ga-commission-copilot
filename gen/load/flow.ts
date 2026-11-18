@@ -1,5 +1,6 @@
 // 적재·전환·되돌리기·비우기 흐름(설계서 v0.1.11 §5.1·§5.4·§14.1-10). 실행기(D1Exec)만 받는다 —
 // CLI(d1.ts)는 wrangler로, 시험은 node:sqlite로 같은 흐름을 돌린다(마이그레이션 0001~0003을 그대로 적용).
+import { labelTable } from "@copilot/grounding";
 import type { DemoAgent } from "../verify/g3.ts";
 import { TENANT } from "../world/rules/tables.ts";
 import { countSql, estimateWrites, insertInto, insertStatements, monthInvariantSql, READ_MODEL, type Row, type Slot, slotTable, sqlValue } from "./sql.ts";
@@ -66,7 +67,27 @@ export function recheck(db: D1Exec, slot: Slot, expected: Readonly<Record<string
       : ["earnings_line 0행 — 비어 있는 슬롯"];
   if (inv.month_mismatch !== 0) problems.push(`월 합산 불일치 ${inv.month_mismatch}`);
   if (inv.line_without_month !== 0) problems.push(`월 행 없는 라인 묶음 ${inv.line_without_month}`);
+  problems.push(...unlabeledCodes(db, slot, tenant));
   return { counts, monthInvariant: inv, problems };
+}
+
+/**
+ * 라벨 표 밖 코드(설계서 v0.1.45 §4.3.2 — 운영자 2026-11-16): 열린 값인 earnings_line.comm_type·policy_limit_history.reason의 distinct가
+ * packages/grounding/labels.json 안이어야 한다. 런타임 툴 결과에 "미등록 사유"가 나오기 전에 적재에서 막는다.
+ */
+export function unlabeledCodes(db: D1Exec, slot: Slot, tenant = TENANT): string[] {
+  const t = sqlValue(tenant);
+  const out: string[] = [];
+  const cols = [
+    ["earnings_line", "comm_type", labelTable("commType")],
+    ["policy_limit_history", "reason", labelTable("historyReason")],
+  ] as const;
+  for (const [table, col, known] of cols) {
+    const got = db.query(`SELECT DISTINCT ${col} AS v FROM ${slotTable(table, slot)} WHERE tenant_id = ${t} AND ${col} IS NOT NULL ORDER BY ${col}`).map((r) => String(r.v));
+    const bad = got.filter((v) => !(v in known));
+    if (bad.length) out.push(`${table}.${col} 라벨 표 밖 코드 ${bad.join(",")} — packages/grounding/labels.json에 먼저`);
+  }
+  return out;
 }
 
 /**

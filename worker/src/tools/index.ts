@@ -2,8 +2,11 @@
 import { getDeferrals } from "./deferrals";
 import { getLimit } from "./limit";
 import { getPolicyEventSim } from "./policyEventSim";
-import { serialize, type ToolContext, type ToolData } from "./result";
+import { policyMasked } from "../api/policy";
+import type { ScopedQuery } from "../db/ScopedQuery";
+import { approxTokens, serialize, type ToolContext, type ToolData } from "./result";
 import { getStatement } from "./statement";
+import { countUnregistered, toV2 } from "./v2";
 
 export const TOOL_NAMES = ["get_statement", "get_limit", "get_deferrals", "get_policy_event_sim"] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
@@ -33,7 +36,10 @@ export interface ToolResult {
   /** 직렬화 토큰 추정(≤ 1,200). */
   tokens: number;
   truncated: boolean;
+  /** v2 라벨 표에 없는 코드 수(설계서 v0.1.44 — 호출자가 stat:label:unregistered에 더한다). v1이면 0. */
+  unregistered?: number;
 }
+
 
 export class InvalidToolCall extends Error {}
 
@@ -62,7 +68,9 @@ export function parseToolCall(raw: unknown): ToolCall {
   return { tool: name, args: s };
 }
 
-export async function runTool(ctx: ToolContext, call: ToolCall): Promise<ToolResult> {
+/** version "v2"면 결과에 라벨·citable(설계서 v0.1.44 §4.3.1 — answer/v4 frontmatter tool_results). 없으면 v1(answer/v1~v3 카세트 그대로). */
+export async function runTool(ctx0: ToolContext & { version?: "v1" | "v2" }, call: ToolCall): Promise<ToolResult> {
+  const ctx: ToolContext = ctx0.version === "v2" ? { ...ctx0, decorate: (d) => toV2(call.tool, d) } : ctx0;
   const a = call.args;
   const r =
     call.tool === "get_statement"
@@ -72,7 +80,33 @@ export async function runTool(ctx: ToolContext, call: ToolCall): Promise<ToolRes
         : call.tool === "get_deferrals"
           ? await getDeferrals(ctx, a.from!, a.to!)
           : await getPolicyEventSim(ctx, a.policyNo!);
-  return { tool: call.tool, args: call.args, ...r };
+  if (ctx0.version !== "v2") return { tool: call.tool, args: call.args, ...r, unregistered: 0 };
+  // v2: 맞는 계약이 없으면(found=false·후보 0) 인자 거부와 같이 고를 수 있는 값을 붙인다(설계서 v0.1.44 §4.3.1 — 2단계가 계약을 짓지 않게)
+  const d = r.data as { found?: unknown; candidates?: unknown };
+  const data = d.found === false && Array.isArray(d.candidates) && d.candidates.length === 0 && (call.tool === "get_limit" || call.tool === "get_policy_event_sim") ? { ...r.data, choices: await choicesFor(ctx0.q, call.tool) } : r.data;
+  return { tool: call.tool, args: call.args, data, tokens: data === r.data ? r.tokens : approxTokens(serialize(data)), truncated: r.truncated, unregistered: countUnregistered(data) };
+}
+
+/** 고를 수 있는 값(인자 거부·맞는 계약 없음 — v0.1.44): 증권번호는 마스킹, 달은 yyyyMM. */
+async function choicesFor(q: ScopedQuery, tool: string): Promise<string[]> {
+  if (tool === "get_limit") return (await q.all<{ policy_no: string }>("policy_limit", { columns: ["policy_no"], orderBy: "policy_no" })).map((r) => policyMasked(r.policy_no));
+  if (tool === "get_policy_event_sim") return (await q.simStubPolicies("POLICY_EVENT")).map(policyMasked);
+  if (tool === "get_statement") return (await q.all<{ close_ym: string }>("earnings_month", { columns: ["close_ym"], orderBy: "close_ym" })).map((r) => r.close_ym);
+  if (tool === "get_deferrals") {
+    const due = (await q.all<{ due_ym: string }>("deferral_item", { columns: ["due_ym"], distinct: true, orderBy: "due_ym" })).map((r) => r.due_ym);
+    return due.length ? [due[0]!, due.at(-1)!] : [];
+  }
+  return [...TOOL_NAMES];
+}
+
+/**
+ * 인자 거부도 결과로(설계서 v0.1.44 §4.3.1 — 기준선 A-02 TOOL_ARG_REJECTED:get_limit): 그 호출 자리에 거부 사유와 고를 수 있는 값을 넣는다.
+ * get_limit·get_policy_event_sim → 이 설계사의 마스킹 증권번호, get_statement → 명세가 있는 달, get_deferrals → 분급 예정월의 처음·끝, 모르는 툴 → 툴 이름.
+ */
+export async function rejectedResult(q: ScopedQuery, raw: { tool: unknown; args: Record<string, string> }, problem: string): Promise<ToolResult> {
+  const tool = String(raw.tool);
+  const data: ToolData = { rejected: true, problem, choices: [...new Set(await choicesFor(q, tool))] };
+  return { tool: tool as ToolName, args: raw.args, data, tokens: approxTokens(serialize(data)), truncated: false, unregistered: 0 };
 }
 
 export { serialize };

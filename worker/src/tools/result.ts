@@ -8,6 +8,8 @@ export const LIST_CUT = 30;
 
 export interface ToolContext {
   q: ScopedQuery;
+  /** 툴 결과 v2(설계서 v0.1.44 §4.3.1) — 목록을 줄이기 전 모양에 라벨·citable을 붙인다(1,200토큰 상한은 붙인 뒤 모양으로 잰다). */
+  decorate?: (data: ToolData) => ToolData;
 }
 
 export type ToolData = Record<string, unknown>;
@@ -45,6 +47,10 @@ export function fitList<T>(make: (items: readonly T[]) => ToolData, key: string,
     n = Math.floor(n / 2);
   }
 }
+
+/** fitList + ctx.decorate(v2면 붙인 뒤 모양으로 상한을 잰다). */
+export const fitIn = <T>(ctx: ToolContext, make: (items: readonly T[]) => ToolData, key: string, items: readonly T[]) =>
+  fitList(ctx.decorate ? (xs: readonly T[]) => ctx.decorate!(make(xs)) : make, key, items);
 
 const POLICY_NO = /^POL-\d{4}-\d{4,5}$/;
 

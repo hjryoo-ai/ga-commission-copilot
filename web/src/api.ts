@@ -183,7 +183,7 @@ export interface LimitDetail extends Common {
 }
 
 /** 거부 사유(설계서 §4.4 — v0.1.34 PROVIDER_ERROR 추가: 503 공급자 실패의 answer_log 행, 화면 7에서 본다) — 화면은 사유별 고정 문구(서버 text)와 대안 동선만. */
-export type RefuseReason = "OUT_OF_SCOPE" | "NOT_GROUNDED" | "OTHER_AGENT" | "NEEDS_ENGINE" | "BUDGET" | "PROVIDER_ERROR";
+export type RefuseReason = "OUT_OF_SCOPE" | "NOT_GROUNDED" | "OTHER_AGENT" | "NEEDS_ENGINE" | "RULES_UNAVAILABLE" | "BUDGET" | "PROVIDER_ERROR";
 
 /** 답변 인용: 툴 필드(tool·field) 또는 사규 조항(article·chunkId). 다른 쪽 칸은 빈 문자열. */
 export interface Citation {

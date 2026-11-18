@@ -139,13 +139,25 @@ export function usedTokens(v: number | string): { kind: TokenKind; value: string
   return extractTokens(t).map(({ kind, value, raw }) => ({ kind, value, raw }));
 }
 
-/** 컨텍스트 키 경로(G5): "line.amount", "deferrals.0.dueYm" 와 그 모든 접두("deferrals", "deferrals.0"). */
+/** 안정 키 인용(설계서 v0.1.44 §4.3.1)에 쓰는 행 식별 필드 — 목록 원소가 이 키(문자열)를 가지면 순번 대신 `목록[키=값]`으로도 인용할 수 있다. */
+export const STABLE_KEYS = ["calcId", "scheduleId", "ledgerId"] as const;
+
+/**
+ * 컨텍스트 키 경로(G5): "line.amount", "deferrals.0.dueYm" 와 그 모든 접두("deferrals", "deferrals.0").
+ * v0.1.44: 원소에 안정 키가 있으면 같은 경로를 "lines[calcId=l-1].amount" 꼴로도 넣는다(순번 경로는 그대로 — 정확 일치).
+ */
 export function contextKeys(ctx: Json): Set<string> {
   const out = new Set<string>();
   const walk = (v: Json | undefined, path: string) => {
     if (path) out.add(path);
     if (v === null || v === undefined || typeof v !== "object") return;
-    if (Array.isArray(v)) v.forEach((x: Json, i: number) => walk(x, path ? `${path}.${i}` : String(i)));
+    if (Array.isArray(v))
+      v.forEach((x: Json, i: number) => {
+        walk(x, path ? `${path}.${i}` : String(i));
+        if (!path || !x || typeof x !== "object" || Array.isArray(x)) return;
+        const row = x as { readonly [k: string]: Json | undefined };
+        for (const k of STABLE_KEYS) if (typeof row[k] === "string") walk(x, `${path}[${k}=${row[k] as string}]`);
+      });
     else for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k);
   };
   walk(ctx, "");
