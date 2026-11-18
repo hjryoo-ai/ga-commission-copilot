@@ -1,0 +1,65 @@
+# PR #10 eval-on-prompt-change (실행 44301147286, 2026-11-18 12:08–12:24 UTC) — run.log
+
+> @copilot/evals@ eval /home/runner/work/ga-commission-copilot/ga-commission-copilot/evals
+> pnpm run build && node out/run.mjs -- --live --set pr --groq-calls 40 --wai-calls 0 --trigger pr:10
+
+
+> @copilot/evals@ build /home/runner/work/ga-commission-copilot/ga-commission-copilot/evals
+> esbuild src/run.ts --bundle --platform=node --format=esm --target=node24 --loader:.md=text --external:wrangler --outfile=out/run.mjs --log-level=warning
+
+⎔ Establishing remote connection...
+Using secrets defined in ../worker/.dev.vars.record
+[eval] 20261118T121014-pr-10 — 20건(pr), live Groq 40·Workers AI 0 호출, stream fca1971cdbce, PROMPT_VERSIONS explain_line=v6,explain_limit=v6,explain_month=v6,answer=v4,schema_hint=v1
+[eval] 2026-11-18T12:10:48.410Z A-01 groq ✗ GROUNDING 4331ms — 호출 {"groq":2}
+[eval] 2026-11-18T12:11:47.780Z A-02 groq ✗ GROUNDING 2215ms — 호출 {"groq":4}
+[eval] 2026-11-18T12:12:47.888Z A-03 groq ✗ CONTENT 2275ms — 호출 {"groq":6}
+[eval] 2026-11-18T12:13:17.612Z A-04 groq ✗ ERROR Error: groq 400 1170ms — 호출 {"groq":7}
+[eval] 2026-11-18T12:14:18.030Z A-05 groq ✗ CONTENT 2326ms — 호출 {"groq":9}
+[eval] 2026-11-18T12:15:18.550Z A-06 groq ✗ GROUNDING 3165ms — 호출 {"groq":11}
+[eval] 2026-11-18T12:16:17.872Z A-07 groq ✗ CONTENT 2271ms — 호출 {"groq":13}
+[eval] 2026-11-18T12:16:48.104Z A-08 groq ✗ ERROR Error: groq 400 1721ms — 호출 {"groq":14}
+[eval] 2026-11-18T12:17:17.299Z A-09 groq PASS 858ms — 호출 {"groq":15}
+[eval] 2026-11-18T12:17:47.552Z A-10 groq PASS 1121ms — 호출 {"groq":16}
+[eval] 2026-11-18T12:18:17.158Z A-11 groq PASS 697ms — 호출 {"groq":17}
+[eval] 2026-11-18T12:19:17.817Z A-12 groq PASS 2489ms — 호출 {"groq":19}
+[eval] 2026-11-18T12:19:47.258Z G-15 groq ✗ ERROR Error: groq 400 756ms — 호출 {"groq":20}
+[eval] 2026-11-18T12:20:48.252Z G-18 groq ✗ CONTENT 3776ms — 호출 {"groq":22}
+[eval] 2026-11-18T12:21:17.607Z G-31 groq ✗ ERROR Error: groq 400 1163ms — 호출 {"groq":23}
+[eval] 2026-11-18T12:21:47.491Z G-32 groq ✗ REFUSAL 1001ms — 호출 {"groq":24}
+[eval] 2026-11-18T12:22:17.904Z G-43 groq ✗ CONTENT 1532ms — 호출 {"groq":25}
+[eval] 2026-11-18T12:22:47.550Z G-45 groq ✗ CONTENT 1055ms — 호출 {"groq":26}
+[eval] 2026-11-18T12:22:47.558Z G-54 none PASS 8ms — 호출 {"groq":26}
+[eval] 2026-11-18T12:23:17.454Z G-58 groq ✗ TOOL 1048ms — 호출 {"groq":27}
+[answer] 규정 검색 실패 — 규정 없이 툴만으로: rulesUnavailable(eval 모드)
+[eval] 2026-11-18T12:23:47.311Z A-04 (rulesUnavailable) groq PASS 632ms — 호출 {"groq":28}
+[answer] 규정 검색 실패 — 규정 없이 툴만으로: rulesUnavailable(eval 모드)
+[eval] 2026-11-18T12:24:17.129Z A-11 (rulesUnavailable) groq PASS 448ms — 호출 {"groq":29}
+[eval] 요약(normal 20건) {"total":20,"passed":5,"grounding":{"n":10,"pass":7,"rate":70},"refusal":{"n":20,"pass":15,"rate":75},"tool":{"n":12,"pass":8,"rate":66.67},"content":{"n":15,"pass":1,"rate":6.67},"meanLatencyMs":1749}
+[eval]   groq: {"total":19,"passed":4,"grounding":{"n":10,"pass":7,"rate":70},"refusal":{"n":19,"pass":14,"rate":73.68},"tool":{"n":12,"pass":8,"rate":66.67},"content":{"n":15,"pass":1,"rate":6.67},"meanLatencyMs":1841}
+[eval]   none: {"total":1,"passed":1,"grounding":{"n":0,"pass":0,"rate":null},"refusal":{"n":1,"pass":1,"rate":100},"tool":{"n":0,"pass":0,"rate":null},"content":{"n":0,"pass":0,"rate":null},"meanLatencyMs":8}
+[eval] rulesUnavailable(별도 2건) {"total":2,"passed":2,"grounding":{"n":0,"pass":0,"rate":null},"refusal":{"n":2,"pass":2,"rate":100},"tool":{"n":0,"pass":0,"rate":null},"content":{"n":0,"pass":0,"rate":null},"meanLatencyMs":540}
+[eval] → /home/runner/work/ga-commission-copilot/ga-commission-copilot/evals/out/20261118T121014-pr-10
+
+# gate.md
+### eval-on-prompt-change — 실패
+
+런 `20261118T121014-pr-10` · PROMPT_VERSIONS `explain_line=v6,explain_limit=v6,explain_month=v6,answer=v4,schema_hint=v1`
+기준: 최근 3회 과반 12건(A-01 A-02 A-03 A-04 A-05 A-06 A-07 A-08 A-09 A-10 A-11 A-12) · 60문항 런 `20261113T225638-baseline-r1` 8건
+
+| 축 | 기준 통과 / D | 이번 통과 / D | 차이(건) | R1 |
+|---|---|---|---|---|
+| 그라운딩 통과율 | 11/16 | 7/16 | −4 | ✗ |
+| 거부 정확도 | 19/20 | 15/20 | −4 | ✗ |
+| 툴 정확도 | 11/12 | 8/12 | −3 | ✗ |
+| 내용 일치 | 6/15 | 1/15 | −5 | ✗ |
+
+R2 안정 케이스(기준 3회 모두 통과) 6건 중 이번 실패 2건: A-04, A-08 — 2건 이상이면 실패
+통과 5/20 · 오류·미실행 4건. 절대 관문값(THRESHOLDS.md)은 60문항 런에만 표시한다.
+
+**실패 사유**
+- R3 공급자 오류·예산 미실행 4건 — 판정 불가(다시 돌린다)
+- R1 그라운딩 통과율 기준 11/16 → 이번 7/16(4건 하락 — 2건 이상이면 실패)
+- R1 거부 정확도 기준 19/20 → 이번 15/20(4건 하락 — 2건 이상이면 실패)
+- R1 툴 정확도 기준 11/12 → 이번 8/12(3건 하락 — 2건 이상이면 실패)
+- R1 내용 일치 기준 6/15 → 이번 1/15(5건 하락 — 2건 이상이면 실패)
+- R2 안정 케이스 2/6건 실패: A-04, A-08

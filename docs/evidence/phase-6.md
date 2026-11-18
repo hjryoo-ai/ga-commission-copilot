@@ -217,6 +217,19 @@
 - PR 표본 런은 자동 적재되지 않는다(워크플로 적재는 디스패치 + load_remote만). 그래서 "PR 표본 런이 쌓여 3회"는 운영자가 그 런의 load.sql 적재를 승인할 때만 일어난다.
 - /evals 화면에는 관문 규칙 문구가 없다("관문값·목표는 evals/THRESHOLDS.md"만) — 바꾸지 않았다.
 
+## PR-B 첫 관문 실행(PR #10, 2026-11-18 — 실패)
+
+- 운영자 "일단 전부진행"(11-18)으로 `pr-b/tools-v2-answer-v4`를 main 11c8916 위로 다시 올려 푸시 · PR #10. eval-on-prompt-change 실행 44301147286(12:08–12:24 UTC), 런 `20261118T121014-pr-10`, answer=v4, 20문항 표본, Groq 29호출(usage 있는 25호출 입력 70,270 · 출력 5,979, 400 4호출은 usage 없음), 429 0. 전체 출력 `docs/evidence/logs/phase-6-pr-b-eval-1.log`. 적재하지 않았다.
+- **관문 실패**: R3(오류 4건) · R1 네 축(그라운딩 11→7/16, 거부 19→15/20, 툴 11→8/12, 내용 6→1/15) · R2(안정 케이스 A-04 · A-08 — 둘 다 오류). 기준 = v3 부록 A 12건 n=3 과반 + 층화 8건 r1.
+- 케이스별(기준 v3 → v4):
+  - **Groq 400 4건**(A-04 · A-08 · G-15 · G-31, 1단계 첫 호출): v3 런(기준선 60 · r1 · n=3 세 런)에는 Groq 400이 한 번도 없다(원격 eval_case_result 오류는 G-35 Workers AI 타임아웃 2행뿐). 본문은 기록되지 않았다 — `providers.ts`가 429만 본문을 남긴다. Groq 문서는 strict json_schema(gpt-oss-120b)에서 400이 나지 않는다고 하고 재현을 보고해 달라고만 한다. 운영 경로에서 400은 폴백 대상이 아니라(`isFallbackable` = 0·429·5xx) 503 PROVIDER_ERROR가 된다(질문 예산 차감).
+  - **검증기가 막음 3건**(A-01 · A-02 · A-06 → NOT_GROUNDED): 모두 G5 미등록 경로 — `get_statement.lines[calcId=2].{commType,amount,limitCutAmt,limitCutPolicy,requested}`, `get_limit.limitCuts[calcId=…].limitCutAmt`. 툴 결과 v2의 `citable` 틀(`worker/src/tools/v2.ts:68` — "{a,b}" 묶음 · "[calcId=…]" 자리표시)을 모델이 그대로 옮겼다(프롬프트 v4 44행 "citable에 있는 경로"). 숫자가 틀린 것은 아니다(g4Missing 0). A-06은 v3에서도 그라운딩 실패.
+  - **과잉 거부 2건**: G-32(분급 — NEEDS_ENGINE, 툴 없이), G-58(기대 = get_policy_event_sim 확인 뒤 NEEDS_ENGINE, v4는 툴 없이 1단계에서 거부 — 거부 축은 맞고 툴 축 실패).
+  - **내용 2건**: G-43 · G-45(규정 질문, 인용 조항은 맞음 — 핵심 사실 문구 1개씩 없음). r1 한 번 통과 — 분산인지 열화인지는 이 자료로 가리지 못한다.
+  - **나아진 것**: G-54(다른 설계사 ID 서버 가드 — LLM 0, 통과, v3 거부 실패), G-18 그라운딩 통과(내용은 실패), rulesUnavailable A-04 · A-11 2/2(A-04 RULES_UNAVAILABLE).
+- 보고 항목: A-10 LLM 1호출(1단계 OTHER_AGENT 거부, 입력 3,055 · 출력 84 — "B설계사"는 `A-\d{4}` 형식이 아니라 서버 가드 밖) · G6 누출 0건(필드 없음) · 토큰(usage 실측): 1단계 입력 2,734–3,156, 2단계 2,493–3,787, 질문 합 최대 G-18 8,004(입력 6,943 + 출력 1,061) — 상한(질문 7,500 · 호출당 입력 3,600, 부록 A 12건 기준) 안: 부록 A 최대 A-01 6,385, 밖: G-18(층화, 2단계 입력 3,787).
+- 기준 중 층화 8건은 r1 한 번이다(알려진 한계).
+
 ## 첫 실런 계획(운영자 2026-11-11)
 
 - 60문항 전체 1회, 주간 방식(Groq 50 + Workers AI 60 호출, 둘 다 gpt-oss-120b) — 기준선. 이 녹화가 `--stub`의 60건 카세트(`evals/vcr/eval.json`)가 된다. 결과를 eval_run에 적재하고 THRESHOLDS.md 초기 임계치를 이 런으로(§13.1 수치는 목표, 초기 임계치는 기준선 − 3%p를 넘지 않게).
