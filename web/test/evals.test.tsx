@@ -65,7 +65,7 @@ describe("화면 5 평가 리포트", () => {
   });
 
   it("추이 차트: 범례 4축 + 끝 직접 라벨(최근 런 값), 런 표에 같은 숫자(색만으로 읽지 않게)", () => {
-    const report: EvalsReport = { runs: [r1, base], variance: null, disclaimer: "" };
+    const report: EvalsReport = { runs: [r1, base], gate: { grounding: 52.2, refusal: 80.3, tool: 63.6, content: 25.8 }, gateRevert: null, variance: null, disclaimer: "" };
     const html = renderToStaticMarkup(<EvalsView r={report} />);
     for (const label of ["그라운딩", "거부", "툴", "내용"]) expect(html).toContain(`</span>${label}</li>`);
     expect(html).toContain("그라운딩 55.26%");
@@ -98,6 +98,8 @@ describe("화면 5 평가 리포트", () => {
   it("n=3 분산: 케이스별 통과/실패·통과 횟수, n회 중 n-1회 이하는 v4 대상", () => {
     const report: EvalsReport = {
       runs: [base],
+      gate: { grounding: 52.2, refusal: 80.3, tool: 63.6, content: 25.8 },
+      gateRevert: null,
       variance: {
         promptVersions: { answer: "v3", schema_hint: "v1" },
         runs: ["2026-11-15", "2026-11-16", "2026-11-17"].map((d) => ({ runId: `x-${d}`, startedAt: `${d}T00:10:00Z`, trigger: `variance:${d}` })),
@@ -160,5 +162,19 @@ describe("화면 5 평가 리포트", () => {
     );
     expect(failureBrief(c({ missingFacts: [], forbiddenHits: [], refused: false, error: "Error: workers-ai: 15000ms 타임아웃", violations: null }))).toBe("오류 Error: workers-ai: 15000ms 타임아웃");
     expect(failureBrief(c({ caseId: "G-54", missingFacts: [], forbiddenHits: [], refused: true, reason: "OUT_OF_SCOPE", expectRefusal: true, expectReason: "OTHER_AGENT", violations: null }))).toBe("거부 OUT_OF_SCOPE (기대 OTHER_AGENT)");
+  });
+
+  it("관문값은 60문항 런에만 — 미달 런에 표시, 같은 버전 2회 연속 미달이면 경고(설계서 v0.1.46·v0.1.47)", () => {
+    const gate = { grounding: 52.2, refusal: 80.3, tool: 63.6, content: 25.8 };
+    const v4 = (id: string, at: string, g: number) => ({ ...run(id, at, "weekly", { grounding: g, refusal: 0.9, tool: 0.7, content: 0.3 }, 20), promptVersions: { answer: "v4", schema_hint: "v1" }, belowGate: g < 0.522 ? [{ axis: "grounding" as const, rate: g, value: 52.2 }] : [] });
+    const w2 = v4("20261122T030000-weekly", "2026-11-22T03:00:00.000Z", 0.5);
+    const w1 = v4("20261119T030000-baseline", "2026-11-19T03:00:00.000Z", 0.6);
+    const once = renderToStaticMarkup(<EvalsView r={{ runs: [w2, w1, { ...r1, belowGate: [] }], variance: null, gate, gateRevert: null }} />);
+    expect(once).toContain("관문값(60문항 런에만 — PR 표본은 케이스별 기준 대비 건수로 판정): 그라운딩 52.2% · 거부 80.3% · 툴 63.6% · 내용 25.8%");
+    expect(once.match(/data-testid="below-gate"/g)).toHaveLength(1);
+    expect(once).toContain("그라운딩 50% &lt; 52.2%");
+    expect(once).not.toContain("gate-revert");
+    const twice = renderToStaticMarkup(<EvalsView r={{ runs: [w2, w1], variance: null, gate, gateRevert: { promptVersions: w2.promptVersions, runIds: [w2.runId, w1.runId] } }} />);
+    expect(twice).toContain("answer v4 · schema_hint v1 60문항 런 2회 연속 관문값 미달(20261122T030000-weekly, 20261119T030000-baseline) — 그 버전을 되돌리는 PR 대상");
   });
 });

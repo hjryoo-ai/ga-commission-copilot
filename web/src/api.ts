@@ -293,6 +293,20 @@ export interface EvalRunSummary {
   /** 평균 지연에 하네스 대기(Groq 호출 간격)가 들어 있다 — 기준선·r1. */
   latencyIncludesWait: boolean;
   rulesUnavailable: { total: number; passed: number };
+  /** 목록에서만(설계서 v0.1.47): 유효 60문항 런이면 관문값 미달 축(없으면 빈 배열), 아니면 null. */
+  belowGate?: EvalBelowGate[] | null;
+}
+export interface EvalBelowGate {
+  axis: keyof EvalRates;
+  /** 0~1 */
+  rate: number;
+  /** 관문값(%) */
+  value: number;
+}
+export type EvalGate = Record<keyof EvalRates, number>;
+export interface EvalGateRevert {
+  promptVersions: Record<string, string>;
+  runIds: string[];
 }
 export interface EvalVariance {
   promptVersions: Record<string, string>;
@@ -302,6 +316,10 @@ export interface EvalVariance {
 }
 export interface EvalsReport {
   runs: EvalRunSummary[];
+  /** 관문값(%) — evals/THRESHOLDS.md, 60문항 런에만(설계서 v0.1.46). */
+  gate: EvalGate;
+  /** 같은 버전 최근 유효 60문항 런 2개 연속 미달 — 되돌리는 PR 대상. */
+  gateRevert: EvalGateRevert | null;
   variance: EvalVariance | null;
   disclaimer: string;
 }

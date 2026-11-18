@@ -4,6 +4,7 @@
 // 질문 문장은 골든 파일(evals/cases.jsonl — 동결, GOLDEN-REVIEW.md)에서 — eval 행에는 질문이 없다.
 import { Hono } from "hono";
 import goldenText from "../../../evals/cases.jsonl";
+import thresholdsText from "../../../evals/THRESHOLDS.md";
 import { type EvalCaseRow, type EvalRunRow, evalCases, evalRun, evalRuns, evalRunsByTriggerPrefix } from "../db/ScopedQuery";
 import { DISCLAIMER, notFound } from "./http";
 
@@ -13,6 +14,41 @@ const RECENT = 12;
 const VARIANCE_N = 3;
 const TEXT_MAX = 600;
 export const BUCKETS = ["line", "limit", "deferral", "rule", "refusal"] as const;
+export const GATE_AXES = ["grounding", "refusal", "tool", "content"] as const;
+type GateAxis = (typeof GATE_AXES)[number];
+const GATE_LABEL: Record<GateAxis, string> = { grounding: "그라운딩 통과율", refusal: "거부 정확도", tool: "툴 정확도", content: "내용 일치" };
+
+/** 관문값(%) — evals/THRESHOLDS.md "축과 관문값" 표(evals/src/score.ts readThresholds와 같은 행). 60문항 런에만 쓴다(설계서 v0.1.46·v0.1.47). */
+export function parseGate(md: string): Record<GateAxis, number> {
+  return Object.fromEntries(
+    GATE_AXES.map((k) => {
+      const m = md.match(new RegExp(`\\| ${GATE_LABEL[k]} \\|[^\\n]*?\\| ≥ ([0-9.]+)% \\|`));
+      if (!m) throw new Error(`THRESHOLDS.md: ${GATE_LABEL[k]} 행 없음`);
+      return [k, Number(m[1])];
+    }),
+  ) as Record<GateAxis, number>;
+}
+const GATE = parseGate(thresholdsText);
+
+/** 유효 60문항 런 = baseline·weekly와 그 재채점, normal 60건 이상 — 같은 원본의 더 새 재채점이 목록에 있으면 원본(·옛 재채점)은 아니다. */
+const FULL_TRIGGER = /^(rescore:)?(baseline|weekly)$/;
+const rescoreBase = (runId: string, trigger: string) => (trigger.startsWith("rescore:") ? runId.replace(/-r\d+$/, "") : runId);
+const rescoreN = (runId: string, trigger: string) => (trigger.startsWith("rescore:") ? Number(runId.match(/-r(\d+)$/)?.[1] ?? 0) : -1);
+export function effectiveFull(runs: readonly { runId: string; trigger: string; total: number }[]): Set<string> {
+  const best = new Map<string, { runId: string; n: number }>();
+  for (const r of runs) {
+    if (!FULL_TRIGGER.test(r.trigger) || r.total < 60) continue;
+    const b = rescoreBase(r.runId, r.trigger);
+    const n = rescoreN(r.runId, r.trigger);
+    if ((best.get(b)?.n ?? -2) < n) best.set(b, { runId: r.runId, n });
+  }
+  return new Set([...best.values()].map((x) => x.runId));
+}
+
+/** 율(0~1)과 관문값(%) 비교 — 미달 축만. 분모 0인 축(율 null)은 보지 않는다. */
+export function belowGate(rates: Record<GateAxis, number | null>) {
+  return GATE_AXES.filter((k) => rates[k] !== null && Math.round(rates[k]! * 10000) / 100 < GATE[k]).map((k) => ({ axis: k, rate: rates[k]!, value: GATE[k] }));
+}
 
 const golden: ReadonlyMap<string, string> = new Map(
   goldenText
@@ -159,8 +195,16 @@ evals.get("/", async (c) => {
   const rows = (await evalCases(c.env.DB, ids)).map((r) => ({ ...parse(r), runId: r.run_id }));
   const byRun = new Map<string, Parsed[]>();
   for (const r of rows) (byRun.get(r.runId) ?? byRun.set(r.runId, []).get(r.runId)!).push(r);
+  const summaries = runs.map((r) => runSummary(r, byRun.get(r.run_id) ?? []));
+  const full = effectiveFull(summaries);
+  const listed = summaries.map((s) => ({ ...s, belowGate: full.has(s.runId) ? belowGate(s.rates) : null }));
+  // 되돌리는 PR 대상(v0.1.46): 가장 최근 유효 60문항 런과 같은 PROMPT_VERSIONS의 최근 유효 60문항 런 2개가 모두 미달(목록은 최근 순)
+  const fulls = listed.filter((s) => s.belowGate !== null);
+  const pv = fulls[0] ? JSON.stringify(fulls[0].promptVersions) : null;
+  const lastTwo = fulls.filter((s) => JSON.stringify(s.promptVersions) === pv).slice(0, 2);
+  const gateRevert = lastTwo.length === 2 && lastTwo.every((s) => s.belowGate!.length > 0) ? { promptVersions: lastTwo[0]!.promptVersions, runIds: lastTwo.map((s) => s.runId) } : null;
   return c.json(
-    { runs: runs.map((r) => runSummary(r, byRun.get(r.run_id) ?? [])), variance: variance(vSame, rows), disclaimer: DISCLAIMER },
+    { runs: listed, gate: GATE, gateRevert, variance: variance(vSame, rows), disclaimer: DISCLAIMER },
     200,
     { "Cache-Control": "public, max-age=60" },
   );
