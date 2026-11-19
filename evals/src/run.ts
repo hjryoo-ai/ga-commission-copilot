@@ -12,6 +12,7 @@ import { activeStream, DEMO_TENANT, rulebookChunks, ScopedQuery } from "../../wo
 import { type AnswerDeps, type AnswerResult, answerQuestion, cloudflareDeps } from "../../worker/src/llm/answer";
 import { activePrompt } from "../../worker/src/llm/promptRegistry";
 import { groq, type Provider, ProviderError, type ProviderName, requestHash, type StructuredRequest, type StructuredResponse, traced, workersAi } from "../../worker/src/llm/providers";
+import { reserveDevCall } from "../../gen/providers/budget";
 import { assignProviders, weekParity } from "./assign";
 import { type CallUsage, type CaseRun, type EvalCase, expectFor, scoreCase, summarize, type TokenTotals, tokenTotals } from "./score";
 
@@ -26,6 +27,14 @@ const set = arg("--set") ?? "all";
 const caps: Record<"groq" | "workers-ai", number> = { groq: Number(arg("--groq-calls") ?? 50), "workers-ai": Number(arg("--wai-calls") ?? 60) };
 const trigger = arg("--trigger") ?? "manual";
 const GROQ_GAP_MS = Number(arg("--groq-gap-ms") ?? 30_000); // TPM 8K ÷ 호출당 약 3.5K → 분당 2회 남짓
+// 진단용(운영자 2026-11-18 — Groq 400 로컬 재현): 활성 버전 대신 이 PROMPT_VERSIONS로, 케이스마다 첫 호출(1단계)만, 실호출마다 dev 예산 1 차감
+const pvOverride = arg("--prompt-versions");
+if (pvOverride !== undefined && !/^[a-z_]+=v[0-9]+(,[a-z_]+=v[0-9]+)*$/.test(pvOverride)) throw new Error(`--prompt-versions 형식: ${pvOverride}`);
+const stage1Only = args.includes("--stage1-only");
+const devBudget = args.includes("--dev-budget");
+const normalOnly = args.includes("--normal-only");
+/** 이번 케이스에서 공급자에 보낸 호출 수(--stage1-only가 두 번째부터 막는다). */
+const caseCalls = { n: 0 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const allCases = readFileSync(join(ROOT, "evals/cases.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as EvalCase);
@@ -53,6 +62,9 @@ function evalProvider(p: Provider, used: Record<string, number>): Provider {
           }
           last = Date.now();
         }
+        if (stage1Only && caseCalls.n >= 1) throw new ProviderError("--stage1-only — 2단계 미실행(호출 없음)", 0);
+        if (devBudget && live) reserveDevCall();
+        caseCalls.n++;
         used[p.name] = (used[p.name] ?? 0) + 1;
         try {
           const res = await p.structured({ ...req, skipCache: true });
@@ -159,6 +171,8 @@ async function main() {
   const { getPlatformProxy } = await import("wrangler");
   const proxy = await getPlatformProxy<Env>({ configPath: join(ROOT, "worker/wrangler.jsonc"), environment: "record", envFiles: [".dev.vars.record"], persist: { path: join(ROOT, "worker/.wrangler/state/v3") }, remoteBindings: live });
   const env = proxy.env;
+  // wrangler types가 vars 값을 리터럴 타입으로 만든다 — 진단 덮어쓰기만 string으로
+  if (pvOverride) (env as { PROMPT_VERSIONS: string }).PROMPT_VERSIONS = pvOverride;
   try {
     if (rescore) {
       const src = resolve(rescore);
@@ -213,7 +227,7 @@ async function main() {
     const runs: Scored[] = [];
     console.log(`[eval] ${runId} — ${cases.length}건(${set}), ${live ? `live Groq ${caps.groq}·Workers AI ${caps["workers-ai"]} 호출` : "stub"}, stream ${stream.streamHash.slice(0, 12)}, PROMPT_VERSIONS ${env.PROMPT_VERSIONS}`);
     // 기준선(normal)을 먼저 다 돌리고 rulesUnavailable 모드를 뒤에 — 상한이 모자라면 별도 집계 쪽이 빠지게(운영자 11-13)
-    const order = (["normal", "rulesUnavailable"] as const).flatMap((mode) => cases.filter((c) => c.modes.includes(mode)).map((c) => ({ c, mode })));
+    const order = (normalOnly ? (["normal"] as const) : (["normal", "rulesUnavailable"] as const)).flatMap((mode) => cases.filter((c) => c.modes.includes(mode)).map((c) => ({ c, mode })));
     // 공급자 배정(운영자 2026-11-14): 유형마다 상한 비율대로 번갈아 — 앞 N건 몰아주기면 모델 비교가 문항 유형과 섞인다. offset = ISO 주 홀짝
     const assignOffset = Number(arg("--assign-offset") ?? weekParity(new Date(startedAt)));
     const assigned = assignProviders(order, caps, assignOffset);
@@ -232,12 +246,13 @@ async function main() {
         const t0 = Date.now();
         const w0 = waited.ms;
         const u0 = usageLog.length;
+        caseCalls.n = 0;
         const took = () => Date.now() - t0 - (waited.ms - w0);
         try {
           const r: AnswerResult = await answerQuestion(deps, q, env, c.question);
           run = { ...run, answerId: r.answerId, at: new Date().toISOString(), provider: r.provider, model: r.model, refused: r.refused, reason: r.reason, groundingStatus: r.groundingStatus, text: r.text, toolCalls: r.toolCalls.map((t) => ({ tool: t.tool, args: t.args as Record<string, string> })), citedArticles: r.citations.filter((x) => x.kind === "rule").map((x) => x.article), violations: r.grounding, rulesUnavailable: r.rulesUnavailable, latencyMs: took(), latencyExcludesWait: true };
         } catch (e) {
-          run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 200)}`, latencyMs: took(), latencyExcludesWait: true };
+          run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 400)}`, latencyMs: took(), latencyExcludesWait: true };
         }
         run = { ...run, usage: usageLog.slice(u0) };
       }

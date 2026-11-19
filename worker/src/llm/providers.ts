@@ -42,6 +42,38 @@ export interface StructuredResponse {
   viaGateway?: boolean;
 }
 
+/** 4xx(429 제외) 응답 본문의 오류 종류·코드·메시지(운영자 2026-11-18 — Groq 400 원인 진단). 모델 생성문(failed_generation)은 담지 않는다. */
+export interface ErrorDetail {
+  type: string | null;
+  code: string | null;
+  message: string | null;
+}
+
+const MESSAGE_MAX = 300;
+const QUOTED_MAX = 40;
+
+/**
+ * OpenAI 호환 오류 본문({error:{type,code,message,…}}) → ErrorDetail. failed_generation 등 다른 칸은 읽지 않는다.
+ * 메시지 안에 큰따옴표·백틱으로 실린 40자 이상 조각(모델이 만든 문장·JSON일 수 있다)은 "…"로 바꾸고 300자에서 자른다.
+ */
+export function errorDetail(body: string): ErrorDetail | null {
+  let o: unknown;
+  try {
+    o = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  const e = (o && typeof o === "object" && "error" in o ? (o as { error: unknown }).error : o) as Record<string, unknown> | null;
+  if (!e || typeof e !== "object") return null;
+  const str = (v: unknown) => (typeof v === "string" && v ? v : typeof v === "number" ? String(v) : null);
+  const message = str(e.message)
+    // 작은따옴표는 스키마 위치('/citations/0' 등)에 쓰여 짝이 엇갈리므로 건드리지 않는다 — 생성문은 큰따옴표 JSON 문자열·백틱으로 실린다
+    ?.replace(new RegExp(`"[^"]{${QUOTED_MAX},}"|\`[^\`]{${QUOTED_MAX},}\``, "g"), '"…"')
+    .replace(/\s+/g, " ")
+    .slice(0, MESSAGE_MAX);
+  return { type: str(e.type), code: str(e.code), message: message ?? null };
+}
+
 /** 공급자 오류. status 429·5xx·0(타임아웃·네트워크)은 Phase 5 폴백 대상, 그 밖은 요청 문제. */
 export class ProviderError extends Error {
   constructor(
@@ -50,6 +82,8 @@ export class ProviderError extends Error {
     readonly retryAfterS: number | null = null,
     /** 429일 때 x-ratelimit-* 헤더와 본문 앞부분(설계서 §14.1-2 Groq TPD 창 실측 — 평가 하네스가 기록한다). */
     readonly rateLimit: { headers: Record<string, string>; body: string } | null = null,
+    /** 4xx(429 제외)일 때 본문의 오류 종류·코드·메시지(errorDetail — 모델 생성문 없음). */
+    readonly detail: ErrorDetail | null = null,
   ) {
     super(message);
   }
@@ -163,11 +197,11 @@ function openAiCompatible(
       res ??= await direct();
       if (!res.ok) {
         const retry = res.headers.get("retry-after");
-        const rateLimit =
-          res.status === 429
-            ? { headers: Object.fromEntries([...res.headers].filter(([k]) => k.startsWith("x-ratelimit-") || k === "retry-after")), body: (await res.text().catch(() => "")).slice(0, 400) }
-            : null;
-        throw new ProviderError(`${name} ${res.status}`, res.status, retry ? Number(retry) : null, rateLimit);
+        const text = res.status >= 400 && res.status < 500 ? await res.text().catch(() => "") : "";
+        const rateLimit = res.status === 429 ? { headers: Object.fromEntries([...res.headers].filter(([k]) => k.startsWith("x-ratelimit-") || k === "retry-after")), body: text.slice(0, 400) } : null;
+        const detail = res.status !== 429 && text ? errorDetail(text) : null;
+        const tag = detail?.code ?? detail?.type;
+        throw new ProviderError(`${name} ${res.status}${tag ? ` ${tag}` : ""}${detail?.message ? `: ${detail.message}` : ""}`, res.status, retry ? Number(retry) : null, rateLimit, detail);
       }
       const b = (await res.json()) as { model: string; usage?: StructuredResponse["usage"]; choices: { message: { content: string | null } }[] };
       const cacheStatus = res.headers.get("cf-aig-cache-status");
@@ -285,6 +319,11 @@ export function failureKind(e: ProviderError): string {
   const code = m.match(/^workers-ai: .*?\b([0-9]{4})\b/)?.[1];
   if (code) return `ai_${code}`;
   if (e.status >= 500) return "upstream";
+  // 4xx(429 제외 — 운영자 2026-11-18): http<상태>_<코드 또는 종류>, 본문이 없으면 http<상태>
+  if (e.status >= 400 && e.status < 500) {
+    const tag = (e.detail?.code ?? e.detail?.type ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
+    return `http${e.status}${tag ? `_${tag}` : ""}`;
+  }
   return "other";
 }
 
