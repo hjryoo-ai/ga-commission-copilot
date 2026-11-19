@@ -234,6 +234,56 @@
 - 보고 항목: A-10 LLM 1호출(1단계 OTHER_AGENT 거부, 입력 3,055 · 출력 84 — "B설계사"는 `A-\d{4}` 형식이 아니라 서버 가드 밖) · G6 누출 0건(필드 없음) · 토큰(usage 실측): 1단계 입력 2,734–3,156, 2단계 2,493–3,787, 질문 합 최대 G-18 8,004(입력 6,943 + 출력 1,061) — 상한(질문 7,500 · 호출당 입력 3,600, 부록 A 12건 기준) 안: 부록 A 최대 A-01 6,385, 밖: G-18(층화, 2단계 입력 3,787).
 - 기준 중 층화 8건은 r1 한 번이다(알려진 한계).
 
+## PR #10 머지 사고(2026-11-18, 사실만)
+
+| 시각(UTC) | 일 |
+|---|---|
+| 12:34:41 | PR #11 머지(운영자 계정) → main efdc41e |
+| 12:34:55 | PR #10 머지(운영자 계정) → main 50552f1 — 필수 체크 eval-on-prompt-change **실패 상태**. 보호 규칙이 관리자에게 적용되지 않았다(`enforce_admins` false) |
+| 12:35:56 | 배포(버전 be8ca291) — 운영이 answer=v4 서빙 |
+| 12:45:01 | PR #12(되돌림 — e61003b만 revert) 머지 → main 9d79e15 |
+| 12:45:30 | 배포(버전 55e71f27) — PROMPT_VERSIONS `…answer=v3…` |
+
+- 그 사이 공개 질문 **0건**, 503 **0건**: 원격 answer_log 마지막 행 2026-11-11T11:45Z, budget_counter에 2026-11-18 행 없음(공개 /budget 오늘 질문 0 · 호출 0).
+- 조치: 관리자 우회 차단 — 운영자가 설정한다. 2026-11-19 11:07 UTC 확인: `gh api repos/…/branches/main/protection` → `{"checks":[{"app_id":15368,"context":"eval-on-prompt-change"}],"enforce_admins":false,"strict":false}`, rulesets 0 — **아직 설정 전**. 설정되면 같은 명령 결과를 여기 붙인다.
+- 항목 6: "PR #10 차단을 완료 기준 2의 증거로"(운영자 2026-11-18)는 **철회**(운영자 2026-11-19). 보호 규칙을 고친 뒤 의도한 열화 PR로 차단을 캡처한다(v5 머지 뒤).
+
+### 되돌림 뒤 확인(2026-11-18~19, LLM 호출 0)
+
+| 확인 | 결과 |
+|---|---|
+| 배포된 /me promptVersions | `answer: v3`(데모 세션 쿠키로 GET /api/v1/me — explain_* v6 · schema_hint v1) |
+| /budget 오류 카운터(v4 구간 groq 400) | 0 — 그 구간에 공개 질문이 없었다(위) |
+| 기준선 카세트 stub 재생(--stub --set all, v3) vs r1 | 64행 중 2행만 다르다: **G-54**(다른 설계사 ID 가드 — LLM 없이 OTHER_AGENT, 통과로 바뀜), G-35(점수 같음 — 공급자 표기만 workers-ai → groq, r1에서 Workers AI 타임아웃 오류). v5 브랜치(fitStage2·citable 변경 뒤)에서 `--prompt-versions …answer=v3…`로 다시 돌려도 같다(G-54만) |
+| 관문 기준 조회(v3) | 156행 · 5런(n=3 세 런 · r1 · 원본 기준선) — 부록 A 12건 = 과반(안정 A-04 · A-08~A-12), 층화 8건 = r1. pr:10(v4) 행은 들어오지 않는다 |
+
+v3에서도 동작하는 PR-B 코드(버전과 무관한 경로):
+
+| 코드 | v3에서 | 근거 |
+|---|---|---|
+| 다른 설계사 ID 서버 가드(ask.ts — `A-\d{4}` ≠ 본인이면 LLM 없이 OTHER_AGENT, 예산 미차감) | 동작 | stub 재생 G-54 |
+| 2단계 캐시 키 `:2:<결과 해시>`(1단계 툴 결과가 비어도) | 동작 — 데이터가 빈 2단계만 키가 바뀐다 | answer.ts |
+| G5 안정 키 경로(`lines[calcId=…]` 꼴도 받음, 순번 경로는 그대로) | 동작 — 받는 경로가 늘 뿐 | stub 재생 차이 없음 |
+| load:d1 재검사의 라벨 표 대조 | 적재 때 동작(버전 무관) | gen/load/flow.ts |
+| 화면 RULES_UNAVAILABLE 거부 라벨 · /budget 문구 | 화면만 | — |
+| 툴 결과 v2(라벨·citable) · RULES_UNAVAILABLE 응답 · 단계 구역 · llmCalls · label:unregistered | 동작 안 함 — v4·v5 frontmatter(`tool_results: v2`, contracts/answer/v2)일 때만 | v3 frontmatter |
+| 2단계 합계 예산 fitStage2(v5 브랜치에서 새로) | 동작 안 함 — 툴 결과 v2 프롬프트만 | 활성 v3의 2단계 녹화를 바꾸지 않게 |
+
+### Groq 400 로컬 재현(2026-11-18, answer=v4, 1단계만, dev 예산 8호출 — `docs/evidence/logs/phase-6-groq-400-repro.log`)
+
+- 두 번째 패스: A-04 · A-08 `json_validate_failed` — `'/citations/0' does not validate with /properties/citations/items/required: missing properties: 'tool'`, G-15 `json_validate_failed` — `'/toolCalls/0/args' … missing properties: 'policyNo', 'from', 'to'`, G-31 1단계 성공. 첫 패스는 A-04만 같은 400(나머지 1단계 성공) — 확률적.
+- 공통점: **모델이 스키마의 필수 키를 빼고 냈다**(해당 없는 칸 — 규정 인용의 tool, 쓰지 않는 툴 인자). 바로 답하는 경로(A-04 · A-08 — 규정 인용)와 툴 호출 경로(G-15) 둘 다. 요청·스키마 문제가 아니다 — contracts/answer/v2는 v1과 reason 열거만 다르고(필수 키 같음), v3(같은 필수 키)은 기준선·n=3에서 400이 0건. v4에서 v3 규칙 6 "출력은 JSON 스키마를 따른다"가 빠졌다.
+- strict json_schema(gpt-oss-120b)인데도 Groq가 생성 뒤 검증에서 400을 냈다(Groq 문서는 strict에서 오류가 없다고 한다).
+- 처리: v5 규칙 4 "모든 칸을 빠짐없이"(예 포함). 모델 출력이 스키마 검증에 걸린 경우를 공급자 실패로 보고 다음 공급자로 넘기는 안(§6.2 "4xx는 넘기지 않는다" 수정)은 운영자 결정 대기 — 보고에 설계서 문구 안을 붙였다.
+
+### 토큰 오프라인 측정(2026-11-19 — `docs/evidence/logs/phase-6-tokens-v5.log`, `pnpm --dir evals run tokens`)
+
+- 방법: 기준선 카세트(answer/v3 녹화)의 1단계 규정 청크 id와 1단계 툴 호출로 지금 코드의 툴·프롬프트 본문을 다시 만들어 o200k + 고정분(v1 584 · v2 559). 검증: answer/v3로 다시 만들면 카세트 prompt_tokens와 Groq 건 정확히 일치, Workers AI 건 +2.
+- answer/v5(63건 — G-35는 기준선 녹화 없음): 1단계 2,525–3,542, 2단계 2,415–3,787 → fitStage2 뒤 2,415–3,215, 질문 합 최대 7,569(G-17) → 7,098. 넘는 건: 전 G-17(2단계 3,787 · 질문 7,569) → 후 없음.
+- PR #10의 툴 호출로(G-18 get_statement 202705 · 202805, 출력은 PR #10 실측): G-18 2단계 4,233 → 3,198, 질문 합 8,800 → **7,765**(1단계 입·출력 4,094 — 결과 머리만 남아도 넘는다). 2단계 규정 청크 6 → 4개면 3,198 → 2,853, 2개면 2,453(질문 합 약 7,420 · 7,020).
+- answer/v3(지금 활성, fitStage2 미적용): 2단계 3,600 넘는 건 G-17 3,918 · G-19 4,152 · G-22 3,714 · G-23 3,725 · G-27 3,721, 질문 7,500 넘는 건 G-17 · G-19 8,130 · G-22 · G-23.
+- 서버 추정(estimateTokens — ASCII 2.8 · 그 밖 1.2자/토큰) ÷ o200k: 툴 결과 1.04–1.19 · 고정분 1.03–1.07(못 미치는 표본 없음). 결과당 1,200 규칙의 approxTokens는 1.17–1.35.
+
 ## 첫 실런 계획(운영자 2026-11-11)
 
 - 60문항 전체 1회, 주간 방식(Groq 50 + Workers AI 60 호출, 둘 다 gpt-oss-120b) — 기준선. 이 녹화가 `--stub`의 60건 카세트(`evals/vcr/eval.json`)가 된다. 결과를 eval_run에 적재하고 THRESHOLDS.md 초기 임계치를 이 런으로(§13.1 수치는 목표, 초기 임계치는 기준선 − 3%p를 넘지 않게).
