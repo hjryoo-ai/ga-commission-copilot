@@ -50,11 +50,13 @@ export interface ErrorDetail {
 }
 
 const MESSAGE_MAX = 300;
-const QUOTED_MAX = 40;
+/** 작은따옴표 조각 중 스키마 위치·키 이름처럼 보이는 것만 남긴다('/citations/0', 'tool', 'policyNo'). */
+const SCHEMA_TOKEN = /^[A-Za-z0-9_/#.\-]{1,64}$/;
 
 /**
  * OpenAI 호환 오류 본문({error:{type,code,message,…}}) → ErrorDetail. failed_generation 등 다른 칸은 읽지 않는다.
- * 메시지 안에 큰따옴표·백틱으로 실린 40자 이상 조각(모델이 만든 문장·JSON일 수 있다)은 "…"로 바꾸고 300자에서 자른다.
+ * 메시지는 생성문이 실릴 수 있어 정제한다: 큰따옴표·백틱 조각과 {…}·[…] 조각은 길이와 관계없이 "…", 작은따옴표 조각은 스키마 위치·키 이름 꼴만 남기고
+ * 나머지는 '…', 300자에서 자른다. 정제한 메시지도 ProviderError.message(운영 로그)에는 넣지 않는다 — detail에만, 평가 하네스가 기록한다.
  */
 export function errorDetail(body: string): ErrorDetail | null {
   let o: unknown;
@@ -67,8 +69,9 @@ export function errorDetail(body: string): ErrorDetail | null {
   if (!e || typeof e !== "object") return null;
   const str = (v: unknown) => (typeof v === "string" && v ? v : typeof v === "number" ? String(v) : null);
   const message = str(e.message)
-    // 작은따옴표는 스키마 위치('/citations/0' 등)에 쓰여 짝이 엇갈리므로 건드리지 않는다 — 생성문은 큰따옴표 JSON 문자열·백틱으로 실린다
-    ?.replace(new RegExp(`"[^"]{${QUOTED_MAX},}"|\`[^\`]{${QUOTED_MAX},}\``, "g"), '"…"')
+    ?.replace(/"[^"]*"|`[^`]*`/g, '"…"')
+    .replace(/\{[^{}]*\}|\[[^[\]]*\]/g, "{…}")
+    .replace(/'([^']*)'/g, (m, x: string) => (SCHEMA_TOKEN.test(x) ? m : "'…'"))
     .replace(/\s+/g, " ")
     .slice(0, MESSAGE_MAX);
   return { type: str(e.type), code: str(e.code), message: message ?? null };
@@ -201,7 +204,8 @@ function openAiCompatible(
         const rateLimit = res.status === 429 ? { headers: Object.fromEntries([...res.headers].filter(([k]) => k.startsWith("x-ratelimit-") || k === "retry-after")), body: text.slice(0, 400) } : null;
         const detail = res.status !== 429 && text ? errorDetail(text) : null;
         const tag = detail?.code ?? detail?.type;
-        throw new ProviderError(`${name} ${res.status}${tag ? ` ${tag}` : ""}${detail?.message ? `: ${detail.message}` : ""}`, res.status, retry ? Number(retry) : null, rateLimit, detail);
+        // 운영 로그에 실리는 message에는 공급자·상태·코드만 — 정제한 메시지는 detail에만(평가 하네스가 기록)
+        throw new ProviderError(`${name} ${res.status}${tag ? ` ${tag}` : ""}`, res.status, retry ? Number(retry) : null, rateLimit, detail);
       }
       const b = (await res.json()) as { model: string; usage?: StructuredResponse["usage"]; choices: { message: { content: string | null } }[] };
       const cacheStatus = res.headers.get("cf-aig-cache-status");

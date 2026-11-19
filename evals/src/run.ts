@@ -252,7 +252,7 @@ async function main() {
           const r: AnswerResult = await answerQuestion(deps, q, env, c.question);
           run = { ...run, answerId: r.answerId, at: new Date().toISOString(), provider: r.provider, model: r.model, refused: r.refused, reason: r.reason, groundingStatus: r.groundingStatus, text: r.text, toolCalls: r.toolCalls.map((t) => ({ tool: t.tool, args: t.args as Record<string, string> })), citedArticles: r.citations.filter((x) => x.kind === "rule").map((x) => x.article), violations: r.grounding, rulesUnavailable: r.rulesUnavailable, latencyMs: took(), latencyExcludesWait: true };
         } catch (e) {
-          run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 400)}`, latencyMs: took(), latencyExcludesWait: true };
+          run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 200)}${e instanceof ProviderError && e.detail?.message ? ` — ${e.detail.message}` : ""}`, latencyMs: took(), latencyExcludesWait: true };
         }
         run = { ...run, usage: usageLog.slice(u0) };
       }

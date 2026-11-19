@@ -114,12 +114,12 @@ describe("폴백 체인", () => {
     expect(failureKind(new ProviderError("groq 413", 413, null, null, { type: "Invalid Request Error", code: null, message: null }))).toBe("http413_invalid_request_error");
   });
 
-  it("errorDetail: 종류·코드·메시지만 — failed_generation은 읽지 않고, 메시지 안 긴 따옴표 조각(모델 생성문일 수 있다)은 …로", () => {
+  it("errorDetail: 종류·코드·메시지만 — failed_generation은 읽지 않고, 메시지 안 따옴표·{…}·[…] 조각(모델 생성문일 수 있다)은 길이와 관계없이 지운다", () => {
     const gen = '{"refused":false,"text":"8월 시책은 1,000,000원이며 한도 초과분 145,000원은 이연되었습니다"}';
-    const body = JSON.stringify({ error: { message: `Failed to generate JSON. Please adjust your prompt. Output: "${"가".repeat(50)}" end`, type: "invalid_request_error", code: "json_validate_failed", failed_generation: gen } });
+    const body = JSON.stringify({ error: { message: `Failed to generate JSON. Output: "짧은 생성문 3,000원" and ${gen} and [1, 2, "x"] and 'got 이연 금액 145,000' end`, type: "invalid_request_error", code: "json_validate_failed", failed_generation: gen } });
     const d = errorDetail(body)!;
-    expect(d).toEqual({ type: "invalid_request_error", code: "json_validate_failed", message: 'Failed to generate JSON. Please adjust your prompt. Output: "…" end' });
-    expect(JSON.stringify(d)).not.toContain("145,000");
+    expect(d).toEqual({ type: "invalid_request_error", code: "json_validate_failed", message: `Failed to generate JSON. Output: "…" and {…} and {…} and '…' end` });
+    for (const leak of ["145,000", "3,000", "1,000,000", "이연"]) expect(JSON.stringify(d)).not.toContain(leak);
     // 작은따옴표 스키마 위치는 그대로(Groq json_validate_failed 실측 꼴 — 2026-11-18 로컬 재현)
     const loc = "Generated JSON does not match the expected schema. Error: jsonschema: '/citations/0' does not validate with schema://answer#/properties/citations/items/required: missing properties: 'tool'";
     expect(errorDetail(JSON.stringify({ error: { message: loc } }))!.message).toBe(loc);
@@ -146,7 +146,8 @@ describe("공급자", () => {
       .structured(REQ)
       .catch((x: unknown) => x)) as ProviderError;
     expect(e).toBeInstanceOf(ProviderError);
-    expect([e.status, e.message, e.detail, e.rateLimit]).toEqual([400, "groq 400 json_validate_failed: Failed to generate JSON.", { type: "invalid_request_error", code: "json_validate_failed", message: "Failed to generate JSON." }, null]);
+    // 운영 로그에 실리는 message는 공급자·상태·코드만(메시지 본문은 detail에만)
+    expect([e.status, e.message, e.detail, e.rateLimit]).toEqual([400, "groq 400 json_validate_failed", { type: "invalid_request_error", code: "json_validate_failed", message: "Failed to generate JSON." }, null]);
     expect(e.message).not.toContain("생성문");
   });
 
