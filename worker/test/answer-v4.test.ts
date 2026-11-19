@@ -1,9 +1,11 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { rulebookChunks, ScopedQuery } from "../src/db/ScopedQuery";
-import { type AnswerDeps, type AnswerOutput, answerQuestion, otherAgentIds, REFUSAL_TEXT } from "../src/llm/answer";
+import { type AnswerDeps, type AnswerOutput, answerQuestion, dataBlock, fitStage2, otherAgentIds, PROMPT_OVERHEAD_TOKENS, QUESTION_MAX_TOKENS, REFUSAL_TEXT, STAGE2_OUTPUT_RESERVE } from "../src/llm/answer";
+import { estimateTokens } from "../src/tools/result";
 import { activePrompt, render } from "../src/llm/promptRegistry";
 import type { StructuredRequest } from "../src/llm/providers";
+import { contextKeys, fieldInContext, type Json } from "@copilot/grounding";
 import { parseToolCall, runTool } from "../src/tools";
 import { HASH, seed } from "./fixture";
 
@@ -47,12 +49,12 @@ function deps(stage1: AnswerOutput, stage2?: (data: unknown[]) => AnswerOutput, 
   };
 }
 
-describe("answer/v4 프롬프트 — 단계 구역(v0.1.44 §4.3)", () => {
-  const p = activePrompt(ENV, "answer");
+describe.each(["v4", "v5"])("answer/%s 프롬프트 — 단계 구역(v0.1.44 §4.3)", (v) => {
+  const p = activePrompt({ PROMPT_VERSIONS: `answer=${v}` }, "answer");
   const vars = (two: boolean) => ({ stage: two ? "2단계" : "1단계", stage1: two ? "" : "1", stage2: two ? "1" : "", session: "SESSION", rules: "RULES", data: "DATA", question: "Q" });
 
-  it("v4는 스키마 v2·툴 결과 v2", () => {
-    expect(p).toMatchObject({ version: "v4", toolResults: "v2", maxContextTokens: 3600 });
+  it(`${v}는 스키마 v2·툴 결과 v2(frontmatter tool_results)`, () => {
+    expect(p).toMatchObject({ version: v, toolResults: "v2", maxContextTokens: 3600 });
     expect((p.outputSchema as { properties: { reason: { enum: unknown[] } } }).properties.reason.enum).toContain("RULES_UNAVAILABLE");
   });
 
@@ -86,9 +88,39 @@ describe("툴 결과 v2(v0.1.44 §4.3.1)", () => {
     expect(d.byTypeLabel.FY_COMM).toBe("초년도 수수료");
     const cut = d.lines.find((l) => l.calcId === "c2")!;
     expect(cut).toMatchObject({ commType: "INCENTIVE", commTypeLabel: "시책", limitCutPolicy: "CUT", limitCutPolicyLabel: "한도 초과분 삭감" });
-    expect(d.citable).toContain("byType.<키>");
-    expect(d.citable.some((c) => c.startsWith("lines[calcId=…].{") && c.includes("limitCutAmt"))).toBe(true);
+    // v0.1.48: 틀 표기 없이 실제 숫자 잎 경로만
+    expect(d.citable).toContain("byType.FY_COMM");
+    expect(d.citable).toContain("lines[calcId=c2].limitCutAmt");
+    expect(d.citable.filter((c) => /[{}<>…]/.test(c))).toEqual([]);
     expect(r.unregistered).toBe(0);
+  });
+
+  it("citable 항목 전부가 자기 결과에 대해 G5를 통과하고, 숫자 잎만 가리킨다(v0.1.48 — 툴 4종)", async () => {
+    const pol = (await env.DB.prepare("SELECT policy_no FROM policy_limit_a WHERE agent_id = 'A-1001' AND policy_no LIKE '%0001'").first<{ policy_no: string }>())!.policy_no;
+    await env.DB.prepare("INSERT INTO sim_stub (tenant_id, agent_id, policy_no, kind, response, rule_snapshot_id) VALUES ('T1', 'A-1001', ?, 'POLICY_EVENT', ?, 'snap-1')")
+      .bind(pol, JSON.stringify({ policyNo: pol, event: "CANCEL", clawbackAmount: -720_000, offsetAgainstMonth: "202702", months: [1, 2] }))
+      .run();
+    const calls = [
+      { tool: "get_statement", args: { ym: "202608" } },
+      { tool: "get_limit", args: { policyNo: "0001" } },
+      { tool: "get_deferrals", args: { from: "202601", to: "202812" } },
+      { tool: "get_policy_event_sim", args: { policyNo: "0001" } },
+    ];
+    for (const c of calls) {
+      const r = await runTool({ q: q(), version: "v2" }, parseToolCall(c));
+      const d = r.data as Record<string, unknown> & { citable: string[] };
+      const keys = contextKeys(d as Json);
+      expect(d.citable.length, c.tool).toBeGreaterThan(0);
+      for (const f of d.citable) {
+        expect(fieldInContext(f, keys), `${c.tool} ${f}`).toBe(true);
+        const v = f.split(/\.(?![^[]*\])/).reduce<unknown>((o, k) => {
+          const m = /^(\w+)\[(\w+)=([^\]]+)\]$/.exec(k);
+          if (m) return ((o as Record<string, unknown>)[m[1]!] as Record<string, unknown>[]).find((x) => x[m[2]!] === m[3]);
+          return (o as Record<string, unknown>)[k];
+        }, d);
+        expect(typeof v, `${c.tool} ${f}`).toBe("number");
+      }
+    }
   });
 
   it("v1(기본)은 라벨·citable이 없다 — answer/v1~v3 카세트 그대로", async () => {
@@ -177,3 +209,37 @@ describe("answer/v4 파이프라인(v0.1.44 §4.4)", () => {
     expect(r.data).toMatchObject({ found: false, candidates: [], choices: ["*********0001", "*********0002"] });
   });
 });
+
+describe("2단계 툴 결과 합계 예산(설계서 v0.1.48 — fitStage2)", () => {
+  const call = (ym: string) => runTool({ q: q(), version: "v2" }, parseToolCall({ tool: "get_statement", args: { ym } }));
+
+  it("예산 안이면 그대로", async () => {
+    const rs = [await call("202608")];
+    const f = await fitStage2({ q: q(), version: "v2" }, rs, { fixedText: "짧은 본문", stage1Tokens: 3000 });
+    expect(f.shrunk).toEqual([]);
+    expect(f.results[0]).toBe(rs[0]);
+  });
+
+  it("넘으면 가장 큰 결과의 목록을 줄여 다시 부른다(Shown/Total) — 질문당 상한에서 1단계 실사용과 2단계 출력 몫을 뺀다", async () => {
+    const rs = [await call("202608")];
+    const fixedText = "본".repeat(300);
+    const dataT = estimateTokens(dataBlock(rs));
+    // 결과 예산이 지금 결과보다 작아지게 1단계 사용량을 잡는다
+    const stage1Tokens = QUESTION_MAX_TOKENS - STAGE2_OUTPUT_RESERVE - PROMPT_OVERHEAD_TOKENS - estimateTokens(fixedText) - Math.floor(dataT / 2);
+    const f = await fitStage2({ q: q(), version: "v2" }, rs, { fixedText, stage1Tokens });
+    expect(f.budget).toBe(Math.floor(dataT / 2));
+    expect(f.shrunk.length).toBeGreaterThan(0);
+    expect(f.results[0]!.tokens).toBeLessThan(rs[0]!.tokens);
+    expect(f.results[0]!.data).toMatchObject({ linesShown: expect.any(Number), linesTotal: (rs[0]!.data as { lines: unknown[] }).lines.length });
+    // 줄인 결과도 v2 — citable은 남은 숫자 잎만
+    expect((f.results[0]!.data as { citable: string[] }).citable.every((c) => !/[{}<>…]/.test(c))).toBe(true);
+  });
+
+  it("호출당 상한만(1단계 usage 없음)일 때도 같은 규칙, 머리만 남아도 넘으면 그대로 둔다(멈춘다)", async () => {
+    const rs = [await call("202608")];
+    const f = await fitStage2({ q: q(), version: "v2" }, rs, { fixedText: "본".repeat(4000), stage1Tokens: null });
+    expect(f.budget).toBeLessThan(0);
+    expect(f.results).toHaveLength(1);
+  });
+});
+

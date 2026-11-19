@@ -7,7 +7,7 @@ import type { EvalCase } from "../src/score";
 
 const root = join(import.meta.dirname, "../..");
 const cases = readFileSync(join(root, "evals/cases.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as EvalCase);
-const PROMPTS = ["answer/v4"];
+const PROMPTS = ["answer/v4", "answer/v5"];
 const body = (p: string) => readFileSync(join(root, "prompts", `${p}.md`), "utf8").replace(/^---[\s\S]*?---\n/, "");
 const squash = (s: string) => s.normalize("NFKC").replace(/\s+/g, "");
 const digitsOf = (s: string) => s.replace(/(\d),(?=\d{3}\b)/g, "$1");

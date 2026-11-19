@@ -6,10 +6,11 @@ import answerV1 from "../../../prompts/answer/v1.md";
 import answerV2 from "../../../prompts/answer/v2.md";
 import answerV3 from "../../../prompts/answer/v3.md";
 import answerV4 from "../../../prompts/answer/v4.md";
+import answerV5 from "../../../prompts/answer/v5.md";
 import schemaHintV1 from "../../../prompts/schema_hint/v1.md";
 import { promptVersions } from "../api/explain";
 
-const FILES: Readonly<Record<string, string>> = { "answer/v1": answerV1, "answer/v2": answerV2, "answer/v3": answerV3, "answer/v4": answerV4, "schema_hint/v1": schemaHintV1 };
+const FILES: Readonly<Record<string, string>> = { "answer/v1": answerV1, "answer/v2": answerV2, "answer/v3": answerV3, "answer/v4": answerV4, "answer/v5": answerV5, "schema_hint/v1": schemaHintV1 };
 const SCHEMAS: Readonly<Record<string, object>> = { "contracts/answer/v1/answer.schema.json": answerSchema, "contracts/answer/v2/answer.schema.json": answerSchemaV2 };
 
 export interface PromptFile {
