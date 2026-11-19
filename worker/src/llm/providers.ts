@@ -305,8 +305,11 @@ export function workersAi(ai: Pick<Ai, "run">, gatewayId: string | null = null, 
 /** 폴백 체인에서 시도할 공급자가 하나도 없다(모두 상한 0 또는 그날 소진) — 저하 ①(429 BUDGET). */
 export class ProvidersExhausted extends Error {}
 
-/** 429·5xx·0(타임아웃·네트워크)만 다음 공급자로(설계서 §6.2). 그 밖의 4xx는 요청 문제라 그대로 던진다. */
-export const isFallbackable = (e: ProviderError) => e.status === 0 || e.status === 429 || e.status >= 500;
+/** 모델 출력이 응답 스키마 검증에 걸린 400(Groq — strict 구조화 출력에서도 난다, 설계서 v0.1.49 §10.2). 요청은 정상이라 다른 모델이 낼 수 있다. */
+export const isSchemaValidationFailure = (e: ProviderError) => e.status === 400 && e.detail?.code === "json_validate_failed";
+
+/** 429·5xx·0(타임아웃·네트워크)과 json_validate_failed만 다음 공급자로(설계서 §6.2 · v0.1.49). 그 밖의 4xx는 요청 문제라 그대로 던진다. */
+export const isFallbackable = (e: ProviderError) => e.status === 0 || e.status === 429 || e.status >= 500 || isSchemaValidationFailure(e);
 
 /**
  * 실패 종류(설계서 v0.1.34 §6.2 저하 ② — stat:err:<공급자>:<종류>). 키·본문·메시지는 남기지 않고 종류만.

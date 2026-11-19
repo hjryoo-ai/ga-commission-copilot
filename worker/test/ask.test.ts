@@ -122,6 +122,41 @@ describe("POST /api/v1/me/ask", () => {
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM budget_counter WHERE scope NOT LIKE 'rl:%'").first("n")).toBe(0);
   });
 
+  it("v0.1.49: Groq 400 json_validate_failed → Workers AI가 답한다 — answer_log fallback_depth 1, 공급자 호출 예산은 둘 다 차감(stat:err는 지금처럼 모두 실패했을 때만)", async () => {
+    const one = await login(app, 1);
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (!url.startsWith("https://api.groq.com/")) throw new Error(`예상 밖 외부 호출 ${url}`);
+      const body = { error: { message: "Generated JSON does not match the expected schema. Please adjust your prompt.", type: "invalid_request_error", code: "json_validate_failed", failed_generation: '{"text":"생성문"}' } };
+      return new Response(JSON.stringify(body), { status: 400, headers: { "content-type": "application/json" } });
+    });
+    const answer = { refused: true, reason: "OUT_OF_SCOPE", text: "", numbersUsed: [], citations: [], toolCalls: [] };
+    const fakeAi = {
+      run: async (model: string) => (model === WORKERS_AI_MODEL ? { response: answer } : Promise.reject(new Error("4006: neurons (test)"))),
+      gateway: () => ({ run: async () => Promise.reject(new Error("AiGateway (test)")) }),
+    };
+    const res = await worker.fetch(
+      new Request("https://example.com/api/v1/me/ask", { method: "POST", headers: { "Content-Type": "application/json", Cookie: one }, body: JSON.stringify({ question: "오늘 점심 메뉴 추천해 줘" }) }),
+      { ...env, AI: fakeAi, BUDGET_WORKERS_AI: "80" } as unknown as Env,
+      createExecutionContext(),
+    );
+    vi.restoreAllMocks();
+    expect(res.status).toBe(200);
+    const b = (await res.json()) as { answerId: string; refused: boolean; reason: string };
+    expect([b.refused, b.reason]).toEqual([true, "OUT_OF_SCOPE"]);
+    const row = await env.DB.prepare("SELECT provider, model, fallback_depth, refuse_reason FROM answer_log WHERE answer_id = ?").bind(b.answerId).first();
+    expect(row).toEqual({ provider: "workers-ai", model: WORKERS_AI_MODEL, fallback_depth: 1, refuse_reason: "OUT_OF_SCOPE" });
+    const stats = (await env.DB.prepare("SELECT scope, used FROM budget_counter WHERE scope LIKE 'stat:%' OR scope LIKE 'provider:%' ORDER BY scope").all()).results;
+    expect(stats).toEqual([
+      { scope: "provider:groq", used: 1 },
+      { scope: "provider:workers-ai", used: 1 },
+      { scope: "stat:cache:miss", used: 1 },
+      { scope: "stat:degraded:rules", used: 1 },
+      { scope: "stat:depth:1", used: 1 },
+      { scope: "stat:refuse:out_of_scope", used: 1 },
+    ]);
+  });
+
   it("저하 ②(설계서 v0.1.34): Groq 429 → Workers AI 실패면 503 PROVIDER_ERROR + answerId·budget, answer_log 거부 행(마지막 시도), stat:refuse·stat:err", async () => {
     const one = await login(app, 1);
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {

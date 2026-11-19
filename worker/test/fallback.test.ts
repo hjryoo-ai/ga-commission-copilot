@@ -127,6 +127,24 @@ describe("폴백 체인", () => {
     expect(errorDetail(JSON.stringify({ error: { message: "x".repeat(500) } }))!.message).toHaveLength(300);
   });
 
+  it("v0.1.49: Groq 400 json_validate_failed(모델 출력이 스키마 검증에 걸림)는 다음 공급자로 — Workers AI가 답하면 depth 1, 시도 목록에 종류", async () => {
+    const schema = new ProviderError("groq 400 json_validate_failed", 400, null, null, { type: "invalid_request_error", code: "json_validate_failed", message: null });
+    const [g, w] = [stub("groq", schema), stub("workers-ai", { ok: true })];
+    const r = await fallbackChain([g, w], allow().reserve).structured(REQ);
+    expect([r.provider, r.json, r.fallbackDepth, g.calls, w.calls]).toEqual(["workers-ai", { ok: true }, 1, 1, 1]);
+    // 둘 다 실패하면 ProvidersFailed — 시도 2개 상한 그대로
+    const e = (await fallbackChain([stub("groq", schema), stub("workers-ai", new ProviderError("workers-ai: 15000ms 타임아웃", 0)), stub("openrouter", { a: 3 })], allow().reserve).structured(REQ).catch((x: unknown) => x)) as ProvidersFailed;
+    expect(e.attempts.map((a) => a.kind)).toEqual(["http400_json_validate_failed", "timeout"]);
+  });
+
+  it("v0.1.49: 그 밖의 400(코드가 다르거나 없음)은 넘기지 않는다", async () => {
+    for (const bad of [new ProviderError("groq 400", 400), new ProviderError("groq 400 invalid_request_error", 400, null, null, { type: "invalid_request_error", code: "model_not_found", message: null })]) {
+      const next = stub("workers-ai", { a: 2 });
+      await expect(fallbackChain([stub("groq", bad), next], allow().reserve).structured(REQ)).rejects.toMatchObject({ status: 400 });
+      expect(next.calls).toBe(0);
+    }
+  });
+
   it("시도할 공급자가 없으면 ProvidersExhausted(저하 ①), 400 같은 요청 오류는 폴백하지 않고 그대로", async () => {
     const [g, w, o] = [stub("groq", { a: 1 }), stub("workers-ai", { a: 2 }), stub("openrouter", { a: 3 })];
     await expect(fallbackChain([g, w, o], allow(["groq", "workers-ai", "openrouter"]).reserve).structured(REQ)).rejects.toBeInstanceOf(ProvidersExhausted);
