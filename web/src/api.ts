@@ -346,6 +346,8 @@ export interface EvalCase {
   text: string | null;
   toolCalls: { tool: string; args: Record<string, string> }[];
   error: string | null;
+  /** 공급자 스키마 검증 실패(json_validate_failed — 설계서 v0.1.49). 케이스 실패로 채점된다. */
+  schemaError: string | null;
   latencyMs: number | null;
   expectedTools: { tool: string; args: Record<string, string>; optional?: boolean }[];
   facts: string[];

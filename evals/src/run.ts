@@ -11,10 +11,10 @@ import { join, resolve } from "node:path";
 import { activeStream, DEMO_TENANT, rulebookChunks, ScopedQuery } from "../../worker/src/db/ScopedQuery";
 import { type AnswerDeps, type AnswerResult, answerQuestion, cloudflareDeps } from "../../worker/src/llm/answer";
 import { activePrompt } from "../../worker/src/llm/promptRegistry";
-import { groq, type Provider, ProviderError, type ProviderName, requestHash, type StructuredRequest, type StructuredResponse, traced, workersAi } from "../../worker/src/llm/providers";
+import { groq, isSchemaValidationFailure, type Provider, ProviderError, type ProviderName, requestHash, type StructuredRequest, type StructuredResponse, traced, workersAi } from "../../worker/src/llm/providers";
 import { reserveDevCall } from "../../gen/providers/budget";
 import { assignProviders, weekParity } from "./assign";
-import { type CallUsage, type CaseRun, type EvalCase, expectFor, scoreCase, summarize, type TokenTotals, tokenTotals } from "./score";
+import { type CallUsage, type CaseRun, type EvalCase, expectFor, schemaFailureRun, scoreCase, summarize, type TokenTotals, tokenTotals } from "./score";
 
 const ROOT = join(import.meta.dirname, "../..");
 const args = process.argv.slice(2);
@@ -33,8 +33,8 @@ if (pvOverride !== undefined && !/^[a-z_]+=v[0-9]+(,[a-z_]+=v[0-9]+)*$/.test(pvO
 const stage1Only = args.includes("--stage1-only");
 const devBudget = args.includes("--dev-budget");
 const normalOnly = args.includes("--normal-only");
-/** 이번 케이스에서 공급자에 보낸 호출 수(--stage1-only가 두 번째부터 막는다). */
-const caseCalls = { n: 0 };
+/** 이번 케이스에서 공급자에 보낸 호출 수(--stage1-only가 두 번째부터 막는다)와 1단계 응답(2단계에서 json_validate_failed면 툴 축을 1단계 툴로 — 설계서 v0.1.49). */
+const caseCalls: { n: number; first: unknown } = { n: 0, first: null };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const allCases = readFileSync(join(ROOT, "evals/cases.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as EvalCase);
@@ -68,6 +68,7 @@ function evalProvider(p: Provider, used: Record<string, number>): Provider {
         used[p.name] = (used[p.name] ?? 0) + 1;
         try {
           const res = await p.structured({ ...req, skipCache: true });
+          if (caseCalls.n === 1) caseCalls.first = res.json;
           usageLog.push({ provider: p.name, promptTokens: res.usage?.prompt_tokens ?? null, completionTokens: res.usage?.completion_tokens ?? null });
           return { ...res, fallbackDepth: p.name === "groq" ? 0 : 1 };
         } catch (e) {
@@ -247,12 +248,20 @@ async function main() {
         const w0 = waited.ms;
         const u0 = usageLog.length;
         caseCalls.n = 0;
+        caseCalls.first = null;
         const took = () => Date.now() - t0 - (waited.ms - w0);
         try {
           const r: AnswerResult = await answerQuestion(deps, q, env, c.question);
           run = { ...run, answerId: r.answerId, at: new Date().toISOString(), provider: r.provider, model: r.model, refused: r.refused, reason: r.reason, groundingStatus: r.groundingStatus, text: r.text, toolCalls: r.toolCalls.map((t) => ({ tool: t.tool, args: t.args as Record<string, string> })), citedArticles: r.citations.filter((x) => x.kind === "rule").map((x) => x.article), violations: r.grounding, rulesUnavailable: r.rulesUnavailable, latencyMs: took(), latencyExcludesWait: true };
         } catch (e) {
-          run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 200)}${e instanceof ProviderError && e.detail?.message ? ` — ${e.detail.message}` : ""}`, latencyMs: took(), latencyExcludesWait: true };
+          if (e instanceof ProviderError && isSchemaValidationFailure(e)) {
+            // 설계서 v0.1.49 §13.1: 판정 불가(R3)가 아니라 이 케이스의 실패 — 같은 공급자로 다시 부르지 않는다
+            const first = caseCalls.first as { toolCalls?: { tool: string; args: Record<string, string | null> }[] } | null;
+            const toolCalls = (first?.toolCalls ?? []).map((t) => ({ tool: t.tool, args: Object.fromEntries(Object.entries(t.args ?? {}).filter(([, v]) => v !== null)) as Record<string, string> }));
+            run = { ...schemaFailureRun(run, { provider: name, code: e.detail!.code!, detail: e.detail?.message ?? null, toolCalls }), at: new Date().toISOString(), latencyMs: took(), latencyExcludesWait: true };
+          } else {
+            run = { ...run, at: new Date().toISOString(), provider: name, error: `${(e as Error).name}: ${(e as Error).message.slice(0, 200)}${e instanceof ProviderError && e.detail?.message ? ` — ${e.detail.message}` : ""}`, latencyMs: took(), latencyExcludesWait: true };
+          }
         }
         run = { ...run, usage: usageLog.slice(u0) };
       }

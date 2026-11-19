@@ -73,6 +73,8 @@ interface Actual {
   caseId: string;
   mode: "normal" | "rulesUnavailable";
   error?: string;
+  /** 공급자 스키마 검증 실패 코드(json_validate_failed — 설계서 v0.1.49 §13.1, 케이스 실패로 채점). */
+  schemaError?: string;
   provider?: string;
   model?: string;
   refused?: boolean;
@@ -230,6 +232,7 @@ evals.get("/:runId", async (c) => {
     text: p.actual.text === undefined ? null : p.actual.text.slice(0, TEXT_MAX),
     toolCalls: p.actual.toolCalls ?? [],
     error: p.actual.error ?? null,
+    schemaError: p.actual.schemaError ?? null,
     latencyMs: p.actual.latencyMs ?? null,
     expectedTools: p.expected.expectedTools,
     facts: p.expected.facts,

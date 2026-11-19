@@ -1,0 +1,98 @@
+# pr:10 재채점 — 설계서 v0.1.49 정의(json_validate_failed = 케이스 실패, R3은 인프라 오류만), 2026-11-19, LLM 0
+# 입력: CI 산출물 eval-out(run 44301147286)의 runs.jsonl·ref.json(CI가 쓴 기준 그대로). pr:10은 4xx 코드를 기록하기 전이라 'groq 400'만 남아 있다 — 로컬 재현에서 A-04·A-08·G-15는 json_validate_failed, G-31은 재현 안 됨(두 패스 모두 1단계 성공).
+# 네 건 모두 usage가 비어 있다 = 첫 호출(1단계)에서 실패 → 툴 축은 부른 툴 없음.
+
+## 스크립트
+```ts
+// pr:10을 설계서 v0.1.49 정의로 다시 매긴다(LLM 0) — groq 400 오류 행을 json_validate_failed 케이스 실패로.
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { type CaseRun, type EvalCase, schemaFailureRun, scoreCase } from "/Users/hjr/Documents/workspace/ai/ga-commision-copilot/evals/src/score.ts";
+const [src, out, onlyArg] = process.argv.slice(2) as [string, string, string | undefined];
+const only = onlyArg ? new Set(onlyArg.split(",")) : null;
+const cases = new Map(readFileSync("/Users/hjr/Documents/workspace/ai/ga-commision-copilot/evals/cases.jsonl", "utf8").split("\n").filter(Boolean).map((l) => { const c = JSON.parse(l) as EvalCase; return [c.id, c]; }));
+mkdirSync(out, { recursive: true });
+const lines: string[] = [];
+for (const l of readFileSync(join(src, "runs.jsonl"), "utf8").split("\n").filter(Boolean)) {
+  const { score: _old, ...r } = JSON.parse(l) as CaseRun & { score: unknown };
+  let run: CaseRun = r;
+  if (r.error?.startsWith("Error: groq 400") && (!only || only.has(r.caseId))) {
+    const { error: _e, ...rest } = r;
+    run = schemaFailureRun(rest, { provider: "groq", code: "json_validate_failed", detail: null, toolCalls: [] });
+  }
+  lines.push(JSON.stringify({ ...run, score: scoreCase(cases.get(r.caseId)!, run) }));
+}
+writeFileSync(join(out, "runs.jsonl"), lines.join("\n") + "\n");
+copyFileSync(join(src, "summary.json"), join(out, "summary.json"));
+```
+
+## all4 — node evals/src/gate.ts <재채점>/summary.json --ref ref.json
+### eval-on-prompt-change — 실패
+
+런 `20261118T121014-pr-10` · PROMPT_VERSIONS `explain_line=v6,explain_limit=v6,explain_month=v6,answer=v4,schema_hint=v1`
+기준: 최근 3회 과반 12건(A-01 A-02 A-03 A-04 A-05 A-06 A-07 A-08 A-09 A-10 A-11 A-12) · 60문항 런 `20261113T225638-baseline-r1` 8건
+
+| 축 | 기준 통과 / D | 이번 통과 / D | 차이(건) | R1 |
+|---|---|---|---|---|
+| 그라운딩 통과율 | 11/16 | 7/16 | −4 | ✗ |
+| 거부 정확도 | 19/20 | 19/20 | 0 | ✓ |
+| 툴 정확도 | 11/12 | 8/12 | −3 | ✗ |
+| 내용 일치 | 6/15 | 1/15 | −5 | ✗ |
+
+R2 안정 케이스(기준 3회 모두 통과) 6건 중 이번 실패 2건: A-04, A-08 — 2건 이상이면 실패
+통과 5/20. 절대 관문값(THRESHOLDS.md)은 60문항 런에만 표시한다.
+
+**실패 사유**
+- R1 그라운딩 통과율 기준 11/16 → 이번 7/16(4건 하락 — 2건 이상이면 실패)
+- R1 툴 정확도 기준 11/12 → 이번 8/12(3건 하락 — 2건 이상이면 실패)
+- R1 내용 일치 기준 6/15 → 이번 1/15(5건 하락 — 2건 이상이면 실패)
+- R2 안정 케이스 2/6건 실패: A-04, A-08
+
+
+## three — node evals/src/gate.ts <재채점>/summary.json --ref ref.json
+### eval-on-prompt-change — 실패
+
+런 `20261118T121014-pr-10` · PROMPT_VERSIONS `explain_line=v6,explain_limit=v6,explain_month=v6,answer=v4,schema_hint=v1`
+기준: 최근 3회 과반 12건(A-01 A-02 A-03 A-04 A-05 A-06 A-07 A-08 A-09 A-10 A-11 A-12) · 60문항 런 `20261113T225638-baseline-r1` 8건
+
+| 축 | 기준 통과 / D | 이번 통과 / D | 차이(건) | R1 |
+|---|---|---|---|---|
+| 그라운딩 통과율 | 11/16 | 7/16 | −4 | ✗ |
+| 거부 정확도 | 19/20 | 18/20 | −1 | ✓ |
+| 툴 정확도 | 11/12 | 8/12 | −3 | ✗ |
+| 내용 일치 | 6/15 | 1/15 | −5 | ✗ |
+
+R2 안정 케이스(기준 3회 모두 통과) 6건 중 이번 실패 2건: A-04, A-08 — 2건 이상이면 실패
+통과 5/20 · 오류·미실행 1건. 절대 관문값(THRESHOLDS.md)은 60문항 런에만 표시한다.
+
+**실패 사유**
+- R3 공급자 오류·예산 미실행 1건 — 판정 불가(다시 돌린다)
+- R1 그라운딩 통과율 기준 11/16 → 이번 7/16(4건 하락 — 2건 이상이면 실패)
+- R1 툴 정확도 기준 11/12 → 이번 8/12(3건 하락 — 2건 이상이면 실패)
+- R1 내용 일치 기준 6/15 → 이번 1/15(5건 하락 — 2건 이상이면 실패)
+- R2 안정 케이스 2/6건 실패: A-04, A-08
+
+
+## 원래 판정(CI gate.md)
+### eval-on-prompt-change — 실패
+
+런 `20261118T121014-pr-10` · PROMPT_VERSIONS `explain_line=v6,explain_limit=v6,explain_month=v6,answer=v4,schema_hint=v1`
+기준: 최근 3회 과반 12건(A-01 A-02 A-03 A-04 A-05 A-06 A-07 A-08 A-09 A-10 A-11 A-12) · 60문항 런 `20261113T225638-baseline-r1` 8건
+
+| 축 | 기준 통과 / D | 이번 통과 / D | 차이(건) | R1 |
+|---|---|---|---|---|
+| 그라운딩 통과율 | 11/16 | 7/16 | −4 | ✗ |
+| 거부 정확도 | 19/20 | 15/20 | −4 | ✗ |
+| 툴 정확도 | 11/12 | 8/12 | −3 | ✗ |
+| 내용 일치 | 6/15 | 1/15 | −5 | ✗ |
+
+R2 안정 케이스(기준 3회 모두 통과) 6건 중 이번 실패 2건: A-04, A-08 — 2건 이상이면 실패
+통과 5/20 · 오류·미실행 4건. 절대 관문값(THRESHOLDS.md)은 60문항 런에만 표시한다.
+
+**실패 사유**
+- R3 공급자 오류·예산 미실행 4건 — 판정 불가(다시 돌린다)
+- R1 그라운딩 통과율 기준 11/16 → 이번 7/16(4건 하락 — 2건 이상이면 실패)
+- R1 거부 정확도 기준 19/20 → 이번 15/20(4건 하락 — 2건 이상이면 실패)
+- R1 툴 정확도 기준 11/12 → 이번 8/12(3건 하락 — 2건 이상이면 실패)
+- R1 내용 일치 기준 6/15 → 이번 1/15(5건 하락 — 2건 이상이면 실패)
+- R2 안정 케이스 2/6건 실패: A-04, A-08

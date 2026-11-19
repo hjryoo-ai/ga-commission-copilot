@@ -2,7 +2,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { type CaseRun, type EvalCase, readThresholds, scoreCase, summarize, tokenTotals, toolsMatch } from "../src/score";
+import { gate } from "../src/gate";
+import { type CaseRun, type EvalCase, readThresholds, schemaFailureRun, scoreCase, summarize, tokenTotals, toolsMatch } from "../src/score";
 
 const base: EvalCase = {
   id: "A-01",
@@ -107,3 +108,30 @@ describe("summarize·readThresholds", () => {
     expect(scoreCase(mixed, { ...ok, toolCalls: [{ tool: "get_statement", args: { ym: "202608" } }] }).tool).toBe(true);
   });
 });
+
+describe("공급자 스키마 검증 실패(json_validate_failed — 설계서 v0.1.49 §13.1)", () => {
+  const t0 = { grounding: 50, refusal: 50, tool: 50, content: 20 };
+  const fail = (toolCalls: NonNullable<CaseRun["toolCalls"]>) => schemaFailureRun({ caseId: "A-01", mode: "normal" }, { provider: "groq", code: "json_validate_failed", detail: "'/citations/0' … missing properties: 'tool'", toolCalls });
+
+  it("1단계에서 났으면 그라운딩·내용·툴 축 실패(부른 툴 없음), 실패 종류 GROUNDING — error가 아니다", () => {
+    const r = fail([]);
+    expect(r.error).toBeUndefined();
+    expect(scoreCase(base, r)).toMatchObject({ grounding: false, refusal: true, tool: false, content: false, passed: false, failureKind: "GROUNDING" });
+  });
+
+  it("2단계에서 났으면 툴 축은 1단계에서 실제로 부른 툴로", () => {
+    expect(scoreCase(base, fail(ok.toolCalls!))).toMatchObject({ grounding: false, tool: true, content: false, failureKind: "GROUNDING" });
+  });
+
+  it("거부가 정답인 케이스면 거부 축도 실패(모델 거부가 아니다 — NOT_GROUNDED 답과 같은 자리)", () => {
+    const refusalCase: EvalCase = { ...base, id: "A-11", expectRefusal: true, expectReason: "OUT_OF_SCOPE", expectedTools: [] };
+    expect(scoreCase(refusalCase, fail([]))).toMatchObject({ grounding: false, refusal: false, content: null, passed: false });
+  });
+
+  it("관문 R3(판정 불가)에 들어가지 않는다 — 인프라 오류만 R3", () => {
+    const s = scoreCase(base, fail([]));
+    expect(gate([{ caseId: "A-01", score: s }], new Map(), t0, { runId: "x", promptVersions: "" }).reasons.filter((x) => x.startsWith("R3"))).toEqual([]);
+    expect(gate([{ caseId: "A-01", score: s, error: "ProvidersFailed: groq 503" }], new Map(), t0, { runId: "x", promptVersions: "" }).reasons[0]).toContain("R3");
+  });
+});
+

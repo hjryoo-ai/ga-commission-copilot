@@ -845,6 +845,7 @@
         "text",
         "toolCalls",
         "error",
+        "schemaError",
         "latencyMs",
         "expectedTools",
         "facts",
@@ -972,7 +973,14 @@
             "type": "string"
           }
         },
-        "violations": {}
+        "violations": {},
+        "schemaError": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "공급자 스키마 검증 실패 코드(json_validate_failed — 설계서 v0.1.49 §13.1). 케이스 실패로 채점, R3 아님."
+        }
       }
     },
     "EvalsResponse": {

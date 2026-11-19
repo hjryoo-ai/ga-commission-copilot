@@ -51,8 +51,15 @@ export function tokenTotals(log: readonly CallUsage[]): TokenTotals {
 export interface CaseRun {
   caseId: string;
   mode: "normal" | "rulesUnavailable";
-  /** 공급자 실패·예산 미실행이면 error. */
+  /** 인프라 오류(재시도 뒤에도 남은 429·5xx·타임아웃·네트워크)·예산 미실행이면 error — 관문 R3(판정 불가). */
   error?: string;
+  /**
+   * 공급자가 모델 출력의 스키마 검증으로 낸 400 코드(json_validate_failed — 설계서 v0.1.49 §13.1). error가 아니라 그 케이스의 실패로 채점한다:
+   * 검증기가 막은 NOT_GROUNDED 답과 같은 자리(groundingStatus FAIL·refused·NOT_GROUNDED — 그라운딩·내용 축 실패, 툴 축은 1단계에서 실제로 부른 툴).
+   */
+  schemaError?: string;
+  /** 그 400의 정제한 메시지(스키마 위치·빠진 키 — ProviderError.detail.message). 진단용, 채점·화면에 쓰지 않는다. */
+  schemaDetail?: string;
   /** answer_log.answer_id(로컬 D1) · 끝난 시각 — 녹화·대조용. */
   answerId?: string;
   at?: string;
@@ -111,6 +118,24 @@ export function toolsMatch(expected: EvalCase["expectedTools"], called: NonNulla
 /** 툴 축 대상인가 — 필수 툴이 있거나, 선택 툴을 실제로 불렀을 때. */
 export const toolAxisApplies = (expected: EvalCase["expectedTools"], called: NonNullable<CaseRun["toolCalls"]>) =>
   expected.some((e) => !e.optional) || expected.some((e) => e.optional && called.some((c) => c.tool === e.tool));
+
+/** json_validate_failed를 받은 케이스의 기록(설계서 v0.1.49 §13.1). 같은 공급자로 다시 부르지 않는다(케이스당 공급자 하나). */
+export function schemaFailureRun(base: CaseRun, o: { provider: string; code: string; detail?: string | null; toolCalls: NonNullable<CaseRun["toolCalls"]> }): CaseRun {
+  return {
+    ...base,
+    provider: o.provider,
+    refused: true,
+    reason: "NOT_GROUNDED",
+    groundingStatus: "FAIL",
+    text: "",
+    toolCalls: o.toolCalls,
+    citedArticles: [],
+    schemaError: o.code,
+    ...(o.detail ? { schemaDetail: o.detail } : {}),
+    // 우리 검증기(G1~G6)가 낸 위반이 아니다 — 비워 둔다
+    violations: null,
+  };
+}
 
 export function scoreCase(c: EvalCase, r: CaseRun): CaseScore {
   const { expectRefusal, expectReason } = expectFor(c, r.mode);

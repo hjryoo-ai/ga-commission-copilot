@@ -12,7 +12,7 @@ const score = (o: Partial<{ grounding: boolean | null; refusal: boolean; tool: b
   return { ...s, passed: failureKind === null, failureKind, missingFacts: s.content === false ? ["사실"] : [], forbiddenHits: [] };
 };
 
-async function seedRun(runId: string, startedAt: string, trigger: string, rows: { id: string; bucket: string; provider: string; s: ReturnType<typeof score>; mode?: string }[], pv = PV, excludesWait = false) {
+async function seedRun(runId: string, startedAt: string, trigger: string, rows: { id: string; bucket: string; provider: string; s: ReturnType<typeof score>; mode?: string; schemaError?: string }[], pv = PV, excludesWait = false) {
   const normal = rows.filter((r) => !r.mode);
   await env.DB.prepare(
     "INSERT INTO eval_run (run_id, started_at, trigger, prompt_versions, stream_hash, model, total, passed, grounding_pass_rate, refusal_accuracy, tool_accuracy, mean_latency_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -21,7 +21,7 @@ async function seedRun(runId: string, startedAt: string, trigger: string, rows: 
     .run();
   for (const r of rows) {
     const caseId = r.mode ? `${r.id}#${r.mode}` : r.id;
-    const actual = { caseId: r.id, mode: r.mode ?? "normal", provider: r.provider, refused: false, reason: null, groundingStatus: r.s.grounding === false ? "FAIL" : "PASS", text: "답".repeat(700), toolCalls: [], latencyMs: 10, ...(excludesWait ? { latencyExcludesWait: true } : {}), score: r.s };
+    const actual = { caseId: r.id, mode: r.mode ?? "normal", provider: r.provider, refused: false, reason: null, groundingStatus: r.s.grounding === false ? "FAIL" : "PASS", text: "답".repeat(700), toolCalls: [], latencyMs: 10, ...(excludesWait ? { latencyExcludesWait: true } : {}), ...(r.schemaError ? { schemaError: r.schemaError } : {}), score: r.s };
     const expected = { bucket: r.bucket, expectedTools: [], facts: ["사실"], expectRefusal: false, expectReason: null, misleading: false, tags: [] };
     await env.DB.prepare("INSERT INTO eval_case_result (run_id, case_id, passed, expected, actual, failure_kind) VALUES (?,?,?,?,?,?)")
       .bind(runId, caseId, r.s.passed ? 1 : 0, JSON.stringify(expected), JSON.stringify(actual), r.s.failureKind)
@@ -184,6 +184,19 @@ describe("GET /api/v1/evals/{runId}", () => {
     expect(Object.keys(body.byProvider as object)).toEqual(["groq", "workers-ai"]);
     expect((body.byProvider as Record<string, { grounding: { rate: number } }>)["workers-ai"]!.grounding).toEqual({ n: 1, pass: 0, rate: 0 });
     expect((body.rulesUnavailable as { caseId: string; mode: string }[]).map((c) => [c.caseId, c.mode])).toEqual([["A-04", "rulesUnavailable"]]);
+  });
+
+  it("공급자 스키마 검증 실패(json_validate_failed — 설계서 v0.1.49)는 schemaError로 구분, 없는 케이스는 null", async () => {
+    await seedRun("20261119T120000-pr-13", "2026-11-19T12:00:00.000Z", "pr:13", [
+      { id: "A-04", bucket: "limit", provider: "groq", s: score({ grounding: false, content: false }), schemaError: "json_validate_failed" },
+      { id: "A-08", bucket: "rule", provider: "groq", s: score({ grounding: true, content: true }) },
+    ]);
+    const { body } = await get("/api/v1/evals/20261119T120000-pr-13");
+    expect(validate("EvalRunResponse", body)).toEqual([]);
+    expect((body.cases as { caseId: string; schemaError: string | null }[]).map((c) => [c.caseId, c.schemaError])).toEqual([
+      ["A-04", "json_validate_failed"],
+      ["A-08", null],
+    ]);
   });
 
   it("없는 런·형식이 틀린 ID는 404", async () => {
