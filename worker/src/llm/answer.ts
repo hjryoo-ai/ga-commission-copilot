@@ -307,6 +307,10 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   const byId = new Map((await deps.chunks(matches.map((m) => m.id))).map((r) => [r.chunk_id, r]));
   const rows = matches.flatMap((m) => (byId.has(m.id) ? [byId.get(m.id)!] : []));
   const retrievedChunks = matches.filter((m) => byId.has(m.id)).map((m) => ({ chunkId: m.id, score: m.score }));
+  // v0.1.49 §4.3: 2단계는 frontmatter stage2_rules가 있으면 점수 상위 그 수만(검색 결과는 점수 순). 1단계는 전부.
+  const rows2 = prompt.stage2Rules === null ? rows : rows.slice(0, prompt.stage2Rules);
+  // 답의 규정 근거(G4 숫자 · G5 인용 조항 · 인용 정규화)는 그 답을 낸 단계가 본 청크만
+  let seenRows = rows;
 
   const session = prompt.body.includes("{{session}}") ? await sessionBlock(q, prompt.body.includes("한도 삭감이 있었던 계약")) : "";
   // AI Gateway 캐시 키(설계서 v0.1.29 §6.4): 정규화 질문+agentId+streamHash+promptVersion + 단계. 2단계는 툴 결과 해시도 붙인다 —
@@ -319,7 +323,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     const two = stage === "2단계";
     return deps.provider.structured({
       model: prompt.modelHint,
-      messages: [{ role: "user", content: render(prompt.body, { stage, stage1: two ? "" : "1", stage2: two ? "1" : "", session, rules: rulesBlock(rows), data, question: qText }) }],
+      messages: [{ role: "user", content: render(prompt.body, { stage, stage1: two ? "" : "1", stage2: two ? "1" : "", session, rules: rulesBlock(two ? rows2 : rows), data, question: qText }) }],
       schemaName: "answer",
       schema: prompt.outputSchema,
       maxCompletionTokens: MAX_COMPLETION_TOKENS,
@@ -352,12 +356,13 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     // v0.1.48: 2단계 입력을 상한 안으로(툴 결과 합계 예산 — 1단계 실사용은 응답 usage, 없으면 호출당 상한만).
     // 툴 결과 v2 프롬프트(answer/v4·v5)만 — v1~v3(활성 v3 포함)은 녹화·카세트와 같게 그대로 둔다
     if (prompt.toolResults === "v2") {
-      const fixedText = render(prompt.body, { stage: "2단계", stage1: "", stage2: "1", session, rules: rulesBlock(rows), data: "", question: qText });
+      const fixedText = render(prompt.body, { stage: "2단계", stage1: "", stage2: "1", session, rules: rulesBlock(rows2), data: "", question: qText });
       const u = res.usage;
       const fitted = await fitStage2({ q, version: prompt.toolResults }, results, { fixedText, stage1Tokens: u ? (u.prompt_tokens ?? 0) + (u.completion_tokens ?? 0) : null, callMax: prompt.maxContextTokens });
       results.splice(0, results.length, ...fitted.results);
     }
     res = await ask("2단계", dataBlock(results));
+    seenRows = rows2;
     depth = Math.max(depth, res.fallbackDepth ?? 0);
     violations = shapeProblems(res.json);
     out = res.json as AnswerOutput;
@@ -383,7 +388,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     const draft = { ...out, text: normalizeText(out.text) };
     // 거부가 아닌데 본문이 비면 답이 없는 것이다 — 숫자가 없어 G4가 비어 통과하는 구멍(2026-11-03 녹화 A-02: 2단계가 툴을 더 요청하고 text "")
     const empty = draft.text.trim() === "" ? ["G1 text 비어 있음(거부 아닌 빈 답)"] : [];
-    grounding = groundAnswerDetail(draft, results, rows, q.agentId);
+    grounding = groundAnswerDetail(draft, results, seenRows, q.agentId);
     violations = [...violations.filter((v) => !v.startsWith("툴 호출 거부")), ...empty, ...violationLines(grounding, draft)];
     if (violations.length) {
       [refused, reason, text, groundingStatus] = [true, "NOT_GROUNDED", REFUSAL_TEXT.NOT_GROUNDED, "FAIL"];
@@ -398,7 +403,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     reason,
     text,
     numbersUsed: refused ? [] : out.numbersUsed,
-    citations: refused ? [] : canonicalCitations(out.citations, rows),
+    citations: refused ? [] : canonicalCitations(out.citations, seenRows),
     promptVersion,
     // 답한 공급자(폴백이면 groq가 아니다) — 2단계가 있으면 2단계 응답의 공급자
     provider: res.provider,

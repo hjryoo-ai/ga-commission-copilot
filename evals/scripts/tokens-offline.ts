@@ -4,7 +4,8 @@
 // 1단계 응답의 툴 호출을 꺼내, 지금 코드의 툴(tool_results는 그 프롬프트 frontmatter)과 그 프롬프트로 1·2단계 본문을 다시 만들어 센다.
 // 입력 = o200k(본문) + 고정분(응답 스키마·채팅 틀 — contracts/answer/v1 584, v2 559: 2026-11-13 기준선 카세트·2026-11-18 로컬 재현 llm_trace 실측).
 // 출력 토큰은 녹화값(v3)이다 — 질문 합 = 1단계 입력 + 1단계 출력 + 2단계 입력 + 2단계 출력.
-// 2단계 입력은 서버의 합계 예산(answer.ts fitStage2) 적용 전·후를 함께 낸다. --k는 2단계 규정 청크 수 비교(앞에서 k개).
+// 2단계 입력은 서버의 합계 예산(answer.ts fitStage2) 적용 전·후를 함께 낸다. 2단계 규정 청크 수는 프롬프트 frontmatter stage2_rules(없으면 전부) —
+// --k는 그 수를 바꿔 본 비교(앞에서 k개, 그 k개 기준으로 예산을 다시 맞춘 값).
 // 서버와 같게 2단계에도 session을 넘긴다(v4·v5는 2단계 구역에 <session>이 없어 빠지고, 구역이 없는 v1~v3은 들어간다).
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -110,7 +111,9 @@ try {
           }
           row.tools.push(`${raw.tool}(${Object.values(a).join(",")})`);
         }
-        const s2 = (rs: readonly ToolResult[], k = ordered.length) => render(p.body, { stage: "2단계", stage1: "", stage2: "1", session, rules: rulesBlock(ordered.slice(0, k)), data: dataBlock(rs), question: c.question });
+        // 서버와 같게 2단계 규정은 frontmatter stage2_rules(설계서 v0.1.49 — 점수 상위부터, 없으면 전부)
+        const k2 = p.stage2Rules ?? ordered.length;
+        const s2 = (rs: readonly ToolResult[], k = k2) => render(p.body, { stage: "2단계", stage1: "", stage2: "1", session, rules: rulesBlock(ordered.slice(0, k)), data: dataBlock(rs), question: c.question });
         row.s2Before = tok(s2(results)) + overhead;
         const fixed = s2([]);
         row.fixedReal = tok(fixed) + overhead;
@@ -131,7 +134,11 @@ try {
         const fitted = await fitStage2({ q, version: p.toolResults }, results, { fixedText: fixed, overhead, stage1Tokens: s1 + (s1Out ?? 0) });
         row.shrunk = fitted.shrunk;
         row.s2After = tok(s2(fitted.results)) + overhead;
-        for (const k of KS) row.byK[k] = tok(s2(fitted.results, k)) + overhead;
+        // 규정 k개 비교: 그 k개의 고정 본문으로 예산을 다시 맞춘 2단계 입력
+        for (const k of KS) {
+          const fk = await fitStage2({ q, version: p.toolResults }, results, { fixedText: s2([], k), overhead, stage1Tokens: s1 + (s1Out ?? 0) });
+          row.byK[k] = tok(s2(fk.results, k)) + overhead;
+        }
         row.totalBefore = s1 + (s1Out ?? 0) + row.s2Before + (row.s2Out ?? 0);
         row.totalAfter = s1 + (s1Out ?? 0) + row.s2After + (row.s2Out ?? 0);
       } else row.totalBefore = row.totalAfter = s1 + (s1Out ?? 0);
@@ -143,7 +150,8 @@ try {
 
 const max = (xs: (number | null)[]) => Math.max(...xs.filter((x): x is number => x !== null));
 const min = (xs: (number | null)[]) => Math.min(...xs.filter((x): x is number => x !== null));
-console.log(`# 답 프롬프트 토큰(${PV}, 60문항 + rulesUnavailable 4, 상한 호출당 입력 ${CALL_MAX} · 질문당 ${QUESTION_MAX_TOKENS}, 2단계 출력 몫 ${STAGE2_OUTPUT_RESERVE})`);
+const P0 = activePrompt({ PROMPT_VERSIONS: PV }, "answer");
+console.log(`# 답 프롬프트 토큰(${PV}, 60문항 + rulesUnavailable 4, 상한 호출당 입력 ${CALL_MAX} · 질문당 ${QUESTION_MAX_TOKENS}, 2단계 출력 몫 ${STAGE2_OUTPUT_RESERVE}, 2단계 규정 ${P0.stage2Rules ?? "전부(topK 6)"}개 — frontmatter stage2_rules)`);
 console.log("| 케이스 | 1단계 입력 | 1단계 출력(녹화) | 툴 | 2단계 입력 전 → 후 | 2단계 출력(녹화) | 질문 합 전 → 후 | 줄인 결과 | 2단계 규정 k개 |");
 console.log("|---|---|---|---|---|---|---|---|---|");
 for (const r of rows) {

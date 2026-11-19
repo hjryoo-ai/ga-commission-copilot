@@ -243,3 +243,47 @@ describe("2단계 툴 결과 합계 예산(설계서 v0.1.48 — fitStage2)", ()
   });
 });
 
+describe("2단계 규정 청크 수(설계서 v0.1.49 §4.3 — frontmatter stage2_rules)", () => {
+  // 점수 순 6개 — 제31조~제36조, 본문에 조항 번호 숫자만
+  const SIX = [31, 32, 33, 34, 35, 36].map((n, i) => ({ chunk_id: `rb-0123456789ab-a${n}-1`, article: `제${n}조`, body: `제${n}조(가상 조항 ${n}) — 가상 규정 · 예시값`, score: 0.9 - i * 0.05 }));
+  const six = async () => {
+    for (const c of SIX) await env.DB.prepare("INSERT INTO rulebook_chunk (chunk_id, article, title, body, visibility, version, token_count) VALUES (?, ?, ?, ?, 'agent', '0123456789ab', 20)").bind(c.chunk_id, c.article, "가상", c.body).run();
+  };
+  const sixDeps = (stage1: AnswerOutput, stage2?: (data: unknown[]) => AnswerOutput) => ({ ...deps(stage1, stage2), search: async () => SIX.map((c) => ({ id: c.chunk_id, score: c.score })) });
+  const cite = (n: number) => out({ text: `제${n}조에 따라 이번 달 명세를 설명합니다.`, citations: [{ kind: "rule", tool: "", field: "", article: `제${n}조`, chunkId: `rb-0123456789ab-a${n}-1` }] });
+
+  it("frontmatter: v5 = 4, v1~v4는 없음(null = 전부), 범위 밖 값은 거부", () => {
+    expect(activePrompt({ PROMPT_VERSIONS: "answer=v5" }, "answer").stage2Rules).toBe(4);
+    for (const v of ["v1", "v2", "v3", "v4"]) expect(activePrompt({ PROMPT_VERSIONS: `answer=${v}` }, "answer").stage2Rules).toBeNull();
+  });
+
+  it("v5: 1단계는 6개, 2단계는 점수 상위 4개 — 2단계 답이 5번째 청크를 인용하면 G5", async () => {
+    await six();
+    const d = sixDeps(out({ toolCalls: [tc("get_statement", { ym: "202608" })] }), () => cite(35));
+    const r = await answerQuestion(d, q(), { PROMPT_VERSIONS: "answer=v5" }, "8월 명세 설명해 줘");
+    const ids = (i: number) => SIX.filter((c) => d.seen[i]!.messages[0]!.content.includes(`[chunkId ${c.chunk_id}]`)).map((c) => c.article);
+    expect(ids(0)).toEqual(["제31조", "제32조", "제33조", "제34조", "제35조", "제36조"]);
+    expect(ids(1)).toEqual(["제31조", "제32조", "제33조", "제34조"]);
+    expect(r).toMatchObject({ refused: true, reason: "NOT_GROUNDED" });
+    expect(r.grounding.g5Unknown).toEqual(["제35조 rb-0123456789ab-a35-1"]);
+    // 같은 답이 상위 4개 안의 조항을 인용하면 통과, 검색 기록은 6개 그대로
+    const ok = await answerQuestion(sixDeps(out({ toolCalls: [tc("get_statement", { ym: "202608" })] }), () => cite(34)), q(), { PROMPT_VERSIONS: "answer=v5" }, "8월 명세 설명해 줘 ");
+    expect(ok).toMatchObject({ refused: false, groundingStatus: "PASS", citations: [{ kind: "rule", article: "제34조" }] });
+    expect(ok.retrievedChunks).toHaveLength(6);
+  });
+
+  it("v5: 툴 없이 1단계에서 답하면 6개 모두가 근거", async () => {
+    await six();
+    const r = await answerQuestion(sixDeps(cite(36)), q(), { PROMPT_VERSIONS: "answer=v5" }, "제36조가 뭐예요?");
+    expect(r).toMatchObject({ refused: false, groundingStatus: "PASS", llmCalls: 1 });
+  });
+
+  it("v4(값 없음): 2단계도 6개", async () => {
+    await six();
+    const d = sixDeps(out({ toolCalls: [tc("get_statement", { ym: "202608" })] }), () => cite(36));
+    const r = await answerQuestion(d, q(), ENV, "8월 명세 설명해 줘");
+    expect(SIX.every((c) => d.seen[1]!.messages[0]!.content.includes(`[chunkId ${c.chunk_id}]`))).toBe(true);
+    expect(r).toMatchObject({ refused: false, groundingStatus: "PASS" });
+  });
+});
+

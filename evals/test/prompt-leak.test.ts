@@ -1,4 +1,4 @@
-// 프롬프트 누출 시험(운영자 2026-11-16, 호출 없음): answer/v4 본문(1단계·2단계 구역 모두 — 파일 전체)에 골든 문항이 옮겨 써져 있지 않다.
+// 프롬프트 누출 시험(운영자 2026-11-16, 호출 없음): answer/v4·v5 본문(1단계·2단계 구역·규칙의 예시 모두 — frontmatter를 뺀 파일 전체)에 골든 문항이 옮겨 써져 있지 않다.
 // 좁히기 문장·예시는 유형으로 쓴다("기간 합계·월 비교·예정액은 툴로 답한다") — 케이스를 옮기지 않는다.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -22,6 +22,8 @@ const tails = [
   ]),
 ];
 const agentIds = [...new Set(cases.map((c) => c.agentId))];
+/** 골든 기대 툴 인자의 달(ym·from·to) — 예시 툴 호출이 골든 호출을 옮기지 않게(2026-11-19: v5 규칙 4 예가 G-39 인자와 같았다). */
+const argMonths = [...new Set(cases.flatMap((c) => c.expectedTools.flatMap((t) => [t.args.ym, t.args.from, t.args.to])).filter((x): x is string => !!x))];
 
 describe.each(PROMPTS)("%s — 골든 누출 없음", (p) => {
   const text = body(p);
@@ -45,6 +47,11 @@ describe.each(PROMPTS)("%s — 골든 누출 없음", (p) => {
   it("기대 사실의 금액(6자리 이상)이 없다", () => {
     expect(amounts.length).toBeGreaterThan(10);
     expect(amounts.filter((a) => new RegExp(`(?<!\\d)${a}(?!\\d)`).test(flatDigits))).toEqual([]);
+  });
+
+  it("골든 기대 툴 인자의 달(yyyyMM)이 없다 — 예시 툴 호출 포함", () => {
+    expect(argMonths.length).toBeGreaterThan(10);
+    expect(argMonths.filter((m) => new RegExp(`(?<!\\d)${m}(?!\\d)`).test(text))).toEqual([]);
   });
 
   it("골든 증권번호 끝 4자리·데모 설계사 ID가 없다", () => {

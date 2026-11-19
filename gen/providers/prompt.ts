@@ -19,7 +19,7 @@ export function loadPrompt(name: string, version: string): PromptFile {
   if (!m) throw new Error(`prompts/${name}/${version}.md: frontmatter 없음`);
   const meta: Record<string, string> = {};
   for (const line of m[1]!.split("\n")) {
-    const kv = /^([a-z_]+):\s*(.*)$/.exec(line);
+    const kv = /^([a-z][a-z0-9_]*):\s*(.*)$/.exec(line);
     if (kv) meta[kv[1]!] = kv[2]!;
   }
   for (const k of ["name", "version", "model_hint", "max_context_tokens", "output_schema"]) {

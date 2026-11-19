@@ -64,6 +64,11 @@ describe("프롬프트 레지스트리(설계서 §6.3)", () => {
     expect(activePrompt({}, "answer").version).toBe("v1");
     expect(() => loadPrompt("answer", "v9")).toThrow(/없음/);
     expect(() => parsePrompt("본문만", "x")).toThrow(/frontmatter/);
+    // v0.1.49: 키에 숫자(stage2_rules), 값은 1~6
+    const fm = (extra: string) => `---\nname: answer\nversion: v9\nmodel_hint: m\nmax_context_tokens: 3600\noutput_schema: contracts/answer/v2/answer.schema.json\n${extra}---\n본문`;
+    expect(parsePrompt(fm("stage2_rules: 3\n"), "x").stage2Rules).toBe(3);
+    expect(parsePrompt(fm(""), "x").stage2Rules).toBeNull();
+    for (const bad of ["0", "7", "2.5", "넷"]) expect(() => parsePrompt(fm(`stage2_rules: ${bad}\n`), "x")).toThrow(/stage2_rules/);
     expect(render(p.body, { stage: "1단계", rules: "R", data: "", question: "{{rules}}" })).toContain("<question>\n{{rules}}\n</question>");
   });
 });

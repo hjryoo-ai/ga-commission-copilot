@@ -21,6 +21,8 @@ export interface PromptFile {
   outputSchema: object;
   /** 툴 결과 판(설계서 v0.1.44 §4.3.1 — frontmatter tool_results, 없으면 v1). */
   toolResults: "v1" | "v2";
+  /** 2단계에 싣는 규정 청크 수(설계서 v0.1.49 §4.3 — frontmatter stage2_rules, 점수 상위부터). 없으면 null = 1단계와 같이 전부(topK 6). */
+  stage2Rules: number | null;
   body: string;
 }
 
@@ -30,7 +32,7 @@ export function parsePrompt(raw: string, where: string): PromptFile {
   if (!m) throw new Error(`${where}: frontmatter 없음`);
   const meta: Record<string, string> = {};
   for (const line of m[1]!.split(/\r?\n/)) {
-    const kv = line.match(/^([a-z_]+):\s*(.*)$/);
+    const kv = line.match(/^([a-z][a-z0-9_]*):\s*(.*)$/);
     if (kv) meta[kv[1]!] = kv[2]!;
   }
   for (const k of ["name", "version", "model_hint", "max_context_tokens", "output_schema"]) if (!meta[k]) throw new Error(`${where}: frontmatter ${k} 없음`);
@@ -38,7 +40,9 @@ export function parsePrompt(raw: string, where: string): PromptFile {
   if (!schema) throw new Error(`${where}: output_schema ${meta.output_schema} 없음`);
   const toolResults = meta.tool_results ?? "v1";
   if (toolResults !== "v1" && toolResults !== "v2") throw new Error(`${where}: tool_results ${toolResults}`);
-  return { name: meta.name!, version: meta.version!, modelHint: meta.model_hint!, maxContextTokens: Number(meta.max_context_tokens), outputSchema: schema, toolResults, body: m[2]! };
+  const stage2Rules = meta.stage2_rules === undefined ? null : Number(meta.stage2_rules);
+  if (stage2Rules !== null && !(Number.isSafeInteger(stage2Rules) && stage2Rules >= 1 && stage2Rules <= 6)) throw new Error(`${where}: stage2_rules ${meta.stage2_rules}(1~6)`);
+  return { name: meta.name!, version: meta.version!, modelHint: meta.model_hint!, maxContextTokens: Number(meta.max_context_tokens), outputSchema: schema, toolResults, stage2Rules, body: m[2]! };
 }
 
 export function loadPrompt(name: string, version: string): PromptFile {
