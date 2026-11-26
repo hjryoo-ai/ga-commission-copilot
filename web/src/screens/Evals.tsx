@@ -345,7 +345,8 @@ export function failureBrief(c: EvalCase): string {
   const tokens = v ? [...(v.g1Shape ?? []), ...(v.g4Missing ?? []).map((t) => `G4 ${t}`), ...(v.g5Unknown ?? []).map((t) => `G5 ${t}`), ...(v.g6Words ?? []).map((t) => `G6 ${t}`)] : [];
   const parts = [
     c.error ? `오류 ${c.error.slice(0, 60)}` : null,
-    c.refused && c.reason ? `거부 ${c.reason}${c.expectRefusal ? ` (기대 ${c.expectReason})` : ""}` : null,
+    c.schemaError ? `공급자 스키마 검증 ${c.schemaError}` : null,
+    c.refused && c.reason && !c.schemaError ? `거부 ${c.reason}${c.expectRefusal ? ` (기대 ${c.expectReason})` : ""}` : null,
     c.missingFacts.length ? `빠진 사실 ${c.missingFacts.length}: ${c.missingFacts[0]}${c.missingFacts.length > 1 ? " …" : ""}` : null,
     c.forbiddenHits.length ? `금지어 ${c.forbiddenHits.join(", ")}` : null,
     tokens.length ? tokens.slice(0, 3).join(" · ") + (tokens.length > 3 ? " …" : "") : null,
@@ -397,7 +398,7 @@ function CaseRow({ c }: { c: EvalCase }) {
           </dl>
         </details>
       </td>
-      <td className="kind">{c.passed ? "통과" : FAILURE_LABEL[c.failureKind ?? ""] ?? "실패"}</td>
+      <td className="kind">{c.passed ? "통과" : c.schemaError ? "그라운딩 · 공급자 스키마 검증" : (FAILURE_LABEL[c.failureKind ?? ""] ?? "실패")}</td>
       <td>{providerLabel(c.provider)}</td>
     </tr>
   );

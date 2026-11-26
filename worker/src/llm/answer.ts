@@ -7,6 +7,7 @@ import { contextKeys, contextNumbers, fieldInContext, forbiddenViolations, Groun
 import forbidden from "@copilot/grounding/forbidden.json";
 import { type RulebookChunkRow, rulebookChunks, type ScopedQuery } from "../db/ScopedQuery";
 import { InvalidToolCall, parseToolCall, rejectedResult, runTool, serialize, type ToolResult } from "../tools";
+import { estimateTokens, TOOL_RESULT_MAX_TOKENS, type ToolContext } from "../tools/result";
 import { activePrompt, render } from "./promptRegistry";
 import type { Provider } from "./providers";
 
@@ -174,8 +175,52 @@ export async function sessionBlock(q: ScopedQuery, limitCut = true): Promise<str
   ].join("\n");
 }
 
-const rulesBlock = (rows: readonly RulebookChunkRow[]) => rows.map((r) => `[chunkId ${r.chunk_id}]\n${r.body}`).join("\n\n");
-const dataBlock = (results: readonly ToolResult[]) => (results.length ? JSON.stringify(results.map((r) => ({ tool: r.tool, args: r.args, result: r.data }))) : "");
+/** 토큰 상한(설계서 v0.1.44·v0.1.48 §6.2 — 60문항 전체): 호출당 입력 3,600(프롬프트 frontmatter max_context_tokens), 질문당 입·출력 합 7,500. */
+export const QUESTION_MAX_TOKENS = 7500;
+/** 질문 합에서 2단계 출력 몫으로 남겨 두는 값 — 녹화·실측 2단계 출력 최대(v3 기준선 카세트·PR #10 A-06 664)보다 조금 크게. */
+export const STAGE2_OUTPUT_RESERVE = 700;
+/** 응답 스키마·채팅 틀 고정분(Groq prompt_tokens − o200k 본문): contracts/answer/v1 584 · v2 559 실측 — 큰 쪽. */
+export const PROMPT_OVERHEAD_TOKENS = 584;
+const SHRINK_ROUNDS = 8;
+
+/**
+ * 2단계 툴 결과 합계 예산(설계서 v0.1.48 §4.3.1): 입력 상한 = min(호출당 상한, 질문당 상한 − 1단계 입·출력 − 2단계 출력 몫),
+ * 결과 예산 = 입력 상한 − 고정분 − 고정 본문(프롬프트·규정·질문) 추정. 넘으면 가장 큰 결과를 결과당 상한을 줄여 다시 부른다(목록을 줄이고 Shown/Total).
+ * 인자 거부 결과는 줄이지 않는다. 추정은 estimateTokens(실측보다 크게 잡는 쪽).
+ */
+export async function fitStage2(
+  ctx: Pick<ToolContext, "q"> & { version?: "v1" | "v2" },
+  results: readonly ToolResult[],
+  o: { fixedText: string; overhead?: number; stage1Tokens: number | null; callMax?: number },
+): Promise<{ results: ToolResult[]; shrunk: string[]; budget: number }> {
+  const inputCap = Math.min(o.callMax ?? 3600, o.stage1Tokens === null ? Number.POSITIVE_INFINITY : QUESTION_MAX_TOKENS - o.stage1Tokens - STAGE2_OUTPUT_RESERVE);
+  const budget = inputCap - (o.overhead ?? PROMPT_OVERHEAD_TOKENS) - estimateTokens(o.fixedText);
+  const out = [...results];
+  const shrunk: string[] = [];
+  const size = () => estimateTokens(dataBlock(out));
+  const stuck = new Set<number>();
+  for (let round = 0; round < SHRINK_ROUNDS && size() > budget; round++) {
+    const i = out.map((x, j) => ({ j, t: stuck.has(j) || (x.data as { rejected?: unknown }).rejected === true ? -1 : x.tokens })).sort((a, b) => b.t - a.t)[0];
+    if (!i || i.t <= 0) break;
+    const cur = out[i.j]!;
+    const max = Math.floor(Math.min(cur.tokens, TOOL_RESULT_MAX_TOKENS) * 0.7);
+    try {
+      const next = await runTool({ ...ctx, max }, { tool: cur.tool, args: cur.args });
+      if (next.tokens >= cur.tokens) stuck.add(i.j);
+      else {
+        out[i.j] = next;
+        shrunk.push(`${cur.tool}(${Object.values(cur.args).join(",")}) ${cur.tokens}→${next.tokens}`);
+      }
+    } catch {
+      // 목록을 0건으로 줄여도 상한 밖 — 그 결과는 그대로 둔다
+      stuck.add(i.j);
+    }
+  }
+  return { results: out, shrunk, budget };
+}
+
+export const rulesBlock = (rows: readonly RulebookChunkRow[]) => rows.map((r) => `[chunkId ${r.chunk_id}]\n${r.body}`).join("\n\n");
+export const dataBlock = (results: readonly ToolResult[]) => (results.length ? JSON.stringify(results.map((r) => ({ tool: r.tool, args: r.args, result: r.data }))) : "");
 
 /**
  * 규정 인용의 조항 번호(운영자 2026-11-03 — G5는 조항 번호로 대조): "제7조"·"제25조(환수율)"·"7"·"rb-07"·"rb-0453f7d205db-a25-1" → 7·25.
@@ -262,6 +307,10 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
   const byId = new Map((await deps.chunks(matches.map((m) => m.id))).map((r) => [r.chunk_id, r]));
   const rows = matches.flatMap((m) => (byId.has(m.id) ? [byId.get(m.id)!] : []));
   const retrievedChunks = matches.filter((m) => byId.has(m.id)).map((m) => ({ chunkId: m.id, score: m.score }));
+  // v0.1.49 §4.3: 2단계는 frontmatter stage2_rules가 있으면 점수 상위 그 수만(검색 결과는 점수 순). 1단계는 전부.
+  const rows2 = prompt.stage2Rules === null ? rows : rows.slice(0, prompt.stage2Rules);
+  // 답의 규정 근거(G4 숫자 · G5 인용 조항 · 인용 정규화)는 그 답을 낸 단계가 본 청크만
+  let seenRows = rows;
 
   const session = prompt.body.includes("{{session}}") ? await sessionBlock(q, prompt.body.includes("한도 삭감이 있었던 계약")) : "";
   // AI Gateway 캐시 키(설계서 v0.1.29 §6.4): 정규화 질문+agentId+streamHash+promptVersion + 단계. 2단계는 툴 결과 해시도 붙인다 —
@@ -274,7 +323,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     const two = stage === "2단계";
     return deps.provider.structured({
       model: prompt.modelHint,
-      messages: [{ role: "user", content: render(prompt.body, { stage, stage1: two ? "" : "1", stage2: two ? "1" : "", session, rules: rulesBlock(rows), data, question: qText }) }],
+      messages: [{ role: "user", content: render(prompt.body, { stage, stage1: two ? "" : "1", stage2: two ? "1" : "", session, rules: rulesBlock(two ? rows2 : rows), data, question: qText }) }],
       schemaName: "answer",
       schema: prompt.outputSchema,
       maxCompletionTokens: MAX_COMPLETION_TOKENS,
@@ -304,7 +353,16 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
         if (prompt.toolResults === "v2") results.push(await rejectedResult(q, { tool: raw.tool, args: args as Record<string, string> }, e.message));
       }
     }
+    // v0.1.48: 2단계 입력을 상한 안으로(툴 결과 합계 예산 — 1단계 실사용은 응답 usage, 없으면 호출당 상한만).
+    // 툴 결과 v2 프롬프트(answer/v4·v5)만 — v1~v3(활성 v3 포함)은 녹화·카세트와 같게 그대로 둔다
+    if (prompt.toolResults === "v2") {
+      const fixedText = render(prompt.body, { stage: "2단계", stage1: "", stage2: "1", session, rules: rulesBlock(rows2), data: "", question: qText });
+      const u = res.usage;
+      const fitted = await fitStage2({ q, version: prompt.toolResults }, results, { fixedText, stage1Tokens: u ? (u.prompt_tokens ?? 0) + (u.completion_tokens ?? 0) : null, callMax: prompt.maxContextTokens });
+      results.splice(0, results.length, ...fitted.results);
+    }
     res = await ask("2단계", dataBlock(results));
+    seenRows = rows2;
     depth = Math.max(depth, res.fallbackDepth ?? 0);
     violations = shapeProblems(res.json);
     out = res.json as AnswerOutput;
@@ -330,7 +388,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     const draft = { ...out, text: normalizeText(out.text) };
     // 거부가 아닌데 본문이 비면 답이 없는 것이다 — 숫자가 없어 G4가 비어 통과하는 구멍(2026-11-03 녹화 A-02: 2단계가 툴을 더 요청하고 text "")
     const empty = draft.text.trim() === "" ? ["G1 text 비어 있음(거부 아닌 빈 답)"] : [];
-    grounding = groundAnswerDetail(draft, results, rows, q.agentId);
+    grounding = groundAnswerDetail(draft, results, seenRows, q.agentId);
     violations = [...violations.filter((v) => !v.startsWith("툴 호출 거부")), ...empty, ...violationLines(grounding, draft)];
     if (violations.length) {
       [refused, reason, text, groundingStatus] = [true, "NOT_GROUNDED", REFUSAL_TEXT.NOT_GROUNDED, "FAIL"];
@@ -345,7 +403,7 @@ export async function answerQuestion(deps: AnswerDeps, q: ScopedQuery, env: { PR
     reason,
     text,
     numbersUsed: refused ? [] : out.numbersUsed,
-    citations: refused ? [] : canonicalCitations(out.citations, rows),
+    citations: refused ? [] : canonicalCitations(out.citations, seenRows),
     promptVersion,
     // 답한 공급자(폴백이면 groq가 아니다) — 2단계가 있으면 2단계 응답의 공급자
     provider: res.provider,

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { loadPrompt } from "../src/llm/promptRegistry";
 import {
   FALLBACK_TIMEOUT_MS,
+  errorDetail,
   failureKind,
   fallbackChain,
   groq,
@@ -89,7 +90,7 @@ describe("폴백 체인", () => {
       ],
     ]);
     const bad = (await fallbackChain([stub("openrouter", new ProviderError("openrouter 400", 400))], allow().reserve).structured(REQ).catch((x: unknown) => x)) as ProvidersFailed;
-    expect([bad.status, bad.attempts]).toEqual([400, [{ provider: "openrouter", depth: 0, model: "openrouter/free", kind: "other" }]]);
+    expect([bad.status, bad.attempts]).toEqual([400, [{ provider: "openrouter", depth: 0, model: "openrouter/free", kind: "http400" }]]);
   });
 
   it("failureKind: 상태·메시지 → 종류(Workers AI 4자리 코드는 ai_<코드>)", () => {
@@ -107,7 +108,41 @@ describe("폴백 체인", () => {
         ["groq 400", 400],
       ] as const
     ).map(([m, s]) => failureKind(new ProviderError(m, s)));
-    expect(kinds).toEqual(["rate_limit", "timeout", "other", "empty", "not_json", "shape", "gateway", "ai_5006", "upstream", "other"]);
+    expect(kinds).toEqual(["rate_limit", "timeout", "other", "empty", "not_json", "shape", "gateway", "ai_5006", "upstream", "http400"]);
+    // 4xx는 본문의 코드(없으면 종류)로 나눈다(운영자 2026-11-18 — stat:err:<공급자>:<종류>)
+    expect(failureKind(new ProviderError("groq 400", 400, null, null, { type: "invalid_request_error", code: "json_validate_failed", message: null }))).toBe("http400_json_validate_failed");
+    expect(failureKind(new ProviderError("groq 413", 413, null, null, { type: "Invalid Request Error", code: null, message: null }))).toBe("http413_invalid_request_error");
+  });
+
+  it("errorDetail: 종류·코드·메시지만 — failed_generation은 읽지 않고, 메시지 안 따옴표·{…}·[…] 조각(모델 생성문일 수 있다)은 길이와 관계없이 지운다", () => {
+    const gen = '{"refused":false,"text":"8월 시책은 1,000,000원이며 한도 초과분 145,000원은 이연되었습니다"}';
+    const body = JSON.stringify({ error: { message: `Failed to generate JSON. Output: "짧은 생성문 3,000원" and ${gen} and [1, 2, "x"] and 'got 이연 금액 145,000' end`, type: "invalid_request_error", code: "json_validate_failed", failed_generation: gen } });
+    const d = errorDetail(body)!;
+    expect(d).toEqual({ type: "invalid_request_error", code: "json_validate_failed", message: `Failed to generate JSON. Output: "…" and {…} and {…} and '…' end` });
+    for (const leak of ["145,000", "3,000", "1,000,000", "이연"]) expect(JSON.stringify(d)).not.toContain(leak);
+    // 작은따옴표 스키마 위치는 그대로(Groq json_validate_failed 실측 꼴 — 2026-11-18 로컬 재현)
+    const loc = "Generated JSON does not match the expected schema. Error: jsonschema: '/citations/0' does not validate with schema://answer#/properties/citations/items/required: missing properties: 'tool'";
+    expect(errorDetail(JSON.stringify({ error: { message: loc } }))!.message).toBe(loc);
+    expect(errorDetail("not json")).toBeNull();
+    expect(errorDetail(JSON.stringify({ error: { message: "x".repeat(500) } }))!.message).toHaveLength(300);
+  });
+
+  it("v0.1.49: Groq 400 json_validate_failed(모델 출력이 스키마 검증에 걸림)는 다음 공급자로 — Workers AI가 답하면 depth 1, 시도 목록에 종류", async () => {
+    const schema = new ProviderError("groq 400 json_validate_failed", 400, null, null, { type: "invalid_request_error", code: "json_validate_failed", message: null });
+    const [g, w] = [stub("groq", schema), stub("workers-ai", { ok: true })];
+    const r = await fallbackChain([g, w], allow().reserve).structured(REQ);
+    expect([r.provider, r.json, r.fallbackDepth, g.calls, w.calls]).toEqual(["workers-ai", { ok: true }, 1, 1, 1]);
+    // 둘 다 실패하면 ProvidersFailed — 시도 2개 상한 그대로
+    const e = (await fallbackChain([stub("groq", schema), stub("workers-ai", new ProviderError("workers-ai: 15000ms 타임아웃", 0)), stub("openrouter", { a: 3 })], allow().reserve).structured(REQ).catch((x: unknown) => x)) as ProvidersFailed;
+    expect(e.attempts.map((a) => a.kind)).toEqual(["http400_json_validate_failed", "timeout"]);
+  });
+
+  it("v0.1.49: 그 밖의 400(코드가 다르거나 없음)은 넘기지 않는다", async () => {
+    for (const bad of [new ProviderError("groq 400", 400), new ProviderError("groq 400 invalid_request_error", 400, null, null, { type: "invalid_request_error", code: "model_not_found", message: null })]) {
+      const next = stub("workers-ai", { a: 2 });
+      await expect(fallbackChain([stub("groq", bad), next], allow().reserve).structured(REQ)).rejects.toMatchObject({ status: 400 });
+      expect(next.calls).toBe(0);
+    }
   });
 
   it("시도할 공급자가 없으면 ProvidersExhausted(저하 ①), 400 같은 요청 오류는 폴백하지 않고 그대로", async () => {
@@ -122,6 +157,17 @@ describe("폴백 체인", () => {
 
 describe("공급자", () => {
   const ok = (content: string) => new Response(JSON.stringify({ model: "m", choices: [{ message: { content } }], usage: { prompt_tokens: 1 } }), { status: 200 });
+
+  it("Groq 400: 본문의 코드·메시지를 ProviderError에(failed_generation 없이), 폴백 대상 아님", async () => {
+    const body = JSON.stringify({ error: { message: "Failed to generate JSON.", type: "invalid_request_error", code: "json_validate_failed", failed_generation: '{"text":"생성문"}' } });
+    const e = (await groq({ GROQ_API_KEY: "k" }, async () => new Response(body, { status: 400 }))
+      .structured(REQ)
+      .catch((x: unknown) => x)) as ProviderError;
+    expect(e).toBeInstanceOf(ProviderError);
+    // 운영 로그에 실리는 message는 공급자·상태·코드만(메시지 본문은 detail에만)
+    expect([e.status, e.message, e.detail, e.rateLimit]).toEqual([400, "groq 400 json_validate_failed", { type: "invalid_request_error", code: "json_validate_failed", message: "Failed to generate JSON." }, null]);
+    expect(e.message).not.toContain("생성문");
+  });
 
   it("Groq·OpenRouter: 키 없으면 status 0(폴백 대상), 429는 retry-after와 함께, OpenRouter는 모델을 openrouter/free로 바꾼다", async () => {
     await expect(groq({}).structured(REQ)).rejects.toMatchObject({ status: 0 });

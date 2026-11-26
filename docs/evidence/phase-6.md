@@ -46,6 +46,10 @@
 - PR #8 머지(골든 동결 뒤 변경 — A-04·G-42 rulesUnavailable 기대 + 설계서 v0.1.44·v0.1.45): 2026-11-17 12:12 UTC, Claude Code 에이전트가 운영자의 "golden/rules-unavailable-mode 푸시 → PR → 머지 (n=3이 끝났으니 지금 가능)" 지시로 main 푸시(76a18eb..86c7393, 같은 지시의 1번 "main 푸시") · 브랜치를 새 main 위로 다시 올리고 시험 전체 통과(worker 457 · gen 208 · packages 76 · evals 34 · web 71, lint) · 브랜치 푸시 · `gh pr create` · 체크 3개 통과(test 2 · eval-on-prompt-change — prompts/** 변경 없음 → 평가 없이 통과) · `gh pr merge 8 --merge` → main `bff8306`. 원격 브랜치는 지우지 않았다.
 - 필수 체크 등록: 2026-11-17 12:14 UTC, 같은 지시의 3번 "eval-on-prompt-change 필수 체크 등록"으로 에이전트가 `gh api -X PUT repos/…/branches/main/protection` — required_status_checks = `eval-on-prompt-change`(GitHub Actions app 15368), strict false, 관리자 강제 없음, 리뷰 요구 없음. 등록 전 main 보호·룰셋 없음 확인.
 - PR #9 머지(관문 v0.1.46 — 설계서 e56a3b3 · 코드 a243c32): 2026-11-17 12:24 UTC, Claude Code 에이전트가 운영자의 "관문 변경 브랜치 만들면 푸시 PR 후 머지해줘" 지시로 `gate/case-tolerance` 푸시 · `gh pr create` · 체크 3개 통과(test 2 · 필수 체크 eval-on-prompt-change — prompts/** 변경 없음 → 평가 없이 통과, mergeStateStatus CLEAN) · `gh pr merge 9 --merge` → main `e62b9a7`. 원격 브랜치는 지우지 않았다. 그 뒤 `pr-b/tools-v2-answer-v4`를 main 위로 다시 올림(로컬만, phase-6.md 알려진 한계 충돌 1건 — 양쪽 줄 모두 남김, 시험 전체 통과).
+- PR #11 머지(/evals 관문값 미달 표시 — 설계서 v0.1.47): 2026-11-18 12:34:41 UTC, 운영자가 직접(`hjryoo-ai`) → main efdc41e. 체크 3개 통과 상태.
+- PR #10 머지(PR-B, answer=v4 활성): 2026-11-18 12:34:55 UTC, 운영자 계정(`hjryoo-ai`) → main 50552f1, **필수 체크 eval-on-prompt-change 실패 상태로**(관리자 강제 없음 — enforce_admins false라 관리자는 우회할 수 있다). 12:35:56 배포(버전 be8ca291) — 운영이 answer=v4를 서빙. 같은 시각 운영자 결정 "v4는 지금 상태로 머지하지 않는다"와 어긋난다.
+- PR #12 머지(되돌림 — e61003b 되돌리기, PROMPT_VERSIONS answer=v3): 2026-11-18 12:45:01 UTC, Claude Code 에이전트가 운영자의 "되돌림 PR 푸시 → 머지. fix/answer-v3-active만 해당한다. wrangler rollback은 하지 않는다." 지시로 브랜치 푸시 · `gh pr create` · 체크 3개 통과(eval-on-prompt-change — prompts/** 변경 없음) · `gh pr merge 12 --merge` → main 9d79e15. 배포 12:45:30(버전 55e71f27) — `wrangler versions view`로 PROMPT_VERSIONS `…answer=v3,schema_hint=v1` 확인. v4 서빙 구간 12:35:56–12:45:30(약 10분). wrangler rollback은 하지 않았다. 원격 브랜치는 지우지 않았다.
+- pr:10 런 원격 적재(운영자 승인 2026-11-18 "이번 1차 런(pr:10, 5/20, 오류 4건)의 원격 적재를 승인한다"): load.sql INSERT만(eval_run 1 · eval_case_result 22) 확인 뒤 `wrangler d1 execute --remote --file`, rows_written 48. 공개 /evals 런 표에 `20261118T121014-pr-10` 5/20(추이 제외 — 60문항 런 아님, belowGate null).
 - 공개 URL 캡처(2026-11-14, PR #6 머지·배포 뒤, Playwright): 목록에 런 2개뿐 — `20261113T225638-baseline-r1`(rescore:baseline, 26/60)·`20261113T225638-baseline`(18/60), stub 런 없음(원격 eval_run 2행). 추이는 재채점 r1 1점(그라운딩 55.26·거부 83.33·툴 66.67·내용 28.89%). 페이지 가로 넘침 1100px·390px 모두 0. 390px 런 상세의 모델별 4축 표는 표 안 가로 스크롤(scrollWidth 587 / clientWidth 358). 캡처 `docs/evidence/captures/phase-6-evals-public-desktop.png`·`-phone.png`(목록)·`-run-desktop.png`·`-run-phone.png`(전체 페이지)·`-run-phone-top.png`(390px 첫 화면). 390px 케이스 표의 결과 열이 좁아 "내용"·"그라운딩"이 한 글자씩 줄바꿈된다 — UI만 고치는 작은 PR로 따로(PR-B에 섞지 않는다 — 운영자 11-14).
   - 고침(브랜치 `ui/evals-result-col`, UI만): 전역 `th { width: 40% }`가 케이스 열을 넓히고 질문 열은 긴 토큰(`TOOL_ARG_REJECTED:get_limit`)에 막혀 줄지 않아 결과 열이 꺾였다 → 이 표에서 th 폭 해제, 머리글·케이스 번호·결과 열 한 줄, 질문 열 `width: 100%`·그 안에서만 `overflow-wrap: anywhere`, 머리글 왼쪽 정렬. 로컬 빌드(wrangler dev --local, r1 런)에서 60행 결과 칸 모두 한 줄, 케이스 표 scrollWidth = clientWidth(390px 358, 1100px 688), 페이지 넘침 0. 캡처 `docs/evidence/captures/phase-6-evals-local-cases-390-kind.png`·`-cases-1100-kind.png`.
 - 관문 기준 조회(main f4170ea, 원격 D1, 읽기만): `gate.ts --ref-sql` → `20261113T225638-baseline-r1` 64행(normal 60 + rulesUnavailable 4 — 관문은 표본 normal만 다시 센다). 머지 전 main(2ee51c3)은 같은 조회가 원본 `-baseline`을 골랐다(rescore 트리거가 없어서).
@@ -216,6 +220,116 @@
 - 원격 확인(읽기만, 2026-11-17): v3 `PROMPT_VERSIONS`로 `refQuery` → 156행·5런(variance 3 · r1 · 원본 기준선) → `buildReference`가 부록 A 12건 = 과반(안정 A-04 · A-08~A-12), 층화 8건 = r1, 원본 기준선은 재채점으로 대체.
 - PR 표본 런은 자동 적재되지 않는다(워크플로 적재는 디스패치 + load_remote만). 그래서 "PR 표본 런이 쌓여 3회"는 운영자가 그 런의 load.sql 적재를 승인할 때만 일어난다.
 - /evals 화면에는 관문 규칙 문구가 없다("관문값·목표는 evals/THRESHOLDS.md"만) — 바꾸지 않았다.
+
+## PR-B 첫 관문 실행(PR #10, 2026-11-18 — 실패)
+
+- 운영자 "일단 전부진행"(11-18)으로 `pr-b/tools-v2-answer-v4`를 main 11c8916 위로 다시 올려 푸시 · PR #10. eval-on-prompt-change 실행 44301147286(12:08–12:24 UTC), 런 `20261118T121014-pr-10`, answer=v4, 20문항 표본, Groq 29호출(usage 있는 25호출 입력 70,270 · 출력 5,979, 400 4호출은 usage 없음), 429 0. 전체 출력 `docs/evidence/logs/phase-6-pr-b-eval-1.log`. 적재하지 않았다.
+- **관문 실패**: R3(오류 4건) · R1 네 축(그라운딩 11→7/16, 거부 19→15/20, 툴 11→8/12, 내용 6→1/15) · R2(안정 케이스 A-04 · A-08 — 둘 다 오류). 기준 = v3 부록 A 12건 n=3 과반 + 층화 8건 r1.
+- 케이스별(기준 v3 → v4):
+  - **Groq 400 4건**(A-04 · A-08 · G-15 · G-31, 1단계 첫 호출): v3 런(기준선 60 · r1 · n=3 세 런)에는 Groq 400이 한 번도 없다(원격 eval_case_result 오류는 G-35 Workers AI 타임아웃 2행뿐). 본문은 기록되지 않았다 — `providers.ts`가 429만 본문을 남긴다. Groq 문서는 strict json_schema(gpt-oss-120b)에서 400이 나지 않는다고 하고 재현을 보고해 달라고만 한다. 운영 경로에서 400은 폴백 대상이 아니라(`isFallbackable` = 0·429·5xx) 503 PROVIDER_ERROR가 된다(질문 예산 차감).
+  - **검증기가 막음 3건**(A-01 · A-02 · A-06 → NOT_GROUNDED): 모두 G5 미등록 경로 — `get_statement.lines[calcId=2].{commType,amount,limitCutAmt,limitCutPolicy,requested}`, `get_limit.limitCuts[calcId=…].limitCutAmt`. 툴 결과 v2의 `citable` 틀(`worker/src/tools/v2.ts:68` — "{a,b}" 묶음 · "[calcId=…]" 자리표시)을 모델이 그대로 옮겼다(프롬프트 v4 44행 "citable에 있는 경로"). 숫자가 틀린 것은 아니다(g4Missing 0). A-06은 v3에서도 그라운딩 실패.
+  - **과잉 거부 2건**: G-32(분급 — NEEDS_ENGINE, 툴 없이), G-58(기대 = get_policy_event_sim 확인 뒤 NEEDS_ENGINE, v4는 툴 없이 1단계에서 거부 — 거부 축은 맞고 툴 축 실패).
+  - **내용 2건**: G-43 · G-45(규정 질문, 인용 조항은 맞음 — 핵심 사실 문구 1개씩 없음). r1 한 번 통과 — 분산인지 열화인지는 이 자료로 가리지 못한다.
+  - **나아진 것**: G-54(다른 설계사 ID 서버 가드 — LLM 0, 통과, v3 거부 실패), G-18 그라운딩 통과(내용은 실패), rulesUnavailable A-04 · A-11 2/2(A-04 RULES_UNAVAILABLE).
+- 보고 항목: A-10 LLM 1호출(1단계 OTHER_AGENT 거부, 입력 3,055 · 출력 84 — "B설계사"는 `A-\d{4}` 형식이 아니라 서버 가드 밖) · G6 누출 0건(필드 없음) · 토큰(usage 실측): 1단계 입력 2,734–3,156, 2단계 2,493–3,787, 질문 합 최대 G-18 8,004(입력 6,943 + 출력 1,061) — 상한(질문 7,500 · 호출당 입력 3,600, 부록 A 12건 기준) 안: 부록 A 최대 A-01 6,385, 밖: G-18(층화, 2단계 입력 3,787).
+- 기준 중 층화 8건은 r1 한 번이다(알려진 한계).
+
+## 운영자 결정 — v5 푸시 전(2026-11-19)
+
+설계서 v0.1.49(운영자는 v0.1.47로 지시 — 번호가 이미 쓰여 v0.1.49).
+
+### 결정 1 — json_validate_failed는 다음 공급자로(§6.2)
+
+`isSchemaValidationFailure` = 400이고 detail.code가 `json_validate_failed`. 그 밖의 4xx는 그대로 던진다. 시도 2개 상한·공급자 호출 예산 차감·stat:err(모두 실패했을 때) 그대로, 답한 공급자 순번이 answer_log `fallback_depth`.
+시험: fallback.test 2건(json_validate_failed → Workers AI 답 depth 1 · 둘 다 실패면 시도 종류 `http400_json_validate_failed`,`timeout` / 코드 없는 400·model_not_found 400은 넘기지 않는다), ask.test 1건(공개 경로 200 · answer_log provider workers-ai·fallback_depth 1 · provider:groq 1 · provider:workers-ai 1 · stat:depth:1).
+
+### 결정 2 — 평가에서 json_validate_failed = 케이스 실패
+
+하네스(run.ts)는 이 400을 `error`(R3)로 두지 않고 `schemaFailureRun`(score.ts)으로 기록한다: refused·NOT_GROUNDED·groundingStatus FAIL·text 빈 값, 툴 축은 1단계에서 실제로 부른 툴(1단계에서 났으면 없음), `schemaError` 코드 · `schemaDetail`(정제한 메시지 — 화면에 안 씀). 같은 공급자로 다시 부르지 않는다. R3은 인프라 오류만(THRESHOLDS.md). `/evals` 실패 종류 칸 "그라운딩 · 공급자 스키마 검증", 실패 요약 "공급자 스키마 검증 json_validate_failed"(계약 EvalCase.schemaError).
+
+pr:10 재채점(`docs/evidence/logs/phase-6-pr10-rescore-v0149.log` — CI의 ref.json 그대로, LLM 0):
+
+| 판정 | 그라운딩 | 거부 | 툴 | 내용 | R2 | R3 |
+|---|---|---|---|---|---|---|
+| 원래(CI) | 11→7/16 ✗ | 19→15/20 ✗ | 11→8/12 ✗ | 6→1/15 ✗ | A-04·A-08 ✗ | 4건 ✗ |
+| v0.1.49, 네 건 모두 json_validate_failed | 11→7/16 ✗ | 19→19/20 ✓ | 11→8/12 ✗ | 6→1/15 ✗ | A-04·A-08 ✗ | 0 |
+| v0.1.49, 재현된 세 건만(G-31은 코드 모름 — 오류로 남김) | 11→7/16 ✗ | 19→18/20 ✓ | 11→8/12 ✗ | 6→1/15 ✗ | A-04·A-08 ✗ | 1건 ✗ |
+
+- 이 정의로도 pr:10은 실패한다 — R1 **세 축**(그라운딩·툴·내용)과 R2. 거부 축은 R1에서 빠진다: 이 실패는 NOT_GROUNDED 자리라 거부를 기대하지 않는 케이스에서는 거부 축 통과다(검증기가 막은 답과 같다). 운영자가 적은 "R1 네 축"과 다르다.
+- pr:10 기록에는 4xx 코드가 없다(코드 기록은 그 뒤 f8229e9). 코드는 로컬 재현으로 붙였다.
+
+### 결정 3 — v5 2단계 규정 청크 4개(§4.3 · §10.2)
+
+frontmatter `stage2_rules: 4`(answer/v5만 — v1~v4는 값이 없어 6개 그대로, 활성 v3 불변). 2단계 요청·합계 예산 고정분은 점수 상위 4개, 2단계 답의 G4·G5 규정 근거도 그 4개. 1단계는 6개.
+- 구현 중 발견: frontmatter 키 정규식 `[a-z_]+`가 숫자를 받지 않아 `stage2_rules`가 읽히지 않았다(첫 측정이 6개 그대로 나와 알았다) — `[a-z][a-z0-9_]*`로(gen/providers/prompt.ts도).
+- 오프라인 60문항(63건 — G-35 녹화 없음, `docs/evidence/logs/phase-6-tokens-v5.log`):
+
+| answer/v5 | 1단계 입력 | 2단계 입력 전 → 후 | 질문 합 전 → 후(최대) | 상한 넘는 케이스(후) |
+|---|---|---|---|---|
+| 2단계 규정 6개(결정 3 전) | 2,525–3,542 | 2,415–3,787 → 2,415–3,215 | 7,569 → 7,098 | 0 (PR #10 툴 호출이면 G-18 7,765) |
+| **2단계 규정 4개** — 기준선 툴 호출 | 2,525–3,542 | 2,195–3,597 → 2,195–3,277 | 7,379 → 7,107(G-27) | **0** |
+| **2단계 규정 4개** — G-18만 PR #10 툴 호출 | 3,506 | 3,888 → 2,853 | 8,455 → 7,420 | **0** |
+
+### 푸시 전 확인(2026-11-19)
+
+| 확인 | 결과 |
+|---|---|
+| 누출 시험이 v5에 걸려 있나 | `evals/test/prompt-leak.test.ts` PROMPTS = answer/v4 · answer/v5, 본문 = frontmatter를 뺀 파일 전체(1단계·2단계 구역·규칙 4의 예시 포함). **확인 중 누출 1건 발견**: 규칙 4 툴 호출 예 `get_deferrals 202901~202906`이 G-39 기대 인자와 같았다 — 기존 시험(질문 12자 · 사실 금액 6자리+ · 증권번호 끝 4자리 · 설계서 ID)은 툴 인자의 달을 보지 않았다. 시험에 "골든 기대 툴 인자의 달(ym·from·to)" 항목을 더하고(고치기 전 v5에서 실패 확인), 예를 203107~203109로 바꿨다(골든 달 202607~203005 밖). v4·v3 본문에는 6자리 달이 없다 |
+| 브랜치 끝 커밋 | answer=v5를 켜는 커밋(wrangler.jsonc PROMPT_VERSIONS 두 곳 + 활성 버전 시험 3건) — 아래 커밋 순서 |
+| 관문 기준 | PR base = origin/main 9d79e15의 PROMPT_VERSIONS `…answer=v3…` → `gate.ts --ref-sql` 원격 읽기 156행 · 5런(variance 11-16-a · 11-16-b · 11-17, baseline, baseline-r1) → buildReference: 부록 A 12건 = 최근 3회 과반, 층화 8건(G-15 G-18 G-31 G-32 G-43 G-45 G-54 G-58) = 60문항 런 baseline-r1. pr:10(v4) 행 없음 |
+| enforce_admins | **true**(11:26 UTC — 위 사고 기록 조치 줄) |
+| 전체 시험 | 아래 커밋 직후 `pnpm -r test` · lint · tsc |
+
+## PR #10 머지 사고(2026-11-18, 사실만)
+
+| 시각(UTC) | 일 |
+|---|---|
+| 12:34:41 | PR #11 머지(운영자 계정) → main efdc41e |
+| 12:34:55 | PR #10 머지(운영자 계정) → main 50552f1 — 필수 체크 eval-on-prompt-change **실패 상태**. 보호 규칙이 관리자에게 적용되지 않았다(`enforce_admins` false) |
+| 12:35:56 | 배포(버전 be8ca291) — 운영이 answer=v4 서빙 |
+| 12:45:01 | PR #12(되돌림 — e61003b만 revert) 머지 → main 9d79e15 |
+| 12:45:30 | 배포(버전 55e71f27) — PROMPT_VERSIONS `…answer=v3…` |
+
+- 그 사이 공개 질문 **0건**, 503 **0건**: 원격 answer_log 마지막 행 2026-11-11T11:45Z, budget_counter에 2026-11-18 행 없음(공개 /budget 오늘 질문 0 · 호출 0).
+- 조치: 관리자 우회 차단 — 운영자가 설정한다. 2026-11-19 11:07 UTC 확인: `gh api repos/…/branches/main/protection` → `{"checks":[{"app_id":15368,"context":"eval-on-prompt-change"}],"enforce_admins":false,"strict":false}`, rulesets 0 — **아직 설정 전**. 2026-11-19 11:26 UTC 다시 확인(운영자 설정 뒤): 같은 명령 → `{"checks":[{"app_id":15368,"context":"eval-on-prompt-change"}],"enforce_admins":true,"strict":false}` — **관리자에게도 필수 체크 적용**.
+- 항목 6: "PR #10 차단을 완료 기준 2의 증거로"(운영자 2026-11-18)는 **철회**(운영자 2026-11-19). 보호 규칙을 고친 뒤 의도한 열화 PR로 차단을 캡처한다(v5 머지 뒤).
+
+### 되돌림 뒤 확인(2026-11-18~19, LLM 호출 0)
+
+| 확인 | 결과 |
+|---|---|
+| 배포된 /me promptVersions | `answer: v3`(데모 세션 쿠키로 GET /api/v1/me — explain_* v6 · schema_hint v1) |
+| /budget 오류 카운터(v4 구간 groq 400) | 0 — 그 구간에 공개 질문이 없었다(위) |
+| 기준선 카세트 stub 재생(--stub --set all, v3) vs r1 | 64행 중 2행만 다르다: **G-54**(다른 설계사 ID 가드 — LLM 없이 OTHER_AGENT, 통과로 바뀜), G-35(점수 같음 — 공급자 표기만 workers-ai → groq, r1에서 Workers AI 타임아웃 오류). v5 브랜치(fitStage2·citable 변경 뒤)에서 `--prompt-versions …answer=v3…`로 다시 돌려도 같다(G-54만) |
+| 관문 기준 조회(v3) | 156행 · 5런(n=3 세 런 · r1 · 원본 기준선) — 부록 A 12건 = 과반(안정 A-04 · A-08~A-12), 층화 8건 = r1. pr:10(v4) 행은 들어오지 않는다 |
+
+v3에서도 동작하는 PR-B 코드(버전과 무관한 경로):
+
+| 코드 | v3에서 | 근거 |
+|---|---|---|
+| 다른 설계사 ID 서버 가드(ask.ts — `A-\d{4}` ≠ 본인이면 LLM 없이 OTHER_AGENT, 예산 미차감) | 동작 | stub 재생 G-54 |
+| 2단계 캐시 키 `:2:<결과 해시>`(1단계 툴 결과가 비어도) | 동작 — 데이터가 빈 2단계만 키가 바뀐다 | answer.ts |
+| G5 안정 키 경로(`lines[calcId=…]` 꼴도 받음, 순번 경로는 그대로) | 동작 — 받는 경로가 늘 뿐 | stub 재생 차이 없음 |
+| load:d1 재검사의 라벨 표 대조 | 적재 때 동작(버전 무관) | gen/load/flow.ts |
+| 화면 RULES_UNAVAILABLE 거부 라벨 · /budget 문구 | 화면만 | — |
+| 툴 결과 v2(라벨·citable) · RULES_UNAVAILABLE 응답 · 단계 구역 · llmCalls · label:unregistered | 동작 안 함 — v4·v5 frontmatter(`tool_results: v2`, contracts/answer/v2)일 때만 | v3 frontmatter |
+| 2단계 합계 예산 fitStage2(v5 브랜치에서 새로) | 동작 안 함 — 툴 결과 v2 프롬프트만 | 활성 v3의 2단계 녹화를 바꾸지 않게 |
+
+### Groq 400 로컬 재현(2026-11-18, answer=v4, 1단계만, dev 예산 8호출 — `docs/evidence/logs/phase-6-groq-400-repro.log`)
+
+- 두 번째 패스: A-04 · A-08 `json_validate_failed` — `'/citations/0' does not validate with /properties/citations/items/required: missing properties: 'tool'`, G-15 `json_validate_failed` — `'/toolCalls/0/args' … missing properties: 'policyNo', 'from', 'to'`, G-31 1단계 성공. 첫 패스는 A-04만 같은 400(나머지 1단계 성공) — 확률적.
+- 공통점: **모델이 스키마의 필수 키를 빼고 냈다**(해당 없는 칸 — 규정 인용의 tool, 쓰지 않는 툴 인자). 바로 답하는 경로(A-04 · A-08 — 규정 인용)와 툴 호출 경로(G-15) 둘 다. 요청·스키마 문제가 아니다 — contracts/answer/v2는 v1과 reason 열거만 다르고(필수 키 같음), v3(같은 필수 키)은 기준선·n=3에서 400이 0건. v4에서 v3 규칙 6 "출력은 JSON 스키마를 따른다"가 빠졌다.
+- strict json_schema(gpt-oss-120b)인데도 Groq가 생성 뒤 검증에서 400을 냈다(Groq 문서는 strict에서 오류가 없다고 한다).
+- 처리: v5 규칙 4 "모든 칸을 빠짐없이"(예 포함). 모델 출력이 스키마 검증에 걸린 경우를 공급자 실패로 보고 다음 공급자로 넘기는 안(§6.2 "4xx는 넘기지 않는다" 수정)은 운영자 결정 대기 — 보고에 설계서 문구 안을 붙였다.
+
+### 토큰 오프라인 측정(2026-11-19 — `docs/evidence/logs/phase-6-tokens-v5.log`, `pnpm --dir evals run tokens`)
+
+- 방법: 기준선 카세트(answer/v3 녹화)의 1단계 규정 청크 id와 1단계 툴 호출로 지금 코드의 툴·프롬프트 본문을 다시 만들어 o200k + 고정분(v1 584 · v2 559). 검증: answer/v3로 다시 만들면 카세트 prompt_tokens와 Groq 건 정확히 일치, Workers AI 건 +2.
+- answer/v5(63건 — G-35는 기준선 녹화 없음): 1단계 2,525–3,542, 2단계 2,415–3,787 → fitStage2 뒤 2,415–3,215, 질문 합 최대 7,569(G-17) → 7,098. 넘는 건: 전 G-17(2단계 3,787 · 질문 7,569) → 후 없음.
+- PR #10의 툴 호출로(G-18 get_statement 202705 · 202805, 출력은 PR #10 실측): G-18 2단계 4,233 → 3,198, 질문 합 8,800 → **7,765**(1단계 입·출력 4,094 — 결과 머리만 남아도 넘는다). 2단계 규정 청크 6 → 4개면 3,198 → 2,853, 2개면 2,453(질문 합 약 7,420 · 7,020).
+- answer/v3(지금 활성, fitStage2 미적용): 2단계 3,600 넘는 건 G-17 3,918 · G-19 4,152 · G-22 3,714 · G-23 3,725 · G-27 3,721, 질문 7,500 넘는 건 G-17 · G-19 8,130 · G-22 · G-23.
+- (v0.1.49로 바뀜 — 아래 "결정 3": v5 2단계 규정 4개면 상한 넘는 케이스 0, G-18 7,420. 위 v5 수치는 2단계 규정 6개일 때.)
+- 서버 추정(estimateTokens — ASCII 2.8 · 그 밖 1.2자/토큰) ÷ o200k: 툴 결과 1.04–1.19 · 고정분 1.03–1.07(못 미치는 표본 없음). 결과당 1,200 규칙의 approxTokens는 1.17–1.35.
 
 ## 첫 실런 계획(운영자 2026-11-11)
 

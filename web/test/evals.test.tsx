@@ -37,6 +37,7 @@ const c = (o: Partial<EvalCase>): EvalCase => ({
   text: "855,000원입니다.",
   toolCalls: [{ tool: "get_statement", args: { ym: "202608" } }],
   error: null,
+  schemaError: null,
   latencyMs: 30000,
   expectedTools: [{ tool: "get_statement", args: { ym: "202608" } }],
   facts: ["지급 855,000", "한도 초과 145,000", "이연"],
@@ -162,6 +163,13 @@ describe("화면 5 평가 리포트", () => {
     );
     expect(failureBrief(c({ missingFacts: [], forbiddenHits: [], refused: false, error: "Error: workers-ai: 15000ms 타임아웃", violations: null }))).toBe("오류 Error: workers-ai: 15000ms 타임아웃");
     expect(failureBrief(c({ caseId: "G-54", missingFacts: [], forbiddenHits: [], refused: true, reason: "OUT_OF_SCOPE", expectRefusal: true, expectReason: "OTHER_AGENT", violations: null }))).toBe("거부 OUT_OF_SCOPE (기대 OTHER_AGENT)");
+    // 설계서 v0.1.49: 공급자 스키마 검증 실패는 NOT_GROUNDED 자리로 채점되지만 화면에는 따로 — 거부 사유는 겹쳐 쓰지 않는다
+    expect(failureBrief(c({ caseId: "A-04", missingFacts: ["한도"], forbiddenHits: [], refused: true, reason: "NOT_GROUNDED", schemaError: "json_validate_failed", violations: null }))).toBe("공급자 스키마 검증 json_validate_failed · 빠진 사실 1: 한도");
+  });
+
+  it("실패 종류 칸: 공급자 스키마 검증 실패는 '그라운딩 · 공급자 스키마 검증'(설계서 v0.1.49)", () => {
+    const d: EvalRunDetail = { run: r1, byProvider: {}, byBucket: [], cases: [c({ caseId: "A-04", passed: false, failureKind: "GROUNDING", refused: true, reason: "NOT_GROUNDED", schemaError: "json_validate_failed", violations: null })], rulesUnavailable: [], disclaimer: "" };
+    expect(renderToStaticMarkup(<EvalRunView d={d} />)).toContain('<td class="kind">그라운딩 · 공급자 스키마 검증</td>');
   });
 
   it("관문값은 60문항 런에만 — 미달 런에 표시, 같은 버전 2회 연속 미달이면 경고(설계서 v0.1.46·v0.1.47)", () => {

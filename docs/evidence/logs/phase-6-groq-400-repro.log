@@ -1,0 +1,17 @@
+# Groq 400 로컬 재현(운영자 2026-11-18 — A-04·A-08·G-15·G-31 1단계만, answer=v4, env.record, dev 예산 8호출)
+$ pnpm run eval -- --live --set A-04,A-08,G-15,G-31 --normal-only --stage1-only --dev-budget --groq-calls 8 --wai-calls 0 --trigger repro-400[-b] --prompt-versions explain_line=v6,explain_limit=v6,explain_month=v6,answer=v4,schema_hint=v1
+
+## 20261118T125427-repro-400
+A-04 ERROR Error: groq 400 json_validate_failed: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/citations/0"…"tool' | 1단계 툴 [] | usage []
+A-08 OK(1단계 성공) | 1단계 툴 [] | usage [(2791, 217)]
+G-15 ERROR Error: --stage1-only — 2단계 미실행(호출 없음) | 1단계 툴 [] | usage [(2792, 177)]
+G-31 ERROR Error: --stage1-only — 2단계 미실행(호출 없음) | 1단계 툴 [] | usage [(2914, 264)]
+
+## 20261118T125750-repro-400-b
+A-04 ERROR Error: groq 400 json_validate_failed: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/citations/0' does not validate with /properties/citations/items/required: missing properties: 'tool' | 1단계 툴 [] | usage []
+A-08 ERROR Error: groq 400 json_validate_failed: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/citations/0' does not validate with /properties/citations/items/required: missing properties: 'tool' | 1단계 툴 [] | usage []
+G-15 ERROR Error: groq 400 json_validate_failed: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/toolCalls/0/args' does not validate with /properties/toolCalls/items/properties/args/required: missing properties: 'policyNo', 'from', 'to' | 1단계 툴 [] | usage []
+G-31 ERROR Error: --stage1-only — 2단계 미실행(호출 없음) | 1단계 툴 [] | usage [(2914, 199)]
+
+dev 예산(원격 budget_counter scope=dev, 2026-11-18): used 8
+첫 패스의 A-04 메시지는 정제 규칙(작은따옴표 조각 …)이 스키마 위치를 지웠다 — 둘째 패스 전에 큰따옴표·백틱만 지우게 고쳤다.
